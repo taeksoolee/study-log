@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GOF 디자인 패턴 시각화</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-primary: #0f1117;
+      --bg-secondary: #161b27;
+      --bg-card: #1a2035;
+      --bg-card-hover: #1f2847;
+      --bg-badge: #0d1b2e;
+      --border-color: #2a3550;
+      --border-hover: #3d5a8a;
+      --text-primary: #e8eaf6;
+      --text-secondary: #8892a4;
+      --text-muted: #5a6478;
+      --accent-creational: #4fc3f7;
+      --accent-structural: #81c784;
+      --accent-behavioral: #ffb74d;
+      --accent-creational-dim: rgba(79, 195, 247, 0.12);
+      --accent-structural-dim: rgba(129, 199, 132, 0.12);
+      --accent-behavioral-dim: rgba(255, 183, 77, 0.12);
+      --link-color: #90caf9;
+      --link-hover: #bbdefb;
+      --shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+      --shadow-hover: 0 8px 40px rgba(0, 0, 0, 0.7);
+    }
+
+    html {
+      font-size: 16px;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ===== HEADER ===== */
+    header {
+      background: linear-gradient(135deg, #0d1b2e 0%, #0f1117 60%, #141824 100%);
+      border-bottom: 1px solid var(--border-color);
+      padding: 48px 24px 40px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    header::before {
+      content: '';
+      position: absolute;
+      top: -80px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      height: 200px;
+      background: radial-gradient(ellipse, rgba(79, 195, 247, 0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .header-eyebrow {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent-creational);
+      background: var(--accent-creational-dim);
+      border: 1px solid rgba(79, 195, 247, 0.25);
+      border-radius: 100px;
+      padding: 4px 14px;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      font-size: 2.4rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+    }
+
+    .header-subtitle {
+      font-size: 1rem;
+      color: var(--text-secondary);
+      max-width: 560px;
+      margin: 0 auto;
+    }
+
+    /* ===== STATS BAR ===== */
+    .stats-bar {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      margin-top: 32px;
+      flex-wrap: wrap;
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .stat-number {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+    }
+
+    .stat-divider {
+      width: 1px;
+      height: 40px;
+      background: var(--border-color);
+      align-self: center;
+    }
+
+    /* ===== MAIN ===== */
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 56px 24px 80px;
+    }
+
+    .section-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 28px;
+    }
+
+    /* ===== CARDS GRID ===== */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+    }
+
+    /* ===== CARD ===== */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 28px;
+      transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, background 0.25s ease;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      border-radius: 16px 16px 0 0;
+      transition: opacity 0.25s ease;
+    }
+
+    .card--creational::before {
+      background: linear-gradient(90deg, var(--accent-creational), rgba(79, 195, 247, 0.3));
+    }
+
+    .card--structural::before {
+      background: linear-gradient(90deg, var(--accent-structural), rgba(129, 199, 132, 0.3));
+    }
+
+    .card--behavioral::before {
+      background: linear-gradient(90deg, var(--accent-behavioral), rgba(255, 183, 77, 0.3));
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-hover);
+      background: var(--bg-card-hover);
+    }
+
+    .card--creational:hover { border-color: rgba(79, 195, 247, 0.4); }
+    .card--structural:hover { border-color: rgba(129, 199, 132, 0.4); }
+    .card--behavioral:hover { border-color: rgba(255, 183, 77, 0.4); }
+
+    /* ===== CARD HEADER ===== */
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .card-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .card--creational .card-icon {
+      background: var(--accent-creational-dim);
+      border: 1px solid rgba(79, 195, 247, 0.2);
+    }
+
+    .card--structural .card-icon {
+      background: var(--accent-structural-dim);
+      border: 1px solid rgba(129, 199, 132, 0.2);
+    }
+
+    .card--behavioral .card-icon {
+      background: var(--accent-behavioral-dim);
+      border: 1px solid rgba(255, 183, 77, 0.2);
+    }
+
+    .card-title-group {
+      flex: 1;
+    }
+
+    .card-category-label {
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .card--creational .card-category-label { color: var(--accent-creational); }
+    .card--structural .card-category-label { color: var(--accent-structural); }
+    .card--behavioral .card-category-label { color: var(--accent-behavioral); }
+
+    .card-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1.3;
+    }
+
+    .card-count-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 26px;
+      height: 26px;
+      padding: 0 8px;
+      border-radius: 100px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .card--creational .card-count-badge {
+      background: var(--accent-creational-dim);
+      color: var(--accent-creational);
+      border: 1px solid rgba(79, 195, 247, 0.2);
+    }
+
+    .card--structural .card-count-badge {
+      background: var(--accent-structural-dim);
+      color: var(--accent-structural);
+      border: 1px solid rgba(129, 199, 132, 0.2);
+    }
+
+    .card--behavioral .card-count-badge {
+      background: var(--accent-behavioral-dim);
+      color: var(--accent-behavioral);
+      border: 1px solid rgba(255, 183, 77, 0.2);
+    }
+
+    /* ===== CARD DESCRIPTION ===== */
+    .card-description {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin-bottom: 20px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    /* ===== PATTERN LIST ===== */
+    .pattern-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .pattern-list li {
+      border-radius: 8px;
+      transition: background 0.15s ease;
+    }
+
+    .pattern-list li:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .pattern-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      text-decoration: none;
+      border-radius: 8px;
+      transition: color 0.15s ease;
+    }
+
+    .pattern-link:hover .pattern-name {
+      color: var(--link-hover);
+    }
+
+    .pattern-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .card--creational .pattern-dot { background: var(--accent-creational); opacity: 0.6; }
+    .card--structural .pattern-dot { background: var(--accent-structural); opacity: 0.6; }
+    .card--behavioral .pattern-dot { background: var(--accent-behavioral); opacity: 0.6; }
+
+    .pattern-name {
+      font-size: 0.88rem;
+      color: var(--link-color);
+      font-weight: 500;
+      flex: 1;
+      transition: color 0.15s ease;
+    }
+
+    .pattern-name-ko {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .pattern-arrow {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      opacity: 0;
+      transform: translateX(-4px);
+      transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+
+    .pattern-link:hover .pattern-arrow {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    /* ===== CARD FOOTER ===== */
+    .card-footer {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .view-all-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 9px 16px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background 0.2s ease, color 0.2s ease;
+      border: 1px solid var(--border-color);
+    }
+
+    .card--creational .view-all-link {
+      color: var(--accent-creational);
+      background: var(--accent-creational-dim);
+      border-color: rgba(79, 195, 247, 0.2);
+    }
+
+    .card--creational .view-all-link:hover {
+      background: rgba(79, 195, 247, 0.2);
+      border-color: rgba(79, 195, 247, 0.4);
+    }
+
+    .card--structural .view-all-link {
+      color: var(--accent-structural);
+      background: var(--accent-structural-dim);
+      border-color: rgba(129, 199, 132, 0.2);
+    }
+
+    .card--structural .view-all-link:hover {
+      background: rgba(129, 199, 132, 0.2);
+      border-color: rgba(129, 199, 132, 0.4);
+    }
+
+    .card--behavioral .view-all-link {
+      color: var(--accent-behavioral);
+      background: var(--accent-behavioral-dim);
+      border-color: rgba(255, 183, 77, 0.2);
+    }
+
+    .card--behavioral .view-all-link:hover {
+      background: rgba(255, 183, 77, 0.2);
+      border-color: rgba(255, 183, 77, 0.4);
+    }
+
+    /* ===== FOOTER ===== */
+    footer {
+      border-top: 1px solid var(--border-color);
+      padding: 24px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.78rem;
+    }
+
+    footer a {
+      color: var(--text-secondary);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      color: var(--text-primary);
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 768px) {
+      h1 { font-size: 1.8rem; }
+      .cards-grid { grid-template-columns: 1fr; }
+      .stats-bar { gap: 20px; }
+      .stat-divider { display: none; }
+    }
+
+    @media (max-width: 480px) {
+      header { padding: 32px 16px 28px; }
+      main { padding: 36px 16px 60px; }
+      h1 { font-size: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== HEADER ===== -->
+  <header>
+    <div class="header-eyebrow">Gang of Four</div>
+    <h1>GOF 디자인 패턴 시각화</h1>
+    <p class="header-subtitle">
+      소프트웨어 설계의 반복되는 문제를 해결하는 23가지 디자인 패턴을 시각적으로 탐구합니다.
+    </p>
+    <div class="stats-bar">
+      <div class="stat-item">
+        <span class="stat-number">3</span>
+        <span class="stat-label">카테고리</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <span class="stat-number">23</span>
+        <span class="stat-label">패턴</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <span class="stat-number">1994</span>
+        <span class="stat-label">출판년도</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===== MAIN ===== -->
+  <main>
+    <p class="section-title">패턴 카테고리</p>
+
+    <div class="cards-grid" id="cardsGrid">
+      <!-- Cards are rendered by JS below -->
+    </div>
+  </main>
+
+  <!-- ===== FOOTER ===== -->
+  <footer>
+    <p>GOF 디자인 패턴 &mdash; <em>Design Patterns: Elements of Reusable Object-Oriented Software</em></p>
+    <p style="margin-top: 6px;">Erich Gamma &middot; Richard Helm &middot; Ralph Johnson &middot; John Vlissides</p>
+  </footer>
+
+  <script>
+    'use strict';
+
+    // ===== DATA =====
+    var PATTERNS = [
+      {
+        id: 'creational',
+        type: 'creational',
+        icon: '🏗️',
+        categoryLabel: '생성 패턴',
+        title: '생성 패턴',
+        titleEn: 'Creational Patterns',
+        href: 'creational.html',
+        description: '객체의 생성 방식을 추상화하여 코드의 유연성과 재사용성을 높입니다. 어떤 클래스의 인스턴스를 만들지, 어떻게 만들고 조합할지에 관한 패턴입니다.',
+        patterns: [
+          { id: 'singleton',         name: 'Singleton',         nameKo: '싱글턴'        },
+          { id: 'factory-method',    name: 'Factory Method',    nameKo: '팩토리 메서드'  },
+          { id: 'abstract-factory',  name: 'Abstract Factory',  nameKo: '추상 팩토리'   },
+          { id: 'builder',           name: 'Builder',           nameKo: '빌더'          },
+          { id: 'prototype',         name: 'Prototype',         nameKo: '프로토타입'    }
+        ]
+      },
+      {
+        id: 'structural',
+        type: 'structural',
+        icon: '🔧',
+        categoryLabel: '구조 패턴',
+        title: '구조 패턴',
+        titleEn: 'Structural Patterns',
+        href: 'structural.html',
+        description: '클래스나 객체를 조합해 더 큰 구조를 만드는 패턴입니다. 서로 다른 인터페이스를 가진 객체들을 묶어 단일 인터페이스로 제공하거나 구조를 효율적으로 구성합니다.',
+        patterns: [
+          { id: 'adapter',    name: 'Adapter',    nameKo: '어댑터'   },
+          { id: 'bridge',     name: 'Bridge',     nameKo: '브리지'   },
+          { id: 'composite',  name: 'Composite',  nameKo: '컴포지트' },
+          { id: 'decorator',  name: 'Decorator',  nameKo: '데코레이터'},
+          { id: 'facade',     name: 'Facade',     nameKo: '퍼사드'   },
+          { id: 'flyweight',  name: 'Flyweight',  nameKo: '플라이웨이트'},
+          { id: 'proxy',      name: 'Proxy',      nameKo: '프록시'   }
+        ]
+      },
+      {
+        id: 'behavioral',
+        type: 'behavioral',
+        icon: '🔄',
+        categoryLabel: '행동 패턴',
+        title: '행동 패턴',
+        titleEn: 'Behavioral Patterns',
+        href: 'behavioral.html',
+        description: '객체나 클래스 사이의 알고리즘 및 책임 분배에 관한 패턴입니다. 객체들이 서로 상호작용하는 방식과 책임을 분산하는 방법을 다룹니다.',
+        patterns: [
+          { id: 'chain-of-responsibility', name: 'Chain of Responsibility', nameKo: '책임 연쇄'    },
+          { id: 'command',                 name: 'Command',                 nameKo: '커맨드'       },
+          { id: 'observer',                name: 'Observer',                nameKo: '옵저버'       },
+          { id: 'strategy',                name: 'Strategy',                nameKo: '전략'         },
+          { id: 'state',                   name: 'State',                   nameKo: '상태'         },
+          { id: 'iterator',                name: 'Iterator',                nameKo: '반복자'       },
+          { id: 'mediator',                name: 'Mediator',                nameKo: '중재자'       },
+          { id: 'memento',                 name: 'Memento',                 nameKo: '메멘토'       },
+          { id: 'template-method',         name: 'Template Method',         nameKo: '템플릿 메서드'},
+          { id: 'visitor',                 name: 'Visitor',                 nameKo: '방문자'       }
+        ]
+      }
+    ];
+
+    // ===== RENDER =====
+    function renderCards() {
+      var grid = document.getElementById('cardsGrid');
+      if (!grid) return;
+
+      var html = '';
+
+      PATTERNS.forEach(function(category) {
+        var patternListHtml = '';
+        category.patterns.forEach(function(pattern) {
+          patternListHtml += [
+            '<li>',
+            '  <a class="pattern-link" href="' + category.href + '#' + pattern.id + '">',
+            '    <span class="pattern-dot"></span>',
+            '    <span class="pattern-name">' + escapeHtml(pattern.name) + '</span>',
+            '    <span class="pattern-name-ko">' + escapeHtml(pattern.nameKo) + '</span>',
+            '    <span class="pattern-arrow">&#8250;</span>',
+            '  </a>',
+            '</li>'
+          ].join('\n');
+        });
+
+        html += [
+          '<article class="card card--' + category.type + '">',
+          '  <div class="card-header">',
+          '    <div class="card-icon">' + category.icon + '</div>',
+          '    <div class="card-title-group">',
+          '      <div class="card-category-label">' + escapeHtml(category.categoryLabel) + '</div>',
+          '      <div class="card-title">' + escapeHtml(category.title) + '</div>',
+          '    </div>',
+          '    <span class="card-count-badge">' + category.patterns.length + '</span>',
+          '  </div>',
+          '  <p class="card-description">' + escapeHtml(category.description) + '</p>',
+          '  <ul class="pattern-list">',
+          patternListHtml,
+          '  </ul>',
+          '  <div class="card-footer">',
+          '    <a class="view-all-link" href="' + category.href + '">',
+          '      ' + escapeHtml(category.titleEn) + ' 전체 보기 &rarr;',
+          '    </a>',
+          '  </div>',
+          '</article>'
+        ].join('\n');
+      });
+
+      grid.innerHTML = html;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // ===== INIT =====
+    document.addEventListener('DOMContentLoaded', function() {
+      renderCards();
+    });
+  </script>
+</body>
+</html>

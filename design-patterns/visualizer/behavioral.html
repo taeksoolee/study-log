@@ -1,0 +1,2211 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GOF 행동 패턴 시각화</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f1117;
+      color: #e2e8f0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #161b27;
+      border-bottom: 1px solid #2d3748;
+      padding: 18px 32px;
+    }
+    header h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #f6ad55;
+      letter-spacing: 0.04em;
+    }
+    header p {
+      font-size: 0.8rem;
+      color: #718096;
+      margin-top: 4px;
+    }
+
+    .tab-bar {
+      display: flex;
+      gap: 4px;
+      padding: 16px 32px 0;
+      border-bottom: 2px solid #2d3748;
+      background: #161b27;
+      flex-wrap: wrap;
+    }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      border-bottom: 3px solid transparent;
+      color: #718096;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 10px 14px;
+      transition: color 0.2s, border-color 0.2s;
+      white-space: nowrap;
+    }
+    .tab-btn:hover { color: #e2e8f0; }
+    .tab-btn.active {
+      color: #f6ad55;
+      border-bottom-color: #f6ad55;
+    }
+
+    .tab-content { display: none; padding: 32px; }
+    .tab-content.active { display: block; }
+
+    .section-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #f6ad55;
+      margin-bottom: 8px;
+    }
+    .section-desc {
+      font-size: 0.85rem;
+      color: #718096;
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+
+    .panel {
+      background: #161b27;
+      border: 1px solid #2d3748;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .panel-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #718096;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+    }
+
+    /* Buttons */
+    .btn {
+      background: #2d3748;
+      border: 1px solid #4a5568;
+      border-radius: 6px;
+      color: #e2e8f0;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 8px 16px;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .btn:hover { background: #3d4a5c; border-color: #718096; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary {
+      background: #744210;
+      border-color: #f6ad55;
+      color: #f6ad55;
+    }
+    .btn-primary:hover { background: #92400e; }
+    .btn-success {
+      background: #1a3a2a;
+      border-color: #48bb78;
+      color: #48bb78;
+    }
+    .btn-danger {
+      background: #3a1a1a;
+      border-color: #fc8181;
+      color: #fc8181;
+    }
+
+    /* UML boxes */
+    .uml-box {
+      background: #1a2234;
+      border: 2px solid #4a5568;
+      border-radius: 8px;
+      min-width: 120px;
+      text-align: center;
+      overflow: hidden;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .uml-box .uml-header {
+      background: #2d3748;
+      padding: 6px 12px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #a0aec0;
+    }
+    .uml-box .uml-body {
+      padding: 10px 12px;
+      font-size: 0.82rem;
+      color: #e2e8f0;
+    }
+    .uml-box.highlight {
+      border-color: #f6ad55;
+      box-shadow: 0 0 16px rgba(246,173,85,0.35);
+    }
+    .uml-box.highlight-green {
+      border-color: #48bb78;
+      box-shadow: 0 0 16px rgba(72,187,120,0.35);
+    }
+    .uml-box.highlight-red {
+      border-color: #fc8181;
+      box-shadow: 0 0 16px rgba(252,129,129,0.35);
+    }
+    .uml-box.highlight-blue {
+      border-color: #63b3ed;
+      box-shadow: 0 0 16px rgba(99,179,237,0.35);
+    }
+
+    .arrow {
+      font-size: 1.4rem;
+      color: #4a5568;
+      display: flex;
+      align-items: center;
+      padding: 0 8px;
+    }
+    .arrow.active { color: #f6ad55; }
+
+    .flex-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .flex-col {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* Log area */
+    .log-area {
+      background: #0a0d14;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 0.8rem;
+      font-family: 'Courier New', monospace;
+      min-height: 80px;
+      max-height: 200px;
+      overflow-y: auto;
+      color: #a0aec0;
+    }
+    .log-area .log-entry { margin-bottom: 4px; line-height: 1.5; }
+    .log-area .log-ok { color: #48bb78; }
+    .log-area .log-pass { color: #718096; }
+    .log-area .log-info { color: #63b3ed; }
+    .log-area .log-warn { color: #f6ad55; }
+
+    /* Input */
+    input[type=number], input[type=text], textarea, select {
+      background: #1a2234;
+      border: 1px solid #2d3748;
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-size: 0.85rem;
+      padding: 8px 12px;
+    }
+    input[type=number]:focus, input[type=text]:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: #f6ad55;
+    }
+    select option { background: #1a2234; }
+
+    /* ====== TAB 1: Chain of Responsibility ====== */
+    .chain-container {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .handler-box {
+      background: #1a2234;
+      border: 2px solid #4a5568;
+      border-radius: 8px;
+      padding: 14px 20px;
+      text-align: center;
+      min-width: 140px;
+      transition: border-color 0.3s, box-shadow 0.3s, background 0.3s;
+    }
+    .handler-box .handler-name {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #a0aec0;
+      margin-bottom: 4px;
+    }
+    .handler-box .handler-range {
+      font-size: 0.75rem;
+      color: #718096;
+    }
+    .handler-box .handler-status {
+      font-size: 0.75rem;
+      color: #4a5568;
+      margin-top: 6px;
+      min-height: 16px;
+    }
+    .handler-box.processing {
+      border-color: #f6ad55;
+      box-shadow: 0 0 16px rgba(246,173,85,0.4);
+      background: #2a1f0e;
+    }
+    .handler-box.handled {
+      border-color: #48bb78;
+      box-shadow: 0 0 16px rgba(72,187,120,0.4);
+      background: #0e2a1a;
+    }
+    .handler-box.passed {
+      border-color: #718096;
+      background: #1a2234;
+    }
+    .chain-arrow {
+      font-size: 1.8rem;
+      color: #4a5568;
+      padding: 0 6px;
+      transition: color 0.3s;
+    }
+    .chain-arrow.active { color: #f6ad55; }
+
+    /* ====== TAB 2: Command ====== */
+    .command-diagram {
+      display: flex;
+      align-items: stretch;
+      gap: 16px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .command-stack {
+      background: #0a0d14;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      padding: 12px;
+      min-width: 160px;
+      min-height: 120px;
+    }
+    .command-stack-title {
+      font-size: 0.75rem;
+      color: #718096;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .command-item {
+      background: #1a2234;
+      border: 1px solid #2d3748;
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-size: 0.78rem;
+      color: #a0aec0;
+      margin-bottom: 4px;
+    }
+    .command-item.latest {
+      border-color: #f6ad55;
+      color: #f6ad55;
+    }
+
+    /* ====== TAB 3: Observer ====== */
+    .observer-layout {
+      display: flex;
+      gap: 40px;
+      margin-bottom: 20px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    .subject-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .observer-area {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .observer-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .conn-line {
+      width: 60px;
+      height: 2px;
+      background: #2d3748;
+      transition: background 0.3s;
+    }
+    .conn-line.active { background: #f6ad55; }
+    .obs-badge {
+      font-size: 0.72rem;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-weight: 700;
+    }
+    .obs-badge.subscribed { background: #1a3a2a; color: #48bb78; border: 1px solid #48bb78; }
+    .obs-badge.unsubscribed { background: #2a1a1a; color: #718096; border: 1px solid #4a5568; }
+
+    /* ====== TAB 4: Strategy ====== */
+    .sort-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      height: 160px;
+      padding: 10px;
+      background: #0a0d14;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      margin-bottom: 14px;
+    }
+    .bar {
+      flex: 1;
+      border-radius: 4px 4px 0 0;
+      background: #4a5568;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 4px;
+      font-size: 0.7rem;
+      color: #e2e8f0;
+      transition: background 0.2s, height 0.3s;
+      min-width: 24px;
+    }
+    .bar.comparing { background: #f6ad55; }
+    .bar.swapping { background: #fc8181; }
+    .bar.sorted { background: #48bb78; }
+
+    /* ====== TAB 5: State (Traffic light) ====== */
+    .traffic-light {
+      background: #1a2234;
+      border: 3px solid #4a5568;
+      border-radius: 16px;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      width: 100px;
+    }
+    .light-circle {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: 2px solid #2d3748;
+      transition: background 0.4s, box-shadow 0.4s;
+    }
+    .light-circle.red-off { background: #2a1212; }
+    .light-circle.yellow-off { background: #2a2612; }
+    .light-circle.green-off { background: #122a1a; }
+    .light-circle.red-on {
+      background: #fc4444;
+      box-shadow: 0 0 24px rgba(252,68,68,0.7);
+      border-color: #fc4444;
+    }
+    .light-circle.yellow-on {
+      background: #f6c23e;
+      box-shadow: 0 0 24px rgba(246,194,62,0.7);
+      border-color: #f6c23e;
+    }
+    .light-circle.green-on {
+      background: #38e47a;
+      box-shadow: 0 0 24px rgba(56,228,122,0.7);
+      border-color: #38e47a;
+    }
+
+    /* ====== TAB 6: Iterator ====== */
+    .iter-items {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .iter-item {
+      background: #1a2234;
+      border: 2px solid #2d3748;
+      border-radius: 8px;
+      padding: 14px 18px;
+      font-size: 0.9rem;
+      text-align: center;
+      min-width: 80px;
+      position: relative;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .iter-item.current {
+      border-color: #f6ad55;
+      box-shadow: 0 0 16px rgba(246,173,85,0.4);
+    }
+    .iter-item .iter-index {
+      position: absolute;
+      top: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.68rem;
+      color: #718096;
+      background: #0f1117;
+      padding: 0 4px;
+    }
+    .iter-pointer {
+      text-align: center;
+      font-size: 1.3rem;
+      color: #f6ad55;
+      margin-bottom: 4px;
+      transition: opacity 0.3s;
+    }
+
+    /* ====== TAB 7: Mediator ====== */
+    .mediator-canvas {
+      position: relative;
+      height: 340px;
+      background: #0a0d14;
+      border: 1px solid #2d3748;
+      border-radius: 10px;
+      margin-bottom: 14px;
+      overflow: hidden;
+    }
+    .med-node {
+      position: absolute;
+      background: #1a2234;
+      border: 2px solid #4a5568;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #a0aec0;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.3s, box-shadow 0.3s;
+      z-index: 2;
+    }
+    .med-node:hover { border-color: #f6ad55; }
+    .med-node.active {
+      border-color: #f6ad55;
+      box-shadow: 0 0 14px rgba(246,173,85,0.4);
+      color: #f6ad55;
+    }
+    .med-node.mediator-center {
+      border-color: #63b3ed;
+      color: #63b3ed;
+    }
+    .med-node.mediator-center.active {
+      border-color: #63b3ed;
+      box-shadow: 0 0 18px rgba(99,179,237,0.5);
+    }
+    #mediatorSvg {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+    }
+
+    /* ====== TAB 8: Memento ====== */
+    .memento-editor textarea {
+      width: 100%;
+      height: 120px;
+      resize: vertical;
+      background: #0a0d14;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      color: #e2e8f0;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      padding: 12px;
+    }
+    .snapshot-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .snapshot-item {
+      background: #1a2234;
+      border: 1px solid #2d3748;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 0.78rem;
+      color: #a0aec0;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: border-color 0.2s;
+    }
+    .snapshot-item:hover { border-color: #f6ad55; color: #e2e8f0; }
+    .snapshot-item .snap-time { font-size: 0.7rem; color: #718096; }
+    .snapshot-item .snap-preview {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-right: 10px;
+    }
+
+    /* ====== TAB 9: Template Method ====== */
+    .template-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 700px) { .template-layout { grid-template-columns: 1fr; } }
+    .tmpl-box {
+      background: #1a2234;
+      border: 2px solid #4a5568;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .tmpl-box-header {
+      background: #2d3748;
+      padding: 8px 14px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #a0aec0;
+      text-align: center;
+    }
+    .tmpl-step {
+      padding: 8px 14px;
+      font-size: 0.8rem;
+      border-bottom: 1px solid #1a2234;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background 0.3s;
+    }
+    .tmpl-step:last-child { border-bottom: none; }
+    .tmpl-step.fixed-step { color: #718096; }
+    .tmpl-step.override-step { color: #63b3ed; }
+    .tmpl-step.running {
+      background: rgba(246,173,85,0.15);
+      color: #f6ad55;
+    }
+    .step-badge {
+      font-size: 0.68rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+    }
+    .badge-fixed { background: #2d3748; color: #718096; }
+    .badge-override { background: #1a2a3a; color: #63b3ed; }
+
+    /* ====== TAB 10: Visitor ====== */
+    .visitor-layout {
+      display: flex;
+      gap: 40px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .visitor-elements {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .elem-box {
+      background: #1a2234;
+      border: 2px solid #4a5568;
+      border-radius: 8px;
+      padding: 12px 18px;
+      min-width: 160px;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .elem-box .elem-name {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #a0aec0;
+      margin-bottom: 4px;
+    }
+    .elem-box .elem-op {
+      font-size: 0.75rem;
+      color: #4a5568;
+      min-height: 16px;
+    }
+    .elem-box.visiting {
+      border-color: #f6ad55;
+      box-shadow: 0 0 18px rgba(246,173,85,0.4);
+    }
+    .visitor-box-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .visitor-icon {
+      font-size: 2rem;
+      transition: transform 0.3s;
+    }
+
+    /* General helpers */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+    .gap-8 { gap: 8px; }
+    .mt-12 { margin-top: 12px; }
+    .mt-16 { margin-top: 16px; }
+    .label-sm {
+      font-size: 0.78rem;
+      color: #718096;
+      margin-bottom: 6px;
+    }
+    .state-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+    .badge-red { background: #3a1212; color: #fc8181; border: 1px solid #fc8181; }
+    .badge-yellow { background: #3a3012; color: #f6c23e; border: 1px solid #f6c23e; }
+    .badge-green { background: #123a1a; color: #48bb78; border: 1px solid #48bb78; }
+
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+    .pulsing { animation: pulse 0.8s ease-in-out; }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .slide-in { animation: slideIn 0.3s ease; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>GOF 행동 패턴 시각화</h1>
+  <p>Behavioral Design Patterns — 인터랙티브 학습 도구</p>
+</header>
+
+<div class="tab-bar" id="tabBar">
+  <button class="tab-btn active" onclick="switchTab(0)">01. 책임 연쇄</button>
+  <button class="tab-btn" onclick="switchTab(1)">02. 커맨드</button>
+  <button class="tab-btn" onclick="switchTab(2)">03. 옵저버</button>
+  <button class="tab-btn" onclick="switchTab(3)">04. 전략</button>
+  <button class="tab-btn" onclick="switchTab(4)">05. 상태</button>
+  <button class="tab-btn" onclick="switchTab(5)">06. 이터레이터</button>
+  <button class="tab-btn" onclick="switchTab(6)">07. 중재자</button>
+  <button class="tab-btn" onclick="switchTab(7)">08. 메멘토</button>
+  <button class="tab-btn" onclick="switchTab(8)">09. 템플릿 메서드</button>
+  <button class="tab-btn" onclick="switchTab(9)">10. 방문자</button>
+</div>
+
+<!-- ===== TAB 1: Chain of Responsibility ===== -->
+<div class="tab-content active" id="tab-0">
+  <div class="section-title">Chain of Responsibility — 책임 연쇄</div>
+  <div class="section-desc">요청을 처리할 수 있는 핸들러를 찾을 때까지 체인을 따라 전달합니다. 각 핸들러는 처리 여부를 결정하고 다음 핸들러로 넘길 수 있습니다.</div>
+
+  <div class="panel">
+    <div class="panel-title">핸들러 체인</div>
+    <div class="chain-container" id="chainContainer">
+      <div class="handler-box" id="handler0">
+        <div class="handler-name">Handler 1</div>
+        <div class="handler-range">레벨 1 ~ 3 처리</div>
+        <div class="handler-status" id="hstatus0">대기 중</div>
+      </div>
+      <div class="chain-arrow" id="carrow0">→</div>
+      <div class="handler-box" id="handler1">
+        <div class="handler-name">Handler 2</div>
+        <div class="handler-range">레벨 4 ~ 6 처리</div>
+        <div class="handler-status" id="hstatus1">대기 중</div>
+      </div>
+      <div class="chain-arrow" id="carrow1">→</div>
+      <div class="handler-box" id="handler2">
+        <div class="handler-name">Handler 3</div>
+        <div class="handler-range">레벨 7 ~ 10 처리</div>
+        <div class="handler-status" id="hstatus2">대기 중</div>
+      </div>
+    </div>
+
+    <div class="flex-row mt-12">
+      <div>
+        <div class="label-sm">요청 레벨 (1~10)</div>
+        <input type="number" id="chainLevel" min="1" max="10" value="5" style="width:80px" />
+      </div>
+      <button class="btn btn-primary" id="chainBtn" onclick="sendChainRequest()" style="margin-top:18px">요청 전송</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">처리 로그</div>
+    <div class="log-area" id="chainLog">
+      <div class="log-entry" style="color:#4a5568">— 요청을 전송하면 로그가 표시됩니다 —</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">코드 구조</div>
+    <div class="two-col">
+      <div class="uml-box">
+        <div class="uml-header">&lt;&lt;abstract&gt;&gt; Handler</div>
+        <div class="uml-body" style="text-align:left; font-family:monospace; font-size:0.75rem">
+          + setNext(handler)<br>
+          + handle(request) *
+        </div>
+      </div>
+      <div class="uml-box">
+        <div class="uml-header">ConcreteHandler</div>
+        <div class="uml-body" style="text-align:left; font-family:monospace; font-size:0.75rem">
+          - nextHandler<br>
+          + handle(request)<br>
+          &nbsp;&nbsp;if canHandle → process<br>
+          &nbsp;&nbsp;else → next.handle()
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB 2: Command ===== -->
+<div class="tab-content" id="tab-1">
+  <div class="section-title">Command — 커맨드</div>
+  <div class="section-desc">요청을 객체로 캡슐화하여 요청의 큐잉, 로깅, 취소(Undo) 기능을 지원합니다. Invoker는 Command 인터페이스를 통해 Receiver에게 작업을 위임합니다.</div>
+
+  <div class="two-col">
+    <div>
+      <div class="panel">
+        <div class="panel-title">다이어그램</div>
+        <div class="flex-row" style="flex-wrap:nowrap; overflow-x:auto; gap:4px">
+          <div class="uml-box" id="cmdInvoker" style="min-width:100px">
+            <div class="uml-header">Invoker</div>
+            <div class="uml-body" style="font-size:0.75rem">execute()<br>undo()</div>
+          </div>
+          <div class="arrow" id="cmdArrow1">→</div>
+          <div class="uml-box" id="cmdCommand" style="min-width:100px">
+            <div class="uml-header">Command</div>
+            <div class="uml-body" id="cmdCommandBody" style="font-size:0.75rem">—</div>
+          </div>
+          <div class="arrow" id="cmdArrow2">→</div>
+          <div class="uml-box" id="cmdReceiver" style="min-width:100px">
+            <div class="uml-header">Receiver</div>
+            <div class="uml-body" id="cmdReceiverBody" style="font-size:0.75rem">count: 0<br>light: OFF</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel mt-16">
+        <div class="panel-title">Receiver 상태</div>
+        <div style="display:flex; gap:24px; align-items:center">
+          <div>
+            <div class="label-sm">카운터</div>
+            <div id="cmdCounter" style="font-size:2rem; font-weight:700; color:#f6ad55">0</div>
+          </div>
+          <div>
+            <div class="label-sm">조명</div>
+            <div id="cmdLight" style="width:40px;height:40px;border-radius:50%;background:#2d3748;border:2px solid #4a5568;transition:background 0.3s,box-shadow 0.3s"></div>
+          </div>
+        </div>
+
+        <div class="flex-row mt-12" style="flex-wrap:wrap; gap:8px">
+          <button class="btn btn-primary" onclick="cmdExecute('increment')">+1 카운터 실행</button>
+          <button class="btn btn-primary" onclick="cmdExecute('toggleLight')">조명 토글 실행</button>
+          <button class="btn btn-danger" onclick="cmdUndo()">↩ 실행 취소 (Undo)</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">커맨드 히스토리 스택</div>
+      <div id="cmdStack" style="display:flex; flex-direction:column; gap:6px; min-height:60px">
+        <div style="color:#4a5568; font-size:0.8rem">— 히스토리가 없습니다 —</div>
+      </div>
+      <div class="mt-12">
+        <div class="panel-title">로그</div>
+        <div class="log-area" id="cmdLog">
+          <div class="log-entry" style="color:#4a5568">— 커맨드를 실행하면 로그가 표시됩니다 —</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB 3: Observer ===== -->
+<div class="tab-content" id="tab-2">
+  <div class="section-title">Observer — 옵저버</div>
+  <div class="section-desc">Subject(발행자)의 상태 변화를 Observer(구독자)들에게 자동으로 통지합니다. 느슨한 결합으로 일대다 의존 관계를 유지합니다.</div>
+
+  <div class="panel">
+    <div class="panel-title">발행 / 구독 다이어그램</div>
+    <div class="observer-layout">
+      <div class="subject-area">
+        <div class="uml-box highlight-blue" id="obsSubject" style="min-width:140px">
+          <div class="uml-header">Subject</div>
+          <div class="uml-body" id="obsSubjectState">상태: 0</div>
+        </div>
+        <div class="flex-col gap-8" style="width:100%">
+          <button class="btn btn-primary" onclick="obsNotify()">상태 변경 및 알림</button>
+          <div class="label-sm" style="text-align:center" id="obsStateLabel">현재 상태: 0</div>
+        </div>
+      </div>
+
+      <div class="observer-area" id="obsObservers">
+        <!-- Filled by JS -->
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">알림 로그</div>
+    <div class="log-area" id="obsLog">
+      <div class="log-entry" style="color:#4a5568">— 상태 변경 시 로그가 표시됩니다 —</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB 4: Strategy ===== -->
+<div class="tab-content" id="tab-3">
+  <div class="section-title">Strategy — 전략</div>
+  <div class="section-desc">알고리즘을 별도 클래스로 캡슐화하여 런타임에 교체 가능하게 합니다. Context는 Strategy 인터페이스를 통해 알고리즘을 호출합니다.</div>
+
+  <div class="panel">
+    <div class="panel-title">전략 선택</div>
+    <div class="flex-row" style="flex-wrap:wrap; gap:12px; align-items:flex-end">
+      <div>
+        <div class="label-sm">정렬 전략</div>
+        <select id="sortStrategy" style="width:160px">
+          <option value="bubble">버블 정렬</option>
+          <option value="selection">선택 정렬</option>
+          <option value="insertion">삽입 정렬</option>
+        </select>
+      </div>
+      <div>
+        <div class="label-sm">배열 (쉼표 구분)</div>
+        <input type="text" id="sortInput" value="5,3,8,1,9,2,7,4,6" style="width:200px" />
+      </div>
+      <button class="btn btn-primary" id="sortBtn" onclick="startSort()">정렬 실행</button>
+      <button class="btn" onclick="resetSort()">리셋</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">정렬 시각화</div>
+    <div class="sort-bars" id="sortBars"></div>
+    <div id="sortStatus" style="font-size:0.8rem; color:#718096; margin-top:8px">배열을 입력하고 정렬 실행 버튼을 누르세요.</div>
+    <div style="display:flex; gap:12px; margin-top:10px; flex-wrap:wrap">
+      <span style="font-size:0.75rem; color:#4a5568">■ <span style="color:#4a5568">기본</span></span>
+      <span style="font-size:0.75rem; color:#f6ad55">■ <span style="color:#f6ad55">비교 중</span></span>
+      <span style="font-size:0.75rem; color:#fc8181">■ <span style="color:#fc8181">교환 중</span></span>
+      <span style="font-size:0.75rem; color:#48bb78">■ <span style="color:#48bb78">정렬 완료</span></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">전략 구조</div>
+    <div class="flex-row" style="gap:12px; flex-wrap:wrap">
+      <div class="uml-box" style="min-width:140px">
+        <div class="uml-header">Context</div>
+        <div class="uml-body" style="font-size:0.75rem; text-align:left; font-family:monospace">
+          - strategy: Strategy<br>
+          + setStrategy(s)<br>
+          + executeSort()
+        </div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="uml-box highlight" id="strategyBoxHighlight" style="min-width:140px">
+        <div class="uml-header" id="strategyBoxHeader">&lt;&lt;interface&gt;&gt; Strategy</div>
+        <div class="uml-body" style="font-size:0.75rem; text-align:left; font-family:monospace">
+          + sort(array)
+        </div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px">
+        <div class="uml-box" id="sbubble" style="min-width:120px">
+          <div class="uml-header">BubbleSort</div>
+          <div class="uml-body" style="font-size:0.72rem">+ sort()</div>
+        </div>
+        <div class="uml-box" id="sselection" style="min-width:120px">
+          <div class="uml-header">SelectionSort</div>
+          <div class="uml-body" style="font-size:0.72rem">+ sort()</div>
+        </div>
+        <div class="uml-box" id="sinsertion" style="min-width:120px">
+          <div class="uml-header">InsertionSort</div>
+          <div class="uml-body" style="font-size:0.72rem">+ sort()</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB 5: State ===== -->
+<div class="tab-content" id="tab-4">
+  <div class="section-title">State — 상태</div>
+  <div class="section-desc">객체의 내부 상태가 바뀔 때마다 행동도 바뀌도록 합니다. 신호등 시뮬레이션으로 상태 전환을 시각화합니다.</div>
+
+  <div class="two-col">
+    <div>
+      <div class="panel">
+        <div class="panel-title">신호등</div>
+        <div style="display:flex; gap:24px; align-items:center">
+          <div class="traffic-light" id="trafficLight">
+            <div class="light-circle red-on" id="lightRed"></div>
+            <div class="light-circle yellow-off" id="lightYellow"></div>
+            <div class="light-circle green-off" id="lightGreen"></div>
+          </div>
+          <div>
+            <div class="label-sm">현재 상태</div>
+            <div id="trafficStateName" class="state-badge badge-red" style="font-size:1.1rem; padding:8px 20px">빨간불</div>
+            <div style="margin-top:12px; font-size:0.8rem; color:#718096" id="trafficStateDesc">정지 신호입니다.</div>
+          </div>
+        </div>
+        <div class="flex-row mt-12 gap-8">
+          <button class="btn btn-primary" onclick="trafficNext()">다음 상태 →</button>
+          <button class="btn" id="autoBtn" onclick="trafficToggleAuto()">자동 전환 ON</button>
+        </div>
+      </div>
+
+      <div class="panel mt-16">
+        <div class="panel-title">상태 전환 이력</div>
+        <div class="log-area" id="trafficLog" style="min-height:80px">
+          <div class="log-entry log-warn">● 빨간불 — 상태 초기화</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">상태 전환 다이어그램</div>
+      <div style="display:flex; flex-direction:column; gap:10px; align-items:center">
+        <div class="uml-box" id="stateRed" style="width:160px; border-color:#fc8181">
+          <div class="uml-header" style="background:#3a1212; color:#fc8181">RED (빨간불)</div>
+          <div class="uml-body" style="font-size:0.75rem">정지 / 대기</div>
+        </div>
+        <div style="color:#4a5568; font-size:1.2rem">↓ 다음 상태</div>
+        <div class="uml-box" id="stateGreen" style="width:160px; border-color:#48bb78">
+          <div class="uml-header" style="background:#123a1a; color:#48bb78">GREEN (초록불)</div>
+          <div class="uml-body" style="font-size:0.75rem">통과 가능</div>
+        </div>
+        <div style="color:#4a5568; font-size:1.2rem">↓ 다음 상태</div>
+        <div class="uml-box" id="stateYellow" style="width:160px; border-color:#f6c23e">
+          <div class="uml-header" style="background:#3a3012; color:#f6c23e">YELLOW (노란불)</div>
+          <div class="uml-body" style="font-size:0.75rem">주의 / 감속</div>
+        </div>
+        <div style="color:#4a5568; font-size:1.2rem">↑ RED로 순환</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB 6: Iterator ===== -->
+<div class="tab-content" id="tab-5">
+  <div class="section-title">Iterator — 이터레이터</div>
+  <div class="section-desc">컬렉션의 내부 구조를 노출하지 않고 요소를 순차적으로 접근합니다. hasNext()와 next() 메서드를 통해 일관된 순회를 제공합니다.</div>
+
+  <div class="panel">
+    <div class="panel-title">컬렉션 (과일 목록)</div>
+    <div id="iterPointerRow" style="display:flex; gap:10px; margin-bottom:4px; flex-wrap:wrap">
+      <!-- pointer indicators filled by JS -->
+    </div>
+    <div class="iter-items" id="iterItems">
+      <!-- Filled by JS -->
+    </div>
+    <div style="margin-top:10px; display:flex; gap:16px; align-items:center; flex-wrap:wrap">
+      <div>
+        <span class="label-sm">hasNext(): </span>
+        <span id="iterHasNext" style="font-weight:700; color:#48bb78">true</span>
+      </div>
+      <div>
+        <span class="label-sm">현재 인덱스: </span>
+        <span id="iterIndex" style="font-weight:700; color:#f6ad55">-1</span>
+      </div>
+      <div>
+        <span class="label-sm">현재 값: </span>
+        <span id="iterCurrent" style="font-weight:700; color:#f6ad55">—</span>
+      </div>
+    </div>
+    <div class="flex-row mt-12 gap-8">
+      <button class="btn btn-primary" id="iterNextBtn" onclick="iterNext()">next() →</button>
+      <button class="btn" onclick="iterReset()">처음으로 (reset)</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">순회 로그</div>
+    <div class="log-area" id="iterLog">
+      <div class="log-entry" style="color:#4a5568">— next()를 호출하면 로그가 표시됩니다 —</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Iterator 구조</div>
+    <div class="flex-row" style="gap:12px; flex-wrap:wrap">
+      <div class="uml-box" style="min-width:140px">
+        <div class="uml-header">&lt;&lt;interface&gt;&gt; Iterable</div>
+        <div class="uml-body" style="font-size:0.75rem; text-align:left; font-family:monospace">
+          + createIterator()
+        </div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="uml-box" style="min-width:140px">
+        <div class="uml-header">&lt;&lt;interface&gt;&gt; Iterator</div>
+        <div class="uml-body" style="font-size:0.75rem; text-align:left; font-family:monospace">
+          + hasNext(): boolean<br>
+          + next(): T
+        </div>
+      </div>
+      <div class="arrow">←</div>
+      <div class="uml-box" style="min-width:140px">
+        <div class="uml-header">ConcreteIterator</div>
+        <div class="uml-body" style="font-size:0.75rem; text-align:left; font-family:monospace">
+          - index: number<br>
+          + hasNext()<br>
+          + next()
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB 7: Mediator ===== -->
+<div class="tab-content" id="tab-6">
+  <div class="section-title">Mediator — 중재자</div>
+  <div class="section-desc">객체들이 직접 통신하지 않고 중재자 객체를 통해 상호작용합니다. 복잡한 메쉬 연결을 스타 토폴로지로 단순화합니다.</div>
+
+  <div class="panel">
+    <div class="panel-title">
+      <div style="display:flex; justify-content:space-between; align-items:center">
+        <span id="medTitle">중재자 없음 — 직접 연결 (복잡한 메쉬)</span>
+        <button class="btn btn-primary" onclick="toggleMediatorView()" style="font-size:0.78rem">
+          <span id="medToggleLabel">중재자 패턴으로 전환</span>
+        </button>
+      </div>
+    </div>
+    <div class="mediator-canvas" id="mediatorCanvas">
+      <svg id="mediatorSvg"></svg>
+      <!-- nodes filled by JS -->
+    </div>
+    <div class="label-sm mt-12">객체를 클릭하여 메시지를 전송하세요.</div>
+    <div class="log-area mt-12" id="medLog" style="min-height:60px">
+      <div class="log-entry" style="color:#4a5568">— 객체를 클릭하면 메시지 전달 과정이 표시됩니다 —</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB 8: Memento ===== -->
+<div class="tab-content" id="tab-7">
+  <div class="section-title">Memento — 메멘토</div>
+  <div class="section-desc">객체의 이전 상태를 저장해두고 필요할 때 복원합니다. Originator가 스냅샷을 생성하고, Caretaker가 이를 관리합니다.</div>
+
+  <div class="two-col">
+    <div>
+      <div class="panel memento-editor">
+        <div class="panel-title">텍스트 편집기 (Originator)</div>
+        <textarea id="mementoEditor" placeholder="여기에 텍스트를 입력하세요...">안녕하세요! 이것은 메멘토 패턴 데모입니다.</textarea>
+        <div class="flex-row mt-12 gap-8">
+          <button class="btn btn-success" onclick="mementoSave()">스냅샷 저장</button>
+          <button class="btn btn-danger" onclick="mementoUndo()">↩ 실행 취소 (Undo)</button>
+        </div>
+        <div class="mt-12">
+          <div class="label-sm">현재 버전: <span id="mementoVersion" style="color:#f6ad55; font-weight:700">초기 상태</span></div>
+        </div>
+      </div>
+
+      <div class="panel mt-16">
+        <div class="panel-title">메멘토 구조</div>
+        <div class="flex-col gap-8">
+          <div class="uml-box">
+            <div class="uml-header">Originator (편집기)</div>
+            <div class="uml-body" style="font-size:0.75rem; text-align:left; font-family:monospace">
+              - state: string<br>
+              + createMemento(): Memento<br>
+              + restore(m: Memento)
+            </div>
+          </div>
+          <div class="uml-box">
+            <div class="uml-header">Memento (스냅샷)</div>
+            <div class="uml-body" style="font-size:0.75rem; text-align:left; font-family:monospace">
+              - state: string<br>
+              - timestamp: Date<br>
+              + getState(): string
+            </div>
+          </div>
+          <div class="uml-box">
+            <div class="uml-header">Caretaker (스냅샷 관리)</div>
+            <div class="uml-body" style="font-size:0.75rem; text-align:left; font-family:monospace">
+              - history: Memento[]<br>
+              + push(m: Memento)<br>
+              + pop(): Memento
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">스냅샷 히스토리 (Caretaker)</div>
+      <div id="mementoHistory" class="snapshot-list">
+        <div style="color:#4a5568; font-size:0.8rem">— 스냅샷을 저장하면 표시됩니다 —</div>
+      </div>
+      <div class="mt-12">
+        <div class="panel-title">로그</div>
+        <div class="log-area" id="mementoLog">
+          <div class="log-entry" style="color:#4a5568">— 스냅샷 저장/복원 시 로그가 표시됩니다 —</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB 9: Template Method ===== -->
+<div class="tab-content" id="tab-8">
+  <div class="section-title">Template Method — 템플릿 메서드</div>
+  <div class="section-desc">알고리즘의 뼈대를 정의하고, 일부 단계의 구현을 서브클래스에 위임합니다. 전체 구조는 변하지 않으면서 특정 단계만 오버라이드 됩니다.</div>
+
+  <div class="panel">
+    <div class="panel-title">템플릿 메서드 — 음료 제조 알고리즘</div>
+    <div class="template-layout">
+      <!-- Abstract class -->
+      <div class="tmpl-box" id="tmplAbstract">
+        <div class="tmpl-box-header">&lt;&lt;abstract&gt;&gt; Beverage</div>
+        <div class="tmpl-step fixed-step" id="abs-step1">
+          <span>1. 물 끓이기</span>
+          <span class="step-badge badge-fixed">고정</span>
+        </div>
+        <div class="tmpl-step override-step" id="abs-step2">
+          <span>2. 음료 우리기</span>
+          <span class="step-badge badge-override">오버라이드</span>
+        </div>
+        <div class="tmpl-step fixed-step" id="abs-step3">
+          <span>3. 컵에 따르기</span>
+          <span class="step-badge badge-fixed">고정</span>
+        </div>
+        <div class="tmpl-step override-step" id="abs-step4">
+          <span>4. 첨가물 넣기</span>
+          <span class="step-badge badge-override">오버라이드</span>
+        </div>
+      </div>
+
+      <!-- Tea -->
+      <div class="tmpl-box" id="tmplTea">
+        <div class="tmpl-box-header" style="background:#1a3a2a; color:#48bb78">Tea (차)</div>
+        <div class="tmpl-step fixed-step" id="tea-step1">
+          <span>1. 물 끓이기</span>
+          <span class="step-badge badge-fixed">상속</span>
+        </div>
+        <div class="tmpl-step override-step" id="tea-step2">
+          <span>2. 찻잎 우리기 ☕</span>
+          <span class="step-badge badge-override">구현</span>
+        </div>
+        <div class="tmpl-step fixed-step" id="tea-step3">
+          <span>3. 컵에 따르기</span>
+          <span class="step-badge badge-fixed">상속</span>
+        </div>
+        <div class="tmpl-step override-step" id="tea-step4">
+          <span>4. 레몬 추가 🍋</span>
+          <span class="step-badge badge-override">구현</span>
+        </div>
+        <div style="padding:10px; text-align:center">
+          <button class="btn btn-success" onclick="runTemplate('tea')">▶ Tea 실행</button>
+        </div>
+      </div>
+
+      <!-- Coffee -->
+      <div class="tmpl-box" id="tmplCoffee">
+        <div class="tmpl-box-header" style="background:#3a2a1a; color:#f6ad55">Coffee (커피)</div>
+        <div class="tmpl-step fixed-step" id="coffee-step1">
+          <span>1. 물 끓이기</span>
+          <span class="step-badge badge-fixed">상속</span>
+        </div>
+        <div class="tmpl-step override-step" id="coffee-step2">
+          <span>2. 원두 드립 추출 ☕</span>
+          <span class="step-badge badge-override">구현</span>
+        </div>
+        <div class="tmpl-step fixed-step" id="coffee-step3">
+          <span>3. 컵에 따르기</span>
+          <span class="step-badge badge-fixed">상속</span>
+        </div>
+        <div class="tmpl-step override-step" id="coffee-step4">
+          <span>4. 설탕·크림 추가 🥛</span>
+          <span class="step-badge badge-override">구현</span>
+        </div>
+        <div style="padding:10px; text-align:center">
+          <button class="btn btn-primary" onclick="runTemplate('coffee')">▶ Coffee 실행</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">실행 로그</div>
+    <div class="log-area" id="tmplLog">
+      <div class="log-entry" style="color:#4a5568">— 실행 버튼을 누르면 알고리즘 흐름이 표시됩니다 —</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB 10: Visitor ===== -->
+<div class="tab-content" id="tab-9">
+  <div class="section-title">Visitor — 방문자</div>
+  <div class="section-desc">객체 구조를 변경하지 않고 새로운 연산을 추가합니다. Visitor가 각 Element를 방문하여 타입별로 다른 연산을 수행합니다.</div>
+
+  <div class="panel">
+    <div class="panel-title">방문자 시뮬레이션</div>
+    <div class="visitor-layout">
+      <div class="visitor-elements" id="visitorElements">
+        <div class="elem-box" id="elemA">
+          <div class="elem-name">ElementA</div>
+          <div class="elem-op" id="elemAOp">대기 중...</div>
+        </div>
+        <div class="elem-box" id="elemB">
+          <div class="elem-name">ElementB</div>
+          <div class="elem-op" id="elemBOp">대기 중...</div>
+        </div>
+        <div class="elem-box" id="elemC">
+          <div class="elem-name">ElementC</div>
+          <div class="elem-op" id="elemCOp">대기 중...</div>
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center">
+        <div style="color:#4a5568; font-size:1.6rem" id="visitArrow">←→</div>
+      </div>
+
+      <div class="visitor-box-wrap">
+        <div class="uml-box" id="visitorBox" style="min-width:160px">
+          <div class="uml-header">ConcreteVisitor</div>
+          <div class="uml-body" style="font-size:0.75rem; text-align:left; font-family:monospace">
+            + visitA(e: A)<br>
+            + visitB(e: B)<br>
+            + visitC(e: C)
+          </div>
+        </div>
+        <div class="visitor-icon" id="visitorIcon">👤</div>
+        <div style="font-size:0.8rem; color:#718096; text-align:center" id="visitorStatus">방문 대기 중</div>
+
+        <div style="margin-top:14px; display:flex; flex-direction:column; gap:8px; width:100%">
+          <button class="btn btn-primary" id="visitBtn" onclick="startVisit()">방문 시작</button>
+          <button class="btn" onclick="resetVisit()">리셋</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">방문자 연산 로그</div>
+    <div class="log-area" id="visitorLog">
+      <div class="log-entry" style="color:#4a5568">— 방문 시작 버튼을 누르면 방문 과정이 표시됩니다 —</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Visitor 구조</div>
+    <div class="flex-row" style="gap:12px; flex-wrap:wrap">
+      <div class="flex-col gap-8">
+        <div class="uml-box" style="min-width:140px">
+          <div class="uml-header">&lt;&lt;interface&gt;&gt; Visitor</div>
+          <div class="uml-body" style="font-size:0.75rem; text-align:left; font-family:monospace">
+            + visitA(e: A)<br>
+            + visitB(e: B)<br>
+            + visitC(e: C)
+          </div>
+        </div>
+        <div class="uml-box" style="min-width:140px">
+          <div class="uml-header">ConcreteVisitor</div>
+          <div class="uml-body" style="font-size:0.75rem; text-align:left; font-family:monospace">
+            + visitA() → 연산A<br>
+            + visitB() → 연산B<br>
+            + visitC() → 연산C
+          </div>
+        </div>
+      </div>
+      <div class="arrow">↔</div>
+      <div class="flex-col gap-8">
+        <div class="uml-box" style="min-width:140px">
+          <div class="uml-header">&lt;&lt;interface&gt;&gt; Element</div>
+          <div class="uml-body" style="font-size:0.75rem; text-align:left; font-family:monospace">
+            + accept(v: Visitor)
+          </div>
+        </div>
+        <div class="uml-box" style="min-width:140px">
+          <div class="uml-header">ElementA / B / C</div>
+          <div class="uml-body" style="font-size:0.75rem; text-align:left; font-family:monospace">
+            + accept(v) {<br>
+            &nbsp;&nbsp;v.visitA(this)<br>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== Utility =====
+function switchTab(i) {
+  document.querySelectorAll('.tab-btn').forEach((b, j) => b.classList.toggle('active', i === j));
+  document.querySelectorAll('.tab-content').forEach((c, j) => c.classList.toggle('active', i === j));
+}
+
+function addLog(logId, msg, cls) {
+  var log = document.getElementById(logId);
+  var first = log.querySelector('[style*="color:#4a5568"]');
+  if (first) first.remove();
+  var d = document.createElement('div');
+  d.className = 'log-entry slide-in' + (cls ? ' ' + cls : '');
+  d.innerHTML = msg;
+  log.appendChild(d);
+  log.scrollTop = log.scrollHeight;
+}
+
+function clearHighlights(sel) {
+  document.querySelectorAll(sel).forEach(function(el) {
+    el.classList.remove('highlight', 'highlight-green', 'highlight-red', 'highlight-blue', 'processing', 'handled', 'passed', 'active', 'visiting');
+  });
+}
+
+// ===== TAB 1: Chain of Responsibility =====
+var chainRunning = false;
+
+function sendChainRequest() {
+  if (chainRunning) return;
+  var level = parseInt(document.getElementById('chainLevel').value);
+  if (isNaN(level) || level < 1 || level > 10) {
+    alert('레벨을 1~10 사이로 입력하세요.');
+    return;
+  }
+  chainRunning = true;
+  document.getElementById('chainBtn').disabled = true;
+
+  // Reset
+  for (var i = 0; i < 3; i++) {
+    var h = document.getElementById('handler' + i);
+    h.className = 'handler-box';
+    document.getElementById('hstatus' + i).textContent = '대기 중';
+    document.getElementById('carrow' + i).className = 'chain-arrow';
+  }
+  // Clear previous log line
+  var logEl = document.getElementById('chainLog');
+  logEl.innerHTML = '';
+
+  var handlers = [
+    { name: 'Handler 1', min: 1, max: 3 },
+    { name: 'Handler 2', min: 4, max: 6 },
+    { name: 'Handler 3', min: 7, max: 10 }
+  ];
+
+  addLog('chainLog', '→ 레벨 ' + level + ' 요청 전송 시작', 'log-info');
+
+  function processHandler(idx) {
+    if (idx >= handlers.length) {
+      addLog('chainLog', '✗ 모든 핸들러에서 처리 불가!', 'log-warn');
+      chainRunning = false;
+      document.getElementById('chainBtn').disabled = false;
+      return;
+    }
+    var h = handlers[idx];
+    var box = document.getElementById('handler' + idx);
+    var statusEl = document.getElementById('hstatus' + idx);
+    var arrow = idx > 0 ? document.getElementById('carrow' + (idx - 1)) : null;
+
+    if (arrow) arrow.className = 'chain-arrow active';
+    box.className = 'handler-box processing';
+    statusEl.textContent = '처리 중...';
+    addLog('chainLog', '→ ' + h.name + ' 검토 중 (범위: ' + h.min + '~' + h.max + ')', 'log-pass');
+
+    setTimeout(function() {
+      if (level >= h.min && level <= h.max) {
+        box.className = 'handler-box handled';
+        statusEl.textContent = '✓ 처리 완료';
+        addLog('chainLog', '✓ ' + h.name + ' 에서 레벨 ' + level + ' 요청 처리 완료!', 'log-ok');
+        chainRunning = false;
+        document.getElementById('chainBtn').disabled = false;
+      } else {
+        box.className = 'handler-box passed';
+        statusEl.textContent = '→ 다음으로 전달';
+        addLog('chainLog', '  ' + h.name + ' 처리 불가, 다음 핸들러로 전달', 'log-pass');
+        setTimeout(function() { processHandler(idx + 1); }, 600);
+      }
+    }, 800);
+  }
+
+  setTimeout(function() { processHandler(0); }, 200);
+}
+
+// ===== TAB 2: Command =====
+var cmdCounter = 0;
+var cmdLightOn = false;
+var cmdHistory = [];
+
+function cmdAnimate() {
+  var inv = document.getElementById('cmdInvoker');
+  var cmd = document.getElementById('cmdCommand');
+  var rec = document.getElementById('cmdReceiver');
+  inv.classList.add('highlight');
+  setTimeout(function() {
+    inv.classList.remove('highlight');
+    cmd.classList.add('highlight');
+  }, 200);
+  setTimeout(function() {
+    cmd.classList.remove('highlight');
+    rec.classList.add('highlight');
+  }, 500);
+  setTimeout(function() {
+    rec.classList.remove('highlight');
+  }, 900);
+}
+
+function updateCmdReceiverUI() {
+  document.getElementById('cmdCounter').textContent = cmdCounter;
+  var light = document.getElementById('cmdLight');
+  if (cmdLightOn) {
+    light.style.background = '#f6c23e';
+    light.style.boxShadow = '0 0 18px rgba(246,194,62,0.7)';
+    light.style.borderColor = '#f6c23e';
+  } else {
+    light.style.background = '#2d3748';
+    light.style.boxShadow = 'none';
+    light.style.borderColor = '#4a5568';
+  }
+  document.getElementById('cmdReceiverBody').innerHTML =
+    'count: ' + cmdCounter + '<br>light: ' + (cmdLightOn ? '<span style="color:#f6c23e">ON</span>' : 'OFF');
+}
+
+function renderCmdStack() {
+  var el = document.getElementById('cmdStack');
+  if (cmdHistory.length === 0) {
+    el.innerHTML = '<div style="color:#4a5568; font-size:0.8rem">— 히스토리가 없습니다 —</div>';
+    return;
+  }
+  el.innerHTML = '';
+  for (var i = cmdHistory.length - 1; i >= 0; i--) {
+    var d = document.createElement('div');
+    d.className = 'command-item' + (i === cmdHistory.length - 1 ? ' latest' : '');
+    d.textContent = '[' + (i + 1) + '] ' + cmdHistory[i].label;
+    el.appendChild(d);
+  }
+}
+
+function cmdExecute(type) {
+  var label, undo;
+  if (type === 'increment') {
+    cmdCounter++;
+    label = '+1 카운터 (이전: ' + (cmdCounter - 1) + ')';
+    undo = function() { cmdCounter--; };
+  } else {
+    var was = cmdLightOn;
+    cmdLightOn = !cmdLightOn;
+    label = '조명 토글 → ' + (cmdLightOn ? 'ON' : 'OFF');
+    undo = (function(w) { return function() { cmdLightOn = w; }; })(was);
+  }
+  cmdHistory.push({ label: label, undo: undo });
+  document.getElementById('cmdCommandBody').textContent = label;
+  cmdAnimate();
+  updateCmdReceiverUI();
+  renderCmdStack();
+  addLog('cmdLog', '▶ EXECUTE: ' + label, 'log-ok');
+}
+
+function cmdUndo() {
+  if (cmdHistory.length === 0) {
+    addLog('cmdLog', '✗ 취소할 커맨드가 없습니다', 'log-warn');
+    return;
+  }
+  var last = cmdHistory.pop();
+  last.undo();
+  document.getElementById('cmdCommandBody').textContent = '— (취소됨)';
+  var inv = document.getElementById('cmdInvoker');
+  inv.classList.add('highlight-red');
+  setTimeout(function() { inv.classList.remove('highlight-red'); }, 600);
+  updateCmdReceiverUI();
+  renderCmdStack();
+  addLog('cmdLog', '↩ UNDO: ' + last.label, 'log-warn');
+}
+
+// ===== TAB 3: Observer =====
+var obsState = 0;
+var obsSubscribed = [true, true, true];
+var obsNames = ['Observer 1', 'Observer 2', 'Observer 3'];
+
+function renderObservers() {
+  var area = document.getElementById('obsObservers');
+  area.innerHTML = '';
+  for (var i = 0; i < 3; i++) {
+    (function(idx) {
+      var row = document.createElement('div');
+      row.className = 'observer-row';
+      row.id = 'obsRow' + idx;
+
+      var line = document.createElement('div');
+      line.className = 'conn-line' + (obsSubscribed[idx] ? ' active' : '');
+      line.id = 'obsLine' + idx;
+
+      var box = document.createElement('div');
+      box.className = 'uml-box' + (obsSubscribed[idx] ? ' highlight-green' : '');
+      box.id = 'obsBox' + idx;
+      box.style.minWidth = '120px';
+      box.innerHTML = '<div class="uml-header">' + obsNames[idx] + '</div>' +
+        '<div class="uml-body" id="obsBoxBody' + idx + '" style="font-size:0.75rem">—</div>';
+
+      var badge = document.createElement('span');
+      badge.className = 'obs-badge ' + (obsSubscribed[idx] ? 'subscribed' : 'unsubscribed');
+      badge.id = 'obsBadge' + idx;
+      badge.textContent = obsSubscribed[idx] ? '구독 중' : '해제됨';
+
+      var btn = document.createElement('button');
+      btn.className = 'btn' + (obsSubscribed[idx] ? ' btn-danger' : ' btn-success');
+      btn.style.fontSize = '0.75rem';
+      btn.style.padding = '4px 10px';
+      btn.textContent = obsSubscribed[idx] ? '구독 해제' : '구독';
+      btn.onclick = function() { obsToggle(idx); };
+
+      row.appendChild(line);
+      row.appendChild(box);
+      row.appendChild(badge);
+      row.appendChild(btn);
+      area.appendChild(row);
+    })(i);
+  }
+}
+
+function obsToggle(idx) {
+  obsSubscribed[idx] = !obsSubscribed[idx];
+  renderObservers();
+  addLog('obsLog', (obsSubscribed[idx] ? '+ ' : '- ') + obsNames[idx] + ' 구독 ' + (obsSubscribed[idx] ? '등록' : '해제'),
+    obsSubscribed[idx] ? 'log-ok' : 'log-warn');
+}
+
+function obsNotify() {
+  obsState++;
+  document.getElementById('obsSubjectState').textContent = '상태: ' + obsState;
+  document.getElementById('obsStateLabel').textContent = '현재 상태: ' + obsState;
+
+  var subj = document.getElementById('obsSubject');
+  subj.classList.add('highlight');
+  setTimeout(function() { subj.classList.remove('highlight'); }, 600);
+
+  addLog('obsLog', '◎ Subject 상태 변경 → ' + obsState, 'log-info');
+
+  var delay = 300;
+  for (var i = 0; i < 3; i++) {
+    (function(idx, d) {
+      if (!obsSubscribed[idx]) {
+        setTimeout(function() {
+          addLog('obsLog', '  ○ ' + obsNames[idx] + ' — 구독 해제됨 (알림 없음)', 'log-pass');
+        }, d);
+        return;
+      }
+      setTimeout(function() {
+        var line = document.getElementById('obsLine' + idx);
+        var box = document.getElementById('obsBox' + idx);
+        var body = document.getElementById('obsBoxBody' + idx);
+        line.style.background = '#f6ad55';
+        box.classList.add('highlight');
+        body.textContent = '수신: 상태=' + obsState;
+        addLog('obsLog', '  ✓ ' + obsNames[idx] + ' — 상태 ' + obsState + ' 수신', 'log-ok');
+        setTimeout(function() {
+          line.style.background = obsSubscribed[idx] ? '#48bb78' : '#2d3748';
+          box.classList.remove('highlight');
+        }, 500);
+      }, d);
+    })(i, delay + i * 300);
+  }
+}
+
+renderObservers();
+
+// ===== TAB 4: Strategy =====
+var sortArr = [];
+var sortSteps = [];
+var sortStepIdx = 0;
+var sortTimer = null;
+
+function resetSort() {
+  if (sortTimer) clearTimeout(sortTimer);
+  sortSteps = [];
+  sortStepIdx = 0;
+  document.getElementById('sortBtn').disabled = false;
+  document.getElementById('sortStatus').textContent = '배열을 입력하고 정렬 실행 버튼을 누르세요.';
+  var input = document.getElementById('sortInput').value;
+  var arr = input.split(',').map(function(x) { return parseInt(x.trim()); }).filter(function(x) { return !isNaN(x); });
+  if (arr.length < 2) arr = [5,3,8,1,9,2,7,4,6];
+  sortArr = arr.slice();
+  renderBars(sortArr, [], [], []);
+  updateStrategyHighlight();
+}
+
+function renderBars(arr, comparing, swapping, sorted) {
+  var container = document.getElementById('sortBars');
+  var max = Math.max.apply(null, arr);
+  container.innerHTML = '';
+  for (var i = 0; i < arr.length; i++) {
+    var bar = document.createElement('div');
+    bar.className = 'bar';
+    if (sorted.indexOf(i) !== -1) bar.classList.add('sorted');
+    else if (swapping.indexOf(i) !== -1) bar.classList.add('swapping');
+    else if (comparing.indexOf(i) !== -1) bar.classList.add('comparing');
+    var pct = Math.max(8, Math.round((arr[i] / max) * 140));
+    bar.style.height = pct + 'px';
+    bar.textContent = arr[i];
+    container.appendChild(bar);
+  }
+}
+
+function updateStrategyHighlight() {
+  var val = document.getElementById('sortStrategy').value;
+  ['bubble','selection','insertion'].forEach(function(s) {
+    var el = document.getElementById('s' + s);
+    if (el) el.classList.toggle('highlight', s === val);
+  });
+  var names = { bubble: 'BubbleSort', selection: 'SelectionSort', insertion: 'InsertionSort' };
+  document.getElementById('strategyBoxHeader').textContent = '선택된 전략: ' + names[val];
+}
+document.getElementById('sortStrategy').addEventListener('change', updateStrategyHighlight);
+
+function generateBubbleSteps(arr) {
+  var a = arr.slice(), steps = [], n = a.length, sorted = [];
+  for (var i = 0; i < n - 1; i++) {
+    for (var j = 0; j < n - i - 1; j++) {
+      steps.push({ type: 'compare', arr: a.slice(), i: j, j: j+1, sorted: sorted.slice() });
+      if (a[j] > a[j+1]) {
+        var tmp = a[j]; a[j] = a[j+1]; a[j+1] = tmp;
+        steps.push({ type: 'swap', arr: a.slice(), i: j, j: j+1, sorted: sorted.slice() });
+      }
+    }
+    sorted.push(n - 1 - i);
+  }
+  sorted.push(0);
+  steps.push({ type: 'done', arr: a.slice(), sorted: Array.from({length: n}, function(_, k) { return k; }) });
+  return steps;
+}
+
+function generateSelectionSteps(arr) {
+  var a = arr.slice(), steps = [], n = a.length, sorted = [];
+  for (var i = 0; i < n - 1; i++) {
+    var minIdx = i;
+    for (var j = i + 1; j < n; j++) {
+      steps.push({ type: 'compare', arr: a.slice(), i: minIdx, j: j, sorted: sorted.slice() });
+      if (a[j] < a[minIdx]) minIdx = j;
+    }
+    if (minIdx !== i) {
+      var tmp = a[i]; a[i] = a[minIdx]; a[minIdx] = tmp;
+      steps.push({ type: 'swap', arr: a.slice(), i: i, j: minIdx, sorted: sorted.slice() });
+    }
+    sorted.push(i);
+  }
+  sorted.push(n - 1);
+  steps.push({ type: 'done', arr: a.slice(), sorted: Array.from({length: n}, function(_, k) { return k; }) });
+  return steps;
+}
+
+function generateInsertionSteps(arr) {
+  var a = arr.slice(), steps = [], n = a.length, sorted = [0];
+  for (var i = 1; i < n; i++) {
+    var key = a[i], j = i - 1;
+    while (j >= 0 && a[j] > key) {
+      steps.push({ type: 'compare', arr: a.slice(), i: j, j: j+1, sorted: sorted.slice() });
+      a[j + 1] = a[j];
+      steps.push({ type: 'swap', arr: a.slice(), i: j, j: j+1, sorted: sorted.slice() });
+      j--;
+    }
+    a[j + 1] = key;
+    sorted.push(i);
+    steps.push({ type: 'compare', arr: a.slice(), i: Math.max(0, j), j: j+1, sorted: sorted.slice() });
+  }
+  steps.push({ type: 'done', arr: a.slice(), sorted: Array.from({length: n}, function(_, k) { return k; }) });
+  return steps;
+}
+
+function startSort() {
+  var input = document.getElementById('sortInput').value;
+  var arr = input.split(',').map(function(x) { return parseInt(x.trim()); }).filter(function(x) { return !isNaN(x); });
+  if (arr.length < 2) { alert('2개 이상의 숫자를 입력하세요.'); return; }
+  if (arr.length > 12) { alert('최대 12개까지 입력하세요.'); return; }
+
+  document.getElementById('sortBtn').disabled = true;
+  updateStrategyHighlight();
+  var strategy = document.getElementById('sortStrategy').value;
+  var names = { bubble: '버블 정렬', selection: '선택 정렬', insertion: '삽입 정렬' };
+  document.getElementById('sortStatus').textContent = names[strategy] + ' 실행 중...';
+
+  if (strategy === 'bubble') sortSteps = generateBubbleSteps(arr);
+  else if (strategy === 'selection') sortSteps = generateSelectionSteps(arr);
+  else sortSteps = generateInsertionSteps(arr);
+
+  sortStepIdx = 0;
+  playSortStep();
+}
+
+function playSortStep() {
+  if (sortStepIdx >= sortSteps.length) {
+    document.getElementById('sortBtn').disabled = false;
+    document.getElementById('sortStatus').textContent = '정렬 완료!';
+    return;
+  }
+  var step = sortSteps[sortStepIdx++];
+  if (step.type === 'compare') {
+    renderBars(step.arr, [step.i, step.j], [], step.sorted);
+    document.getElementById('sortStatus').textContent = '비교 중: [' + step.i + '] (' + step.arr[step.i] + ') vs [' + step.j + '] (' + step.arr[step.j] + ')';
+  } else if (step.type === 'swap') {
+    renderBars(step.arr, [], [step.i, step.j], step.sorted);
+    document.getElementById('sortStatus').textContent = '교환: [' + step.i + '] ↔ [' + step.j + ']';
+  } else {
+    renderBars(step.arr, [], [], step.sorted);
+    document.getElementById('sortStatus').textContent = '✓ 정렬 완료!';
+    document.getElementById('sortBtn').disabled = false;
+    return;
+  }
+  sortTimer = setTimeout(playSortStep, 280);
+}
+
+// Initialize sort bars
+(function() {
+  var arr = [5,3,8,1,9,2,7,4,6];
+  renderBars(arr, [], [], []);
+  updateStrategyHighlight();
+})();
+
+// ===== TAB 5: State =====
+var trafficStates = [
+  { key: 'red', name: '빨간불', desc: '정지 신호입니다.', badgeClass: 'badge-red',
+    redCls: 'red-on', yellowCls: 'yellow-off', greenCls: 'green-off' },
+  { key: 'green', name: '초록불', desc: '통과 가능합니다.', badgeClass: 'badge-green',
+    redCls: 'red-off', yellowCls: 'yellow-off', greenCls: 'green-on' },
+  { key: 'yellow', name: '노란불', desc: '주의하며 감속하세요.', badgeClass: 'badge-yellow',
+    redCls: 'red-off', yellowCls: 'yellow-on', greenCls: 'green-off' }
+];
+var trafficIdx = 0;
+var trafficAutoTimer = null;
+
+function applyTrafficState() {
+  var s = trafficStates[trafficIdx];
+  document.getElementById('lightRed').className = 'light-circle ' + s.redCls;
+  document.getElementById('lightYellow').className = 'light-circle ' + s.yellowCls;
+  document.getElementById('lightGreen').className = 'light-circle ' + s.greenCls;
+  var badge = document.getElementById('trafficStateName');
+  badge.textContent = s.name;
+  badge.className = 'state-badge ' + s.badgeClass;
+  badge.style.fontSize = '1.1rem';
+  badge.style.padding = '8px 20px';
+  document.getElementById('trafficStateDesc').textContent = s.desc;
+
+  var colors = { red: 'log-warn', green: 'log-ok', yellow: 'log-info' };
+  var icons = { red: '🔴', green: '🟢', yellow: '🟡' };
+  addLog('trafficLog', icons[s.key] + ' → ' + s.name + ' — ' + s.desc, colors[s.key]);
+}
+
+function trafficNext() {
+  trafficIdx = (trafficIdx + 1) % 3;
+  applyTrafficState();
+}
+
+function trafficToggleAuto() {
+  var btn = document.getElementById('autoBtn');
+  if (trafficAutoTimer) {
+    clearInterval(trafficAutoTimer);
+    trafficAutoTimer = null;
+    btn.textContent = '자동 전환 ON';
+    btn.className = 'btn';
+  } else {
+    trafficAutoTimer = setInterval(trafficNext, 2000);
+    btn.textContent = '자동 전환 OFF';
+    btn.className = 'btn btn-danger';
+  }
+}
+
+// ===== TAB 6: Iterator =====
+var iterItems = ['🍎 사과', '🍊 오렌지', '🍋 레몬', '🍇 포도', '🍓 딸기', '🥝 키위'];
+var iterIdx = -1;
+
+function renderIterItems() {
+  var container = document.getElementById('iterItems');
+  var pointerRow = document.getElementById('iterPointerRow');
+  container.innerHTML = '';
+  pointerRow.innerHTML = '';
+  for (var i = 0; i < iterItems.length; i++) {
+    var box = document.createElement('div');
+    box.className = 'iter-item' + (i === iterIdx ? ' current' : '');
+    box.id = 'iterItem' + i;
+    var idx = document.createElement('div');
+    idx.className = 'iter-index';
+    idx.textContent = '[' + i + ']';
+    box.appendChild(idx);
+    box.appendChild(document.createTextNode(iterItems[i]));
+    container.appendChild(box);
+
+    var ptr = document.createElement('div');
+    ptr.style.flex = '1';
+    ptr.style.minWidth = '80px';
+    ptr.style.textAlign = 'center';
+    ptr.style.fontSize = '0.9rem';
+    if (i === iterIdx) {
+      ptr.innerHTML = '<span style="color:#f6ad55; font-size:1.1rem">▲</span>';
+    }
+    pointerRow.appendChild(ptr);
+  }
+  var hasNext = iterIdx < iterItems.length - 1;
+  document.getElementById('iterHasNext').textContent = hasNext ? 'true' : 'false';
+  document.getElementById('iterHasNext').style.color = hasNext ? '#48bb78' : '#fc8181';
+  document.getElementById('iterIndex').textContent = iterIdx;
+  document.getElementById('iterCurrent').textContent = iterIdx >= 0 ? iterItems[iterIdx] : '—';
+  document.getElementById('iterNextBtn').disabled = !hasNext;
+}
+
+function iterNext() {
+  if (iterIdx < iterItems.length - 1) {
+    iterIdx++;
+    renderIterItems();
+    addLog('iterLog', '→ next() 호출 → 인덱스 ' + iterIdx + ': ' + iterItems[iterIdx], 'log-ok');
+    if (iterIdx === iterItems.length - 1) {
+      addLog('iterLog', '  hasNext() = false — 컬렉션 끝에 도달', 'log-warn');
+    }
+  }
+}
+
+function iterReset() {
+  iterIdx = -1;
+  renderIterItems();
+  var logEl = document.getElementById('iterLog');
+  logEl.innerHTML = '';
+  addLog('iterLog', '⟳ 이터레이터 리셋 — 처음으로 돌아갑니다', 'log-info');
+}
+
+renderIterItems();
+
+// ===== TAB 7: Mediator =====
+var medWithMediator = false;
+var medAnimating = false;
+
+var medNodeData = [
+  { id: 'medA', label: 'ComponentA', x: 60, y: 50 },
+  { id: 'medB', label: 'ComponentB', x: 260, y: 50 },
+  { id: 'medC', label: 'ComponentC', x: 60, y: 230 },
+  { id: 'medD', label: 'ComponentD', x: 260, y: 230 },
+  { id: 'medM', label: 'Mediator', x: 160, y: 140, isMediator: true }
+];
+
+function buildMediatorDOM() {
+  var canvas = document.getElementById('mediatorCanvas');
+  // Remove existing nodes
+  canvas.querySelectorAll('.med-node').forEach(function(n) { n.remove(); });
+
+  medNodeData.forEach(function(nd) {
+    if (nd.isMediator && !medWithMediator) return;
+    var el = document.createElement('div');
+    el.className = 'med-node' + (nd.isMediator ? ' mediator-center' : '');
+    el.id = nd.id;
+    el.textContent = nd.label;
+    el.style.left = nd.x + 'px';
+    el.style.top = nd.y + 'px';
+    if (!nd.isMediator) {
+      el.onclick = (function(ndd) { return function() { medSendMessage(ndd.id); }; })(nd);
+    }
+    canvas.appendChild(el);
+  });
+  drawMediatorLines();
+}
+
+function drawMediatorLines(highlight) {
+  var svg = document.getElementById('mediatorSvg');
+  svg.innerHTML = '';
+  var canvas = document.getElementById('mediatorCanvas');
+  var W = canvas.offsetWidth, H = canvas.offsetHeight;
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+
+  function getCenter(nd) {
+    var el = document.getElementById(nd.id);
+    if (!el) return null;
+    var ox = parseInt(el.style.left), oy = parseInt(el.style.top);
+    return { x: ox + el.offsetWidth / 2, y: oy + el.offsetHeight / 2 };
+  }
+
+  var peers = medNodeData.filter(function(n) { return !n.isMediator; });
+  var med = medNodeData.find(function(n) { return n.isMediator; });
+
+  function drawLine(a, b, active) {
+    var ca = getCenter(a), cb = getCenter(b);
+    if (!ca || !cb) return;
+    var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', ca.x); line.setAttribute('y1', ca.y);
+    line.setAttribute('x2', cb.x); line.setAttribute('y2', cb.y);
+    line.setAttribute('stroke', active ? '#f6ad55' : '#2d3748');
+    line.setAttribute('stroke-width', active ? '3' : '1.5');
+    if (!active) line.setAttribute('stroke-dasharray', '6,4');
+    svg.appendChild(line);
+  }
+
+  if (medWithMediator) {
+    peers.forEach(function(p) {
+      var active = highlight && (highlight.from === p.id || highlight.to === p.id || highlight.from === med.id || highlight.to === med.id);
+      drawLine(p, med, active);
+    });
+  } else {
+    for (var i = 0; i < peers.length; i++) {
+      for (var j = i + 1; j < peers.length; j++) {
+        var active = highlight && ((highlight.from === peers[i].id && highlight.to === peers[j].id) ||
+          (highlight.from === peers[j].id && highlight.to === peers[i].id));
+        drawLine(peers[i], peers[j], active);
+      }
+    }
+  }
+}
+
+function medSendMessage(fromId) {
+  if (medAnimating) return;
+  medAnimating = true;
+  var fromNode = medNodeData.find(function(n) { return n.id === fromId; });
+  var targets = medNodeData.filter(function(n) { return !n.isMediator && n.id !== fromId; });
+
+  addLog('medLog', '▶ ' + fromNode.label + ' 메시지 전송', 'log-info');
+
+  var fromEl = document.getElementById(fromId);
+  if (fromEl) fromEl.classList.add('active');
+
+  if (!medWithMediator) {
+    // Direct connections: animate one by one
+    var delay = 0;
+    targets.forEach(function(t) {
+      setTimeout((function(target) { return function() {
+        drawMediatorLines({ from: fromId, to: target.id });
+        var tel = document.getElementById(target.id);
+        if (tel) { tel.classList.add('active'); }
+        addLog('medLog', '  → ' + fromNode.label + ' ——직접연결——> ' + target.label, 'log-pass');
+      }; })(t), delay);
+      delay += 500;
+    });
+    setTimeout(function() {
+      medNodeData.forEach(function(n) {
+        var el = document.getElementById(n.id);
+        if (el) el.classList.remove('active');
+      });
+      drawMediatorLines();
+      medAnimating = false;
+    }, delay + 400);
+  } else {
+    // Via mediator
+    var med = medNodeData.find(function(n) { return n.isMediator; });
+    var medEl = document.getElementById(med.id);
+    drawMediatorLines({ from: fromId, to: med.id });
+    addLog('medLog', '  → ' + fromNode.label + ' ——→ Mediator (수신)', 'log-pass');
+    setTimeout(function() {
+      if (medEl) medEl.classList.add('active');
+      addLog('medLog', '  ◈ Mediator 중계 중...', 'log-info');
+      var delay2 = 400;
+      targets.forEach(function(t) {
+        setTimeout((function(target) { return function() {
+          drawMediatorLines({ from: med.id, to: target.id });
+          var tel = document.getElementById(target.id);
+          if (tel) tel.classList.add('active');
+          addLog('medLog', '  → Mediator ——→ ' + target.label + ' (전달)', 'log-ok');
+        }; })(t), delay2);
+        delay2 += 500;
+      });
+      setTimeout(function() {
+        medNodeData.forEach(function(n) {
+          var el = document.getElementById(n.id);
+          if (el) el.classList.remove('active');
+        });
+        drawMediatorLines();
+        medAnimating = false;
+      }, delay2 + 400);
+    }, 500);
+  }
+}
+
+function toggleMediatorView() {
+  medWithMediator = !medWithMediator;
+  document.getElementById('medTitle').textContent = medWithMediator
+    ? '중재자 패턴 — 스타 토폴로지 (중재자 통해 통신)'
+    : '중재자 없음 — 직접 연결 (복잡한 메쉬)';
+  document.getElementById('medToggleLabel').textContent = medWithMediator
+    ? '직접 연결로 전환'
+    : '중재자 패턴으로 전환';
+  buildMediatorDOM();
+  addLog('medLog', '⇄ 뷰 전환: ' + (medWithMediator ? '중재자 패턴' : '직접 연결(메쉬)'), 'log-info');
+}
+
+buildMediatorDOM();
+// Redraw on resize
+window.addEventListener('resize', function() { drawMediatorLines(); });
+
+// ===== TAB 8: Memento =====
+var mementoHistory = [];
+var mementoVersion = 0;
+
+function mementoSave() {
+  var text = document.getElementById('mementoEditor').value;
+  var now = new Date();
+  var ts = now.toLocaleTimeString('ko-KR');
+  mementoVersion++;
+  mementoHistory.push({ text: text, ts: ts, ver: mementoVersion });
+  renderMementoHistory();
+  document.getElementById('mementoVersion').textContent = 'v' + mementoVersion + ' (' + ts + ')';
+  addLog('mementoLog', '💾 스냅샷 저장 v' + mementoVersion + ' — "' + text.substring(0, 30) + (text.length > 30 ? '...' : '') + '"', 'log-ok');
+}
+
+function mementoUndo() {
+  if (mementoHistory.length === 0) {
+    addLog('mementoLog', '✗ 복원할 스냅샷이 없습니다', 'log-warn');
+    return;
+  }
+  var last = mementoHistory.pop();
+  document.getElementById('mementoEditor').value = last.text;
+  document.getElementById('mementoVersion').textContent = 'v' + last.ver + ' (복원됨)';
+  renderMementoHistory();
+  addLog('mementoLog', '↩ Undo — v' + last.ver + ' 복원: "' + last.text.substring(0, 30) + (last.text.length > 30 ? '...' : '') + '"', 'log-warn');
+}
+
+function mementoRestore(idx) {
+  var snap = mementoHistory[idx];
+  document.getElementById('mementoEditor').value = snap.text;
+  document.getElementById('mementoVersion').textContent = 'v' + snap.ver + ' (복원됨)';
+  addLog('mementoLog', '⟳ 스냅샷 v' + snap.ver + ' 복원: "' + snap.text.substring(0, 30) + (snap.text.length > 30 ? '...' : '') + '"', 'log-info');
+}
+
+function renderMementoHistory() {
+  var el = document.getElementById('mementoHistory');
+  if (mementoHistory.length === 0) {
+    el.innerHTML = '<div style="color:#4a5568; font-size:0.8rem">— 스냅샷을 저장하면 표시됩니다 —</div>';
+    return;
+  }
+  el.innerHTML = '';
+  for (var i = mementoHistory.length - 1; i >= 0; i--) {
+    (function(idx, snap) {
+      var item = document.createElement('div');
+      item.className = 'snapshot-item slide-in';
+      item.innerHTML =
+        '<span class="snap-preview">v' + snap.ver + ': ' + snap.text.substring(0, 40) + (snap.text.length > 40 ? '...' : '') + '</span>' +
+        '<span class="snap-time">' + snap.ts + '</span>';
+      item.onclick = function() { mementoRestore(idx); };
+      el.appendChild(item);
+    })(i, mementoHistory[i]);
+  }
+}
+
+// ===== TAB 9: Template Method =====
+var tmplRunning = false;
+
+function runTemplate(type) {
+  if (tmplRunning) return;
+  tmplRunning = true;
+
+  var logEl = document.getElementById('tmplLog');
+  logEl.innerHTML = '';
+
+  var prefix = type === 'tea' ? 'tea' : 'coffee';
+  var names = type === 'tea' ? ['물 끓이기', '찻잎 우리기', '컵에 따르기', '레몬 추가'] :
+                               ['물 끓이기', '원두 드립 추출', '컵에 따르기', '설탕·크림 추가'];
+  var isOverride = [false, true, false, true];
+  var isFixed = [true, false, true, false];
+  var icon = type === 'tea' ? '🍵 Tea' : '☕ Coffee';
+
+  addLog('tmplLog', '▶ ' + icon + ' 알고리즘 실행 시작', 'log-info');
+
+  // Reset all steps
+  for (var i = 1; i <= 4; i++) {
+    var el = document.getElementById(prefix + '-step' + i);
+    if (el) el.classList.remove('running');
+    var absEl = document.getElementById('abs-step' + i);
+    if (absEl) absEl.classList.remove('running');
+  }
+
+  var stepDelay = 0;
+  for (var s = 1; s <= 4; s++) {
+    (function(step) {
+      setTimeout(function() {
+        // Highlight abstract
+        var absEl = document.getElementById('abs-step' + step);
+        if (absEl) absEl.classList.add('running');
+
+        var conEl = document.getElementById(prefix + '-step' + step);
+        if (conEl) conEl.classList.add('running');
+
+        var overrideFlag = isOverride[step - 1];
+        var msg = '  ' + step + '. ' + names[step - 1] + (overrideFlag ? ' [오버라이드]' : ' [고정 단계]');
+        addLog('tmplLog', msg, overrideFlag ? 'log-ok' : 'log-pass');
+
+        setTimeout(function() {
+          if (absEl) absEl.classList.remove('running');
+          if (conEl) conEl.classList.remove('running');
+          if (step === 4) {
+            addLog('tmplLog', '✓ ' + icon + ' 알고리즘 완료!', 'log-ok');
+            tmplRunning = false;
+          }
+        }, 700);
+      }, stepDelay);
+      stepDelay += 900;
+    })(s);
+  }
+}
+
+// ===== TAB 10: Visitor =====
+var visitAnimating = false;
+
+var visitorOps = {
+  elemA: { name: 'ElementA', op: 'visitA(e) → 가격 계산 (price * 1.1)', icon: '🛍️' },
+  elemB: { name: 'ElementB', op: 'visitB(e) → 할인 적용 (price * 0.9)', icon: '🏷️' },
+  elemC: { name: 'ElementC', op: 'visitC(e) → 세금 추가 (price + tax)', icon: '📊' }
+};
+
+function resetVisit() {
+  visitAnimating = false;
+  document.getElementById('visitBtn').disabled = false;
+  ['elemA', 'elemB', 'elemC'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.remove('visiting');
+    var opEl = document.getElementById(id + 'Op');
+    if (opEl) opEl.textContent = '대기 중...';
+  });
+  var vBox = document.getElementById('visitorBox');
+  if (vBox) vBox.classList.remove('highlight', 'highlight-blue');
+  document.getElementById('visitorStatus').textContent = '방문 대기 중';
+  document.getElementById('visitArrow').style.color = '#4a5568';
+  var logEl = document.getElementById('visitorLog');
+  logEl.innerHTML = '';
+  addLog('visitorLog', '— 방문 시작 버튼을 누르면 방문 과정이 표시됩니다 —', '');
+}
+
+function startVisit() {
+  if (visitAnimating) return;
+  visitAnimating = true;
+  document.getElementById('visitBtn').disabled = true;
+
+  // Reset ops
+  ['elemA', 'elemB', 'elemC'].forEach(function(id) {
+    var opEl = document.getElementById(id + 'Op');
+    if (opEl) opEl.textContent = '대기 중...';
+    var el = document.getElementById(id);
+    if (el) el.classList.remove('visiting');
+  });
+
+  var logEl = document.getElementById('visitorLog');
+  logEl.innerHTML = '';
+
+  var vBox = document.getElementById('visitorBox');
+  vBox.classList.add('highlight-blue');
+  addLog('visitorLog', '▶ ConcreteVisitor 방문 시작', 'log-info');
+  document.getElementById('visitorStatus').textContent = '방문 중...';
+  document.getElementById('visitArrow').style.color = '#f6ad55';
+
+  var elems = ['elemA', 'elemB', 'elemC'];
+  var delay = 400;
+
+  elems.forEach(function(eid) {
+    setTimeout((function(elemId) { return function() {
+      var el = document.getElementById(elemId);
+      var info = visitorOps[elemId];
+      if (el) el.classList.add('visiting');
+      var opEl = document.getElementById(elemId + 'Op');
+      if (opEl) opEl.textContent = info.icon + ' ' + info.op;
+      addLog('visitorLog', '  → accept(' + info.name + ') — ' + info.op, 'log-ok');
+      document.getElementById('visitorStatus').textContent = '방문 중: ' + info.name;
+
+      setTimeout(function() {
+        if (el) el.classList.remove('visiting');
+      }, 700);
+    }; })(eid), delay);
+    delay += 900;
+  });
+
+  setTimeout(function() {
+    vBox.classList.remove('highlight-blue');
+    document.getElementById('visitorStatus').textContent = '방문 완료!';
+    document.getElementById('visitArrow').style.color = '#48bb78';
+    addLog('visitorLog', '✓ 모든 요소 방문 완료!', 'log-ok');
+    document.getElementById('visitBtn').disabled = false;
+    visitAnimating = false;
+  }, delay + 400);
+}
+</script>
+</body>
+</html>
