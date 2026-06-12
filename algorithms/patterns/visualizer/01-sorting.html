@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>정렬 알고리즘 시각화</title>
+  <style>
+    /* ===== Reset & Base ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f1117;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 24px 64px;
+    }
+
+    /* ===== Header ===== */
+    header {
+      width: 100%;
+      max-width: 960px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    header h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    header h1 span { color: #4d8cff; }
+
+    .back-link {
+      font-size: 0.85rem;
+      color: #888;
+      text-decoration: none;
+      border: 1px solid #2a2d3a;
+      padding: 6px 14px;
+      border-radius: 8px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .back-link:hover { color: #4d8cff; border-color: #4d8cff; }
+
+    /* ===== Main Layout ===== */
+    .main-wrap {
+      width: 100%;
+      max-width: 960px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ===== Control Panel ===== */
+    .panel {
+      background: #1a1d27;
+      border: 1px solid #2a2d3a;
+      border-radius: 14px;
+      padding: 20px 24px;
+    }
+
+    .panel-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #555;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      align-items: flex-end;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 140px;
+    }
+
+    .control-group label {
+      font-size: 0.82rem;
+      color: #aaa;
+      font-weight: 500;
+    }
+
+    .control-group select,
+    .control-group input[type=range] {
+      background: #0f1117;
+      border: 1px solid #2a2d3a;
+      color: #e0e0e0;
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.15s;
+      cursor: pointer;
+    }
+
+    .control-group select:hover,
+    .control-group select:focus {
+      border-color: #4d8cff;
+    }
+
+    .control-group input[type=range] {
+      padding: 0;
+      height: 36px;
+      accent-color: #4d8cff;
+      width: 160px;
+    }
+
+    .slider-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      color: #555;
+      margin-top: 2px;
+    }
+
+    /* ===== Buttons ===== */
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+
+    .btn {
+      padding: 8px 20px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.1s, filter 0.15s;
+    }
+    .btn:hover:not(:disabled) { filter: brightness(1.15); transform: scale(1.03); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; filter: none; }
+
+    .btn-primary  { background: #4d8cff; color: #fff; }
+    .btn-warning  { background: #ffaa00; color: #111; }
+    .btn-danger   { background: #ff4444; color: #fff; }
+    .btn-neutral  { background: #2a2d3a; color: #ccc; border: 1px solid #3a3d4a; }
+
+    /* ===== Canvas Area ===== */
+    .canvas-wrap {
+      background: #1a1d27;
+      border: 1px solid #2a2d3a;
+      border-radius: 14px;
+      padding: 20px;
+      overflow: hidden;
+    }
+
+    #sortCanvas {
+      display: block;
+      width: 100%;
+      border-radius: 8px;
+      background: #12151f;
+    }
+
+    /* ===== Stats ===== */
+    .stats-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .stat-label {
+      font-size: 0.72rem;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .stat-value {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #e0e0e0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat-value.blue   { color: #4d8cff; }
+    .stat-value.yellow { color: #ffd700; }
+    .stat-value.red    { color: #ff4444; }
+    .stat-value.green  { color: #44ff44; }
+
+    /* ===== Step Description ===== */
+    .step-desc {
+      background: #0f1117;
+      border: 1px solid #2a2d3a;
+      border-left: 3px solid #4d8cff;
+      border-radius: 0 8px 8px 0;
+      padding: 10px 14px;
+      font-size: 0.88rem;
+      color: #aaa;
+      min-height: 40px;
+      transition: border-left-color 0.2s;
+    }
+
+    /* ===== Complexity Table ===== */
+    .complexity-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    th, td {
+      padding: 9px 12px;
+      text-align: left;
+      border-bottom: 1px solid #2a2d3a;
+    }
+
+    th {
+      color: #666;
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      background: #12151f;
+    }
+
+    td { color: #ccc; }
+
+    tr.active-row td { background: #1e2235; color: #fff; }
+    tr.active-row td:first-child { color: #4d8cff; font-weight: 700; }
+
+    td.good  { color: #44ff44; }
+    td.ok    { color: #ffd700; }
+    td.bad   { color: #ff4444; }
+
+    /* ===== Legend ===== */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.82rem;
+      color: #aaa;
+    }
+
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    /* ===== Responsive ===== */
+    @media (max-width: 600px) {
+      header h1 { font-size: 1.2rem; }
+      .stat-value { font-size: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<header>
+  <h1>정렬 알고리즘 <span>시각화</span></h1>
+  <a class="back-link" href="index.html">&larr; 목록으로</a>
+</header>
+
+<div class="main-wrap">
+
+  <!-- ===== CONTROLS PANEL ===== -->
+  <div class="panel">
+    <div class="panel-title">설정</div>
+    <div class="controls-row">
+
+      <!-- Algorithm selector -->
+      <div class="control-group">
+        <label for="algoSelect">알고리즘</label>
+        <select id="algoSelect">
+          <option value="bubble">버블 정렬 (Bubble Sort)</option>
+          <option value="selection">선택 정렬 (Selection Sort)</option>
+          <option value="insertion">삽입 정렬 (Insertion Sort)</option>
+          <option value="merge">병합 정렬 (Merge Sort)</option>
+          <option value="quick">퀵 정렬 (Quick Sort)</option>
+          <option value="heap">힙 정렬 (Heap Sort)</option>
+        </select>
+      </div>
+
+      <!-- Array size slider -->
+      <div class="control-group">
+        <label for="sizeSlider">배열 크기: <b id="sizeVal">20</b></label>
+        <input type="range" id="sizeSlider" min="10" max="50" value="20" />
+        <div class="slider-labels"><span>10</span><span>50</span></div>
+      </div>
+
+      <!-- Speed slider -->
+      <div class="control-group">
+        <label for="speedSlider">속도</label>
+        <input type="range" id="speedSlider" min="1" max="10" value="5" />
+        <div class="slider-labels"><span>느림</span><span>빠름</span></div>
+      </div>
+
+      <!-- Buttons -->
+      <div class="control-group" style="flex-direction:row; align-items:flex-end; gap:8px; min-width:unset;">
+        <button class="btn btn-neutral" id="btnGenerate">새 배열</button>
+        <button class="btn btn-primary"  id="btnStart">시작</button>
+        <button class="btn btn-warning"  id="btnPause" disabled>일시정지</button>
+        <button class="btn btn-danger"   id="btnReset">초기화</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===== CANVAS ===== -->
+  <div class="canvas-wrap">
+    <canvas id="sortCanvas" height="280"></canvas>
+  </div>
+
+  <!-- ===== STATS PANEL ===== -->
+  <div class="panel">
+    <div class="panel-title">통계</div>
+    <div class="stats-bar">
+      <div class="stat-item">
+        <span class="stat-label">비교 횟수</span>
+        <span class="stat-value yellow" id="statComparisons">0</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">교환 횟수</span>
+        <span class="stat-value red" id="statSwaps">0</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">경과 시간</span>
+        <span class="stat-value blue" id="statTime">0.00s</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">상태</span>
+        <span class="stat-value" id="statStatus">대기 중</span>
+      </div>
+    </div>
+    <!-- Step description -->
+    <div class="step-desc" id="stepDesc" style="margin-top:16px;">알고리즘을 선택하고 [시작] 버튼을 누르세요.</div>
+  </div>
+
+  <!-- ===== LEGEND ===== -->
+  <div class="panel">
+    <div class="panel-title">범례</div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#4488ff;"></div> 기본 요소</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ffd700;"></div> 비교 중</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ff4444;"></div> 교환 중</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#44ff44;"></div> 정렬 완료</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#bb44ff;"></div> 피벗 (퀵 정렬)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ff8844;"></div> 최솟값 (선택 정렬)</div>
+    </div>
+  </div>
+
+  <!-- ===== COMPLEXITY TABLE ===== -->
+  <div class="panel">
+    <div class="panel-title">시간 복잡도</div>
+    <div class="complexity-wrap">
+      <table id="complexityTable">
+        <thead>
+          <tr>
+            <th>알고리즘</th>
+            <th>최선</th>
+            <th>평균</th>
+            <th>최악</th>
+            <th>공간</th>
+            <th>안정성</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr data-algo="bubble">
+            <td>버블 정렬</td>
+            <td class="good">O(n)</td>
+            <td class="bad">O(n²)</td>
+            <td class="bad">O(n²)</td>
+            <td class="good">O(1)</td>
+            <td class="good">안정</td>
+          </tr>
+          <tr data-algo="selection">
+            <td>선택 정렬</td>
+            <td class="bad">O(n²)</td>
+            <td class="bad">O(n²)</td>
+            <td class="bad">O(n²)</td>
+            <td class="good">O(1)</td>
+            <td class="bad">불안정</td>
+          </tr>
+          <tr data-algo="insertion">
+            <td>삽입 정렬</td>
+            <td class="good">O(n)</td>
+            <td class="bad">O(n²)</td>
+            <td class="bad">O(n²)</td>
+            <td class="good">O(1)</td>
+            <td class="good">안정</td>
+          </tr>
+          <tr data-algo="merge">
+            <td>병합 정렬</td>
+            <td class="ok">O(n log n)</td>
+            <td class="ok">O(n log n)</td>
+            <td class="ok">O(n log n)</td>
+            <td class="ok">O(n)</td>
+            <td class="good">안정</td>
+          </tr>
+          <tr data-algo="quick">
+            <td>퀵 정렬</td>
+            <td class="ok">O(n log n)</td>
+            <td class="ok">O(n log n)</td>
+            <td class="bad">O(n²)</td>
+            <td class="ok">O(log n)</td>
+            <td class="bad">불안정</td>
+          </tr>
+          <tr data-algo="heap">
+            <td>힙 정렬</td>
+            <td class="ok">O(n log n)</td>
+            <td class="ok">O(n log n)</td>
+            <td class="ok">O(n log n)</td>
+            <td class="good">O(1)</td>
+            <td class="bad">불안정</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /.main-wrap -->
+
+<!-- ===== JAVASCRIPT ===== -->
+<script>
+// =============================================================
+// GLOBAL STATE
+// =============================================================
+/**
+ * state: 현재 시각화 상태를 담는 전역 객체
+ *  - array       : 정렬 대상 숫자 배열
+ *  - comparing   : 현재 비교 중인 인덱스 쌍 []
+ *  - swapping    : 현재 교환 중인 인덱스 쌍 []
+ *  - sorted      : 정렬 완료된 인덱스 Set
+ *  - pivot       : 퀵 정렬 피벗 인덱스 (-1 = 없음)
+ *  - minIdx      : 선택 정렬 최솟값 인덱스 (-1 = 없음)
+ *  - running     : 애니메이션 실행 중 여부
+ *  - paused      : 일시정지 여부
+ *  - comparisons : 비교 횟수 카운터
+ *  - swaps       : 교환 횟수 카운터
+ *  - startTime   : 시작 타임스탬프 (ms)
+ */
+const state = {
+  array:       [],
+  comparing:   [],
+  swapping:    [],
+  sorted:      new Set(),
+  pivot:       -1,
+  minIdx:      -1,
+  running:     false,
+  paused:      false,
+  comparisons: 0,
+  swaps:       0,
+  startTime:   null
+};
+
+// =============================================================
+// CANVAS SETUP
+// =============================================================
+const canvas  = document.getElementById('sortCanvas');
+const ctx     = canvas.getContext('2d');
+
+/** 캔버스의 실제 픽셀 크기를 뷰포트에 맞게 동기화 */
+function resizeCanvas() {
+  const rect = canvas.getBoundingClientRect();
+  canvas.width  = rect.width  * window.devicePixelRatio;
+  canvas.height = rect.height * window.devicePixelRatio;
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+  draw();
+}
+
+window.addEventListener('resize', resizeCanvas);
+
+// =============================================================
+// DOM REFERENCES
+// =============================================================
+const algoSelect    = document.getElementById('algoSelect');
+const sizeSlider    = document.getElementById('sizeSlider');
+const sizeVal       = document.getElementById('sizeVal');
+const speedSlider   = document.getElementById('speedSlider');
+const btnGenerate   = document.getElementById('btnGenerate');
+const btnStart      = document.getElementById('btnStart');
+const btnPause      = document.getElementById('btnPause');
+const btnReset      = document.getElementById('btnReset');
+const statComparisons = document.getElementById('statComparisons');
+const statSwaps     = document.getElementById('statSwaps');
+const statTime      = document.getElementById('statTime');
+const statStatus    = document.getElementById('statStatus');
+const stepDesc      = document.getElementById('stepDesc');
+
+// =============================================================
+// UTILITY FUNCTIONS
+// =============================================================
+
+/**
+ * sleep: 지정된 시간(ms) 동안 대기하는 Promise를 반환합니다.
+ * speedSlider 값에 따라 실제 delay를 조정합니다.
+ */
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * getDelay: 속도 슬라이더 값(1~10)을 ms 딜레이로 변환합니다.
+ * 느림(1) = 800ms, 빠름(10) = 10ms
+ */
+function getDelay() {
+  const speed = parseInt(speedSlider.value, 10); // 1(느림) ~ 10(빠름)
+  return Math.round(800 / speed);
+}
+
+/**
+ * randomArray: 지정된 크기의 무작위 정수 배열을 생성합니다.
+ * 값 범위: 5 ~ 95 (캔버스 높이 비율로 사용)
+ */
+function randomArray(n) {
+  const arr = [];
+  for (let i = 0; i < n; i++) {
+    arr.push(Math.floor(Math.random() * 90) + 5);
+  }
+  return arr;
+}
+
+/** 상태 카운터 UI를 업데이트합니다 */
+function updateStats() {
+  statComparisons.textContent = state.comparisons.toLocaleString();
+  statSwaps.textContent       = state.swaps.toLocaleString();
+  if (state.startTime) {
+    const elapsed = (performance.now() - state.startTime) / 1000;
+    statTime.textContent = elapsed.toFixed(2) + 's';
+  }
+}
+
+/** 단계 설명 텍스트를 갱신합니다 */
+function setDesc(text) {
+  stepDesc.textContent = text;
+}
+
+/** 복잡도 테이블에서 현재 알고리즘 행을 강조합니다 */
+function highlightComplexityRow(algo) {
+  document.querySelectorAll('#complexityTable tbody tr').forEach(tr => {
+    tr.classList.toggle('active-row', tr.dataset.algo === algo);
+  });
+}
+
+// =============================================================
+// DRAW FUNCTION
+// =============================================================
+
+/**
+ * draw: 현재 state를 기반으로 캔버스에 막대 그래프를 렌더링합니다.
+ * 각 막대의 색상:
+ *   - 교환 중(swapping) : #ff4444 (빨강)
+ *   - 비교 중(comparing): #ffd700 (노랑)
+ *   - 피벗(pivot)       : #bb44ff (보라)
+ *   - 최솟값(minIdx)    : #ff8844 (주황)
+ *   - 정렬 완료(sorted) : #44ff44 (초록)
+ *   - 기본              : #4488ff (파랑)
+ */
+function draw() {
+  const W = canvas.width  / window.devicePixelRatio;
+  const H = canvas.height / window.devicePixelRatio;
+  const n = state.array.length;
+  if (n === 0) return;
+
+  ctx.clearRect(0, 0, W * window.devicePixelRatio, H * window.devicePixelRatio);
+
+  // 배경
+  ctx.fillStyle = '#12151f';
+  ctx.fillRect(0, 0, W * window.devicePixelRatio, H * window.devicePixelRatio);
+
+  const padding    = 12;
+  const gap        = n > 30 ? 1 : 2;
+  const totalGap   = gap * (n - 1);
+  const barWidth   = (W - padding * 2 - totalGap) / n;
+  const maxVal     = 100;
+  const maxBarH    = H - padding * 2 - 20; // 20px: 값 텍스트 공간
+
+  const swappingSet  = new Set(state.swapping);
+  const comparingSet = new Set(state.comparing);
+
+  for (let i = 0; i < n; i++) {
+    const val   = state.array[i];
+    const barH  = (val / maxVal) * maxBarH;
+    const x     = padding + i * (barWidth + gap);
+    const y     = H - padding - barH;
+
+    // 색상 결정
+    let color;
+    if (swappingSet.has(i)) {
+      color = '#ff4444';  // 교환 중 - 빨강
+    } else if (comparingSet.has(i)) {
+      color = '#ffd700';  // 비교 중 - 노랑
+    } else if (i === state.pivot) {
+      color = '#bb44ff';  // 피벗 - 보라
+    } else if (i === state.minIdx) {
+      color = '#ff8844';  // 최솟값 - 주황
+    } else if (state.sorted.has(i)) {
+      color = '#44ff44';  // 정렬 완료 - 초록
+    } else {
+      color = '#4488ff';  // 기본 - 파랑
+    }
+
+    // 그라디언트 막대
+    const grad = ctx.createLinearGradient(x, y, x, y + barH);
+    grad.addColorStop(0, color);
+    grad.addColorStop(1, color + '88');
+    ctx.fillStyle = grad;
+
+    // 둥근 모서리 막대 (상단만)
+    const radius = Math.min(3, barWidth / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + barWidth - radius, y);
+    ctx.quadraticCurveTo(x + barWidth, y, x + barWidth, y + radius);
+    ctx.lineTo(x + barWidth, y + barH);
+    ctx.lineTo(x, y + barH);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+    ctx.fill();
+
+    // 값 텍스트 (배열 크기가 작을 때만 표시)
+    if (n <= 20 && barWidth > 14) {
+      ctx.fillStyle = '#ffffff88';
+      ctx.font = `bold ${Math.min(10, barWidth - 2)}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText(val, x + barWidth / 2, y - 4);
+    }
+  }
+}
+
+// =============================================================
+// ARRAY MANAGEMENT
+// =============================================================
+
+/** 새 배열을 생성하고 상태를 초기화합니다 */
+function generateArray() {
+  if (state.running) return;
+  const n = parseInt(sizeSlider.value, 10);
+  state.array      = randomArray(n);
+  state.comparing  = [];
+  state.swapping   = [];
+  state.sorted     = new Set();
+  state.pivot      = -1;
+  state.minIdx     = -1;
+  state.comparisons = 0;
+  state.swaps       = 0;
+  state.startTime   = null;
+  updateStats();
+  statTime.textContent = '0.00s';
+  statStatus.textContent = '대기 중';
+  setDesc('알고리즘을 선택하고 [시작] 버튼을 누르세요.');
+  draw();
+}
+
+/** 전체 초기화 (실행 중인 경우 중단) */
+function resetAll() {
+  state.running = false;
+  state.paused  = false;
+  generateArray();
+  btnStart.disabled  = false;
+  btnPause.disabled  = true;
+  btnPause.textContent = '일시정지';
+  btnGenerate.disabled = false;
+  algoSelect.disabled  = false;
+  sizeSlider.disabled  = false;
+}
+
+// =============================================================
+// PAUSE / RESUME HELPER
+// =============================================================
+
+/**
+ * waitIfPaused: 일시정지 상태인 동안 반복 대기합니다.
+ * 각 알고리즘의 루프 안에서 호출됩니다.
+ */
+async function waitIfPaused() {
+  while (state.paused && state.running) {
+    await sleep(50);
+  }
+}
+
+// =============================================================
+// ALGORITHM IMPLEMENTATIONS
+// =============================================================
+
+// ----- 1. BUBBLE SORT -----
+/**
+ * 버블 정렬: 인접한 두 원소를 비교하여 더 큰 값을 오른쪽으로 이동시킵니다.
+ * 매 패스가 끝나면 가장 큰 값이 올바른 위치에 정착합니다.
+ * 시간복잡도: O(n²), 공간복잡도: O(1), 안정 정렬
+ */
+async function bubbleSort() {
+  const arr = state.array;
+  const n   = arr.length;
+
+  for (let i = 0; i < n - 1; i++) {
+    let swapped = false;
+
+    for (let j = 0; j < n - i - 1; j++) {
+      if (!state.running) return;
+      await waitIfPaused();
+
+      // 비교
+      state.comparing = [j, j + 1];
+      state.comparisons++;
+      setDesc(`버블 정렬: arr[${j}]=${arr[j]} 과 arr[${j+1}]=${arr[j+1]} 비교`);
+      updateStats();
+      draw();
+      await sleep(getDelay());
+
+      if (!state.running) return;
+
+      if (arr[j] > arr[j + 1]) {
+        // 교환
+        state.swapping  = [j, j + 1];
+        state.comparing = [];
+        [arr[j], arr[j + 1]] = [arr[j + 1], arr[j]];
+        state.swaps++;
+        swapped = true;
+        setDesc(`버블 정렬: arr[${j}]↔arr[${j+1}] 교환`);
+        updateStats();
+        draw();
+        await sleep(getDelay());
+        state.swapping = [];
+      }
+    }
+
+    // 이번 패스에서 i번째 뒤에서부터 정렬 완료
+    state.sorted.add(n - 1 - i);
+    state.comparing = [];
+    draw();
+
+    // 이미 정렬된 경우 조기 종료
+    if (!swapped) {
+      for (let k = 0; k < n - 1 - i; k++) state.sorted.add(k);
+      break;
+    }
+  }
+  state.sorted.add(0);
+}
+
+// ----- 2. SELECTION SORT -----
+/**
+ * 선택 정렬: 매 패스마다 정렬되지 않은 부분에서 최솟값을 찾아
+ * 해당 부분의 첫 번째 원소와 교환합니다.
+ * 시간복잡도: O(n²), 공간복잡도: O(1), 불안정 정렬
+ */
+async function selectionSort() {
+  const arr = state.array;
+  const n   = arr.length;
+
+  for (let i = 0; i < n - 1; i++) {
+    let minIndex = i;
+    state.minIdx = i;
+
+    for (let j = i + 1; j < n; j++) {
+      if (!state.running) return;
+      await waitIfPaused();
+
+      // 비교
+      state.comparing = [minIndex, j];
+      state.comparisons++;
+      setDesc(`선택 정렬: 최솟값 탐색 중 — arr[${j}]=${arr[j]} vs 현재 최솟값 arr[${minIndex}]=${arr[minIndex]}`);
+      updateStats();
+      draw();
+      await sleep(getDelay());
+
+      if (arr[j] < arr[minIndex]) {
+        minIndex     = j;
+        state.minIdx = j;
+        setDesc(`선택 정렬: 새 최솟값 발견 arr[${j}]=${arr[j]}`);
+        draw();
+        await sleep(getDelay() * 0.5);
+      }
+    }
+
+    if (!state.running) return;
+
+    // 최솟값을 현재 위치로 교환
+    if (minIndex !== i) {
+      state.swapping  = [i, minIndex];
+      state.comparing = [];
+      [arr[i], arr[minIndex]] = [arr[minIndex], arr[i]];
+      state.swaps++;
+      setDesc(`선택 정렬: arr[${i}]↔arr[${minIndex}] 교환`);
+      updateStats();
+      draw();
+      await sleep(getDelay());
+      state.swapping = [];
+    }
+
+    state.sorted.add(i);
+    state.minIdx    = -1;
+    state.comparing = [];
+    draw();
+  }
+
+  state.sorted.add(n - 1);
+}
+
+// ----- 3. INSERTION SORT -----
+/**
+ * 삽입 정렬: 정렬된 부분에 새 원소를 올바른 위치에 삽입합니다.
+ * 부분 정렬된 배열에서 매우 효율적입니다.
+ * 시간복잡도: O(n) ~ O(n²), 공간복잡도: O(1), 안정 정렬
+ */
+async function insertionSort() {
+  const arr = state.array;
+  const n   = arr.length;
+
+  state.sorted.add(0); // 첫 원소는 이미 정렬됨
+  draw();
+
+  for (let i = 1; i < n; i++) {
+    const key = arr[i];
+    let j     = i - 1;
+
+    setDesc(`삽입 정렬: arr[${i}]=${key} 를 정렬된 부분에 삽입`);
+
+    while (j >= 0) {
+      if (!state.running) return;
+      await waitIfPaused();
+
+      state.comparing = [j, j + 1];
+      state.comparisons++;
+      updateStats();
+      draw();
+      await sleep(getDelay());
+
+      if (arr[j] > key) {
+        // 오른쪽으로 이동
+        state.swapping = [j, j + 1];
+        arr[j + 1]     = arr[j];
+        state.swaps++;
+        setDesc(`삽입 정렬: arr[${j}]=${arr[j]} 를 오른쪽으로 이동`);
+        updateStats();
+        draw();
+        await sleep(getDelay());
+        state.swapping  = [];
+        state.comparing = [];
+        j--;
+      } else {
+        break;
+      }
+    }
+
+    if (!state.running) return;
+
+    arr[j + 1]      = key;
+    state.comparing = [];
+    state.swapping  = [];
+
+    // 지금까지 정렬된 범위 표시
+    for (let k = 0; k <= i; k++) state.sorted.add(k);
+    draw();
+    await sleep(getDelay() * 0.5);
+  }
+}
+
+// ----- 4. MERGE SORT -----
+/**
+ * 병합 정렬: 배열을 절반씩 재귀적으로 분할한 뒤,
+ * 정렬된 두 부분을 병합합니다.
+ * 시간복잡도: O(n log n), 공간복잡도: O(n), 안정 정렬
+ */
+async function mergeSort() {
+  const arr = state.array;
+  await mergeSortHelper(arr, 0, arr.length - 1);
+  if (state.running) {
+    // 모두 정렬 완료 표시
+    for (let i = 0; i < arr.length; i++) state.sorted.add(i);
+    state.comparing = [];
+    state.swapping  = [];
+    draw();
+  }
+}
+
+async function mergeSortHelper(arr, left, right) {
+  if (!state.running) return;
+  if (left >= right) return;
+
+  const mid = Math.floor((left + right) / 2);
+
+  setDesc(`병합 정렬: [${left}..${right}] 분할 → [${left}..${mid}] + [${mid+1}..${right}]`);
+  draw();
+  await sleep(getDelay() * 0.5);
+
+  await mergeSortHelper(arr, left, mid);
+  await mergeSortHelper(arr, mid + 1, right);
+  await merge(arr, left, mid, right);
+}
+
+async function merge(arr, left, mid, right) {
+  const leftArr  = arr.slice(left,  mid + 1);
+  const rightArr = arr.slice(mid + 1, right + 1);
+  let i = 0, j = 0, k = left;
+
+  while (i < leftArr.length && j < rightArr.length) {
+    if (!state.running) return;
+    await waitIfPaused();
+
+    state.comparing = [left + i, mid + 1 + j];
+    state.comparisons++;
+    setDesc(`병합 정렬: ${leftArr[i]} vs ${rightArr[j]} 비교 후 병합`);
+    updateStats();
+    draw();
+    await sleep(getDelay());
+
+    if (leftArr[i] <= rightArr[j]) {
+      arr[k] = leftArr[i];
+      i++;
+    } else {
+      arr[k] = rightArr[j];
+      j++;
+      state.swaps++;
+    }
+
+    state.swapping = [k];
+    updateStats();
+    draw();
+    await sleep(getDelay() * 0.5);
+    state.swapping = [];
+    k++;
+  }
+
+  // 남은 원소 복사
+  while (i < leftArr.length) {
+    if (!state.running) return;
+    arr[k] = leftArr[i];
+    state.swapping = [k];
+    draw();
+    await sleep(getDelay() * 0.3);
+    state.swapping = [];
+    i++; k++;
+  }
+  while (j < rightArr.length) {
+    if (!state.running) return;
+    arr[k] = rightArr[j];
+    state.swapping = [k];
+    draw();
+    await sleep(getDelay() * 0.3);
+    state.swapping = [];
+    j++; k++;
+  }
+
+  // 병합된 구간을 임시로 정렬 표시
+  for (let x = left; x <= right; x++) state.sorted.add(x);
+  state.comparing = [];
+  state.swapping  = [];
+  draw();
+}
+
+// ----- 5. QUICK SORT -----
+/**
+ * 퀵 정렬: 피벗을 선택하여 피벗보다 작은 값은 왼쪽,
+ * 큰 값은 오른쪽으로 분할하고 재귀적으로 정렬합니다.
+ * 시간복잡도: O(n log n) 평균 / O(n²) 최악, 공간복잡도: O(log n)
+ */
+async function quickSort() {
+  const arr = state.array;
+  await quickSortHelper(arr, 0, arr.length - 1);
+  if (state.running) {
+    for (let i = 0; i < arr.length; i++) state.sorted.add(i);
+    state.pivot     = -1;
+    state.comparing = [];
+    state.swapping  = [];
+    draw();
+  }
+}
+
+async function quickSortHelper(arr, low, high) {
+  if (!state.running) return;
+  if (low >= high) {
+    if (low === high) state.sorted.add(low);
+    return;
+  }
+
+  const pivotIdx = await partition(arr, low, high);
+  if (!state.running) return;
+
+  state.sorted.add(pivotIdx);
+  state.pivot = -1;
+  draw();
+
+  await quickSortHelper(arr, low, pivotIdx - 1);
+  await quickSortHelper(arr, pivotIdx + 1, high);
+}
+
+async function partition(arr, low, high) {
+  // 마지막 원소를 피벗으로 선택
+  const pivotVal  = arr[high];
+  state.pivot     = high;
+  let i           = low - 1; // 더 작은 원소의 경계
+
+  setDesc(`퀵 정렬: 피벗 = arr[${high}]=${pivotVal}, [${low}..${high}] 파티션`);
+  draw();
+  await sleep(getDelay());
+
+  for (let j = low; j < high; j++) {
+    if (!state.running) return low;
+    await waitIfPaused();
+
+    state.comparing = [j, high];
+    state.comparisons++;
+    setDesc(`퀵 정렬: arr[${j}]=${arr[j]} 과 피벗 ${pivotVal} 비교`);
+    updateStats();
+    draw();
+    await sleep(getDelay());
+
+    if (arr[j] <= pivotVal) {
+      i++;
+      if (i !== j) {
+        state.swapping = [i, j];
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+        state.swaps++;
+        setDesc(`퀵 정렬: arr[${i}]↔arr[${j}] 교환`);
+        updateStats();
+        draw();
+        await sleep(getDelay());
+        state.swapping = [];
+      }
+    }
+  }
+
+  // 피벗을 올바른 위치로 이동
+  const pivotFinal = i + 1;
+  if (pivotFinal !== high) {
+    state.swapping = [pivotFinal, high];
+    [arr[pivotFinal], arr[high]] = [arr[high], arr[pivotFinal]];
+    state.swaps++;
+    state.pivot = pivotFinal;
+    updateStats();
+    draw();
+    await sleep(getDelay());
+    state.swapping = [];
+  }
+
+  state.comparing = [];
+  return pivotFinal;
+}
+
+// ----- 6. HEAP SORT -----
+/**
+ * 힙 정렬: 배열을 최대 힙(Max-Heap)으로 구성한 뒤,
+ * 루트(최댓값)를 맨 뒤로 이동시키며 힙 크기를 줄여 정렬합니다.
+ * 시간복잡도: O(n log n), 공간복잡도: O(1), 불안정 정렬
+ */
+async function heapSort() {
+  const arr = state.array;
+  const n   = arr.length;
+
+  // 1단계: 최대 힙 구성 (Build Max-Heap)
+  setDesc('힙 정렬: 최대 힙(Max-Heap) 구성 중...');
+  for (let i = Math.floor(n / 2) - 1; i >= 0; i--) {
+    if (!state.running) return;
+    await heapify(arr, n, i);
+  }
+
+  // 2단계: 루트(최댓값)를 순서대로 끝으로 이동
+  for (let i = n - 1; i > 0; i--) {
+    if (!state.running) return;
+    await waitIfPaused();
+
+    // 루트(최댓값)를 끝으로 교환
+    state.swapping = [0, i];
+    [arr[0], arr[i]] = [arr[i], arr[0]];
+    state.swaps++;
+    state.sorted.add(i);
+    setDesc(`힙 정렬: 최댓값 arr[0]=${arr[i]} 를 위치 ${i}로 이동`);
+    updateStats();
+    draw();
+    await sleep(getDelay());
+    state.swapping = [];
+
+    // 힙 속성 복구
+    await heapify(arr, i, 0);
+  }
+
+  if (state.running) {
+    state.sorted.add(0);
+    state.comparing = [];
+    state.swapping  = [];
+    draw();
+  }
+}
+
+/**
+ * heapify: 인덱스 rootIdx를 루트로 하는 서브트리를 최대 힙으로 유지합니다.
+ * @param {number[]} arr   - 배열
+ * @param {number}   n     - 힙 크기
+ * @param {number}   rootIdx - 루트 인덱스
+ */
+async function heapify(arr, n, rootIdx) {
+  let largest = rootIdx;
+  const left  = 2 * rootIdx + 1;
+  const right = 2 * rootIdx + 2;
+
+  // 왼쪽 자식과 비교
+  if (left < n) {
+    if (!state.running) return;
+    state.comparing = [largest, left];
+    state.comparisons++;
+    updateStats();
+    draw();
+    await sleep(getDelay() * 0.5);
+    if (arr[left] > arr[largest]) largest = left;
+  }
+
+  // 오른쪽 자식과 비교
+  if (right < n) {
+    if (!state.running) return;
+    state.comparing = [largest, right];
+    state.comparisons++;
+    updateStats();
+    draw();
+    await sleep(getDelay() * 0.5);
+    if (arr[right] > arr[largest]) largest = right;
+  }
+
+  // 루트가 최대가 아니면 교환 후 재귀
+  if (largest !== rootIdx) {
+    state.swapping = [rootIdx, largest];
+    [arr[rootIdx], arr[largest]] = [arr[largest], arr[rootIdx]];
+    state.swaps++;
+    setDesc(`힙 정렬: arr[${rootIdx}]↔arr[${largest}] 교환 (힙 속성 복구)`);
+    updateStats();
+    draw();
+    await sleep(getDelay());
+    state.swapping  = [];
+    state.comparing = [];
+    await heapify(arr, n, largest);
+  } else {
+    state.comparing = [];
+  }
+}
+
+// =============================================================
+// RUN ALGORITHM DISPATCHER
+// =============================================================
+
+/** 선택된 알고리즘을 실행하고 완료 처리를 합니다 */
+async function runAlgorithm() {
+  const algo = algoSelect.value;
+
+  // UI 잠금
+  state.running  = true;
+  state.paused   = false;
+  state.comparisons = 0;
+  state.swaps       = 0;
+  state.sorted      = new Set();
+  state.startTime   = performance.now();
+
+  btnStart.disabled    = true;
+  btnPause.disabled    = false;
+  btnGenerate.disabled = true;
+  algoSelect.disabled  = true;
+  sizeSlider.disabled  = true;
+  statStatus.textContent = '실행 중';
+
+  highlightComplexityRow(algo);
+
+  // 타이머 업데이트 (50ms 간격)
+  const timerInterval = setInterval(() => {
+    if (state.running && state.startTime) {
+      const elapsed = (performance.now() - state.startTime) / 1000;
+      statTime.textContent = elapsed.toFixed(2) + 's';
+    }
+  }, 50);
+
+  // 알고리즘 실행
+  try {
+    switch (algo) {
+      case 'bubble':    await bubbleSort();    break;
+      case 'selection': await selectionSort(); break;
+      case 'insertion': await insertionSort(); break;
+      case 'merge':     await mergeSort();     break;
+      case 'quick':     await quickSort();     break;
+      case 'heap':      await heapSort();      break;
+    }
+  } catch (e) {
+    // 강제 종료 시 예외 무시
+  }
+
+  clearInterval(timerInterval);
+
+  if (state.running) {
+    // 정상 완료
+    state.running  = false;
+    state.paused   = false;
+    state.comparing = [];
+    state.swapping  = [];
+    state.pivot     = -1;
+    state.minIdx    = -1;
+    // 모든 원소를 정렬 완료로 표시 (완료 효과)
+    for (let i = 0; i < state.array.length; i++) state.sorted.add(i);
+    draw();
+    statStatus.textContent = '완료 ✓';
+    setDesc('정렬 완료! 새 배열을 생성하거나 다른 알고리즘을 선택해보세요.');
+  } else {
+    statStatus.textContent = '중단됨';
+  }
+
+  // UI 잠금 해제
+  btnStart.disabled    = false;
+  btnPause.disabled    = true;
+  btnPause.textContent = '일시정지';
+  btnGenerate.disabled = false;
+  algoSelect.disabled  = false;
+  sizeSlider.disabled  = false;
+}
+
+// =============================================================
+// EVENT LISTENERS
+// =============================================================
+
+// 배열 크기 슬라이더
+sizeSlider.addEventListener('input', () => {
+  sizeVal.textContent = sizeSlider.value;
+  if (!state.running) generateArray();
+});
+
+// 새 배열 버튼
+btnGenerate.addEventListener('click', () => {
+  if (!state.running) generateArray();
+});
+
+// 시작 버튼
+btnStart.addEventListener('click', () => {
+  if (!state.running) {
+    // 이미 정렬된 경우 재생성
+    if (state.sorted.size === state.array.length && state.array.length > 0) {
+      generateArray();
+      setTimeout(runAlgorithm, 100);
+    } else {
+      runAlgorithm();
+    }
+  }
+});
+
+// 일시정지 / 재개 버튼
+btnPause.addEventListener('click', () => {
+  if (!state.running) return;
+  state.paused = !state.paused;
+  btnPause.textContent   = state.paused ? '재개' : '일시정지';
+  statStatus.textContent = state.paused ? '일시정지' : '실행 중';
+  if (!state.paused) {
+    setDesc('재개됨...');
+  } else {
+    setDesc('일시정지됨. [재개] 버튼을 눌러 계속하세요.');
+  }
+});
+
+// 초기화 버튼
+btnReset.addEventListener('click', resetAll);
+
+// 알고리즘 선택 변경 시 복잡도 행 강조
+algoSelect.addEventListener('change', () => {
+  highlightComplexityRow(algoSelect.value);
+});
+
+// =============================================================
+// INITIALIZATION
+// =============================================================
+
+/** 페이지 로드 시 초기화 */
+function init() {
+  resizeCanvas();
+  generateArray();
+  highlightComplexityRow(algoSelect.value);
+}
+
+// DOMContentLoaded 이후 초기화
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+</script>
+</body>
+</html>

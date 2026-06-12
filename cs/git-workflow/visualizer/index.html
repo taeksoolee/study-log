@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Git 워크플로우 시각화</title>
+  <style>
+    /* ===== CSS 리셋 & 기본 변수 ===== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-primary:   #0d1117;
+      --bg-secondary: #161b22;
+      --bg-card:      #1c2128;
+      --bg-hover:     #21262d;
+      --border:       #30363d;
+      --text-primary: #e6edf3;
+      --text-secondary: #8b949e;
+      --text-muted:   #484f58;
+
+      --gitflow:      #4CAF50;
+      --github-flow:  #2196F3;
+      --gitlab-flow:  #FF9800;
+      --trunk:        #9C27B0;
+
+      --gitflow-dim:      rgba(76, 175, 80,  0.15);
+      --github-flow-dim:  rgba(33, 150, 243, 0.15);
+      --gitlab-flow-dim:  rgba(255, 152, 0,  0.15);
+      --trunk-dim:        rgba(156, 39, 176, 0.15);
+
+      --radius-sm: 6px;
+      --radius-md: 12px;
+      --radius-lg: 20px;
+
+      --shadow-card: 0 4px 16px rgba(0,0,0,0.4);
+      --shadow-hover: 0 12px 40px rgba(0,0,0,0.6);
+
+      --transition: 0.25s ease;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR',
+                   sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ===== 헤더 ===== */
+    .site-header {
+      background: linear-gradient(180deg, #0d1117 0%, #161b22 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 64px 24px 48px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .site-header::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 40% at 20% 50%, rgba(76,175,80,0.06) 0%, transparent 70%),
+        radial-gradient(ellipse 60% 40% at 80% 50%, rgba(33,150,243,0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .header-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    .site-title {
+      font-size: clamp(28px, 5vw, 48px);
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, #e6edf3 30%, #8b949e);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .site-subtitle {
+      font-size: 16px;
+      color: var(--text-secondary);
+      max-width: 540px;
+      margin: 0 auto;
+    }
+
+    /* ===== 네비게이션 탭 ===== */
+    .nav-tabs {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      padding: 24px 24px 0;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-secondary);
+      flex-wrap: wrap;
+    }
+
+    .nav-tab {
+      padding: 10px 20px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: color var(--transition), border-color var(--transition);
+      margin-bottom: -1px;
+    }
+
+    .nav-tab:hover {
+      color: var(--text-primary);
+    }
+
+    .nav-tab.active {
+      color: var(--text-primary);
+      border-bottom-color: #58a6ff;
+    }
+
+    /* ===== 메인 레이아웃 ===== */
+    .main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+
+    .section {
+      margin-bottom: 72px;
+    }
+
+    .section-title {
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .section-desc {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 32px;
+    }
+
+    /* ===== 워크플로우 카드 그리드 ===== */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 20px;
+    }
+
+    .workflow-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 28px 24px;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      cursor: pointer;
+      transition: transform var(--transition),
+                  box-shadow var(--transition),
+                  border-color var(--transition),
+                  background var(--transition);
+      opacity: 0;
+      transform: translateY(24px);
+    }
+
+    .workflow-card.visible {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity 0.5s ease, transform 0.5s ease,
+                  box-shadow var(--transition), border-color var(--transition),
+                  background var(--transition);
+    }
+
+    .workflow-card:hover {
+      transform: translateY(-6px);
+      box-shadow: var(--shadow-hover);
+    }
+
+    .workflow-card[data-color="gitflow"]:hover {
+      border-color: var(--gitflow);
+      background: var(--gitflow-dim);
+    }
+    .workflow-card[data-color="github-flow"]:hover {
+      border-color: var(--github-flow);
+      background: var(--github-flow-dim);
+    }
+    .workflow-card[data-color="gitlab-flow"]:hover {
+      border-color: var(--gitlab-flow);
+      background: var(--gitlab-flow-dim);
+    }
+    .workflow-card[data-color="trunk"]:hover {
+      border-color: var(--trunk);
+      background: var(--trunk-dim);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .card-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .card-title {
+      font-size: 17px;
+      font-weight: 600;
+    }
+
+    .card-icon {
+      font-size: 28px;
+      margin-left: auto;
+    }
+
+    .card-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.7;
+    }
+
+    .badge-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 3px 10px;
+      border-radius: 20px;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+
+    .badge-gitflow    { background: var(--gitflow-dim);     color: var(--gitflow);     border-color: rgba(76,175,80,0.3); }
+    .badge-github     { background: var(--github-flow-dim); color: var(--github-flow); border-color: rgba(33,150,243,0.3); }
+    .badge-gitlab     { background: var(--gitlab-flow-dim); color: var(--gitlab-flow); border-color: rgba(255,152,0,0.3); }
+    .badge-trunk      { background: var(--trunk-dim);       color: var(--trunk);       border-color: rgba(156,39,176,0.3); }
+    .badge-neutral    { background: rgba(139,148,158,0.15); color: var(--text-secondary); border-color: rgba(139,148,158,0.3); }
+
+    .card-link-hint {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: auto;
+    }
+
+    /* ===== 빠른 비교 테이블 ===== */
+    .compare-table-wrap {
+      overflow-x: auto;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+    }
+
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .compare-table thead tr {
+      background: var(--bg-secondary);
+    }
+
+    .compare-table th {
+      padding: 14px 20px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--text-secondary);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    .compare-table td {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    .compare-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .compare-table tbody tr:hover {
+      background: var(--bg-hover);
+    }
+
+    .flow-name {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+    }
+
+    .flow-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .meter {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .meter-bar {
+      height: 6px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    .meter-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    /* ===== 퀴즈 섹션 ===== */
+    .quiz-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 40px 36px;
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    .quiz-progress {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 28px;
+    }
+
+    .quiz-progress-dot {
+      height: 4px;
+      border-radius: 2px;
+      flex: 1;
+      background: var(--border);
+      transition: background 0.3s ease;
+    }
+
+    .quiz-progress-dot.done {
+      background: #58a6ff;
+    }
+
+    .quiz-question {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--text-primary);
+    }
+
+    .quiz-question-sub {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+
+    .quiz-options {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .quiz-option {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 14px 18px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: border-color var(--transition), background var(--transition);
+      text-align: left;
+    }
+
+    .quiz-option:hover {
+      border-color: #58a6ff;
+      background: rgba(88,166,255,0.06);
+    }
+
+    .quiz-option.selected {
+      border-color: #58a6ff;
+      background: rgba(88,166,255,0.1);
+    }
+
+    .quiz-option-key {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+      color: var(--text-secondary);
+      transition: background var(--transition), color var(--transition);
+    }
+
+    .quiz-option.selected .quiz-option-key {
+      background: #58a6ff;
+      color: #0d1117;
+    }
+
+    .quiz-option-text {
+      font-size: 14px;
+      color: var(--text-primary);
+      line-height: 1.5;
+    }
+
+    .quiz-option-sub {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .quiz-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 28px;
+    }
+
+    .quiz-step-label {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .quiz-btn {
+      padding: 10px 22px;
+      border-radius: var(--radius-sm);
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity var(--transition), transform var(--transition);
+    }
+
+    .quiz-btn:active { transform: scale(0.97); }
+
+    .quiz-btn-primary {
+      background: #238636;
+      color: #fff;
+    }
+
+    .quiz-btn-primary:hover { opacity: 0.85; }
+
+    .quiz-btn-secondary {
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+
+    .quiz-btn-secondary:hover {
+      color: var(--text-primary);
+      border-color: var(--text-secondary);
+    }
+
+    .quiz-result {
+      display: none;
+      text-align: center;
+      animation: fadeInUp 0.4s ease;
+    }
+
+    .quiz-result.show { display: block; }
+
+    .quiz-result-icon {
+      font-size: 56px;
+      margin-bottom: 16px;
+    }
+
+    .quiz-result-title {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .quiz-result-desc {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.7;
+      margin-bottom: 24px;
+    }
+
+    .quiz-result-badges {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 28px;
+    }
+
+    .quiz-retry-btn {
+      padding: 10px 28px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color var(--transition);
+    }
+
+    .quiz-retry-btn:hover { border-color: var(--text-secondary); }
+
+    /* ===== 커밋 컨벤션 인포그래픽 카드 ===== */
+    .commit-infographic {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 32px 28px;
+      opacity: 0;
+      transform: translateY(24px);
+    }
+
+    .commit-infographic.visible {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity 0.5s ease 0.2s, transform 0.5s ease 0.2s;
+    }
+
+    .commit-type-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .commit-type-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--bg-secondary);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
+
+    .commit-type-tag {
+      font-family: 'SFMono-Regular', Consolas, monospace;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .commit-type-desc {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .commit-example {
+      margin-top: 20px;
+      background: var(--bg-primary);
+      border-radius: var(--radius-sm);
+      padding: 16px 20px;
+      border: 1px solid var(--border);
+    }
+
+    .commit-example-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 10px;
+    }
+
+    .commit-example-code {
+      font-family: 'SFMono-Regular', Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.8;
+    }
+
+    .ce-type    { color: #7ee787; }
+    .ce-scope   { color: #ffa657; }
+    .ce-msg     { color: var(--text-primary); }
+    .ce-body    { color: var(--text-secondary); }
+    .ce-footer  { color: #79c0ff; }
+
+    /* ===== 푸터 ===== */
+    .site-footer {
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+      text-align: center;
+      padding: 28px 24px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .site-footer a {
+      color: #58a6ff;
+      text-decoration: none;
+    }
+
+    .site-footer a:hover { text-decoration: underline; }
+
+    /* ===== 애니메이션 ===== */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ===== 반응형 ===== */
+    @media (max-width: 600px) {
+      .quiz-box { padding: 28px 20px; }
+      .compare-table th,
+      .compare-table td { padding: 12px 14px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===== 헤더 ===== -->
+<header class="site-header">
+  <span class="header-icon">🌿</span>
+  <h1 class="site-title">Git 워크플로우 시각화</h1>
+  <p class="site-subtitle">
+    대표적인 Git 브랜치 전략을 시각적으로 이해하고,<br>
+    팀에 맞는 워크플로우를 선택하세요.
+  </p>
+</header>
+
+<!-- ===== 네비게이션 ===== -->
+<nav class="nav-tabs">
+  <button class="nav-tab active" onclick="scrollToSection('workflows')">워크플로우</button>
+  <button class="nav-tab" onclick="scrollToSection('compare')">빠른 비교</button>
+  <button class="nav-tab" onclick="scrollToSection('commit')">커밋 컨벤션</button>
+  <button class="nav-tab" onclick="scrollToSection('quiz')">추천 퀴즈</button>
+</nav>
+
+<!-- ===== 메인 ===== -->
+<main class="main">
+
+  <!-- 섹션 1: 워크플로우 카드 -->
+  <section class="section" id="workflows">
+    <h2 class="section-title">워크플로우 시각화</h2>
+    <p class="section-desc">각 카드를 클릭하면 해당 워크플로우의 상세 시각화 페이지로 이동합니다.</p>
+
+    <div class="card-grid">
+
+      <!-- GitFlow 카드 -->
+      <a class="workflow-card" href="gitflow.html" data-color="gitflow">
+        <div class="card-header">
+          <span class="card-dot" style="background:#4CAF50;"></span>
+          <span class="card-title">GitFlow</span>
+          <span class="card-icon">🌳</span>
+        </div>
+        <p class="card-desc">
+          <strong>main · develop · feature · release · hotfix</strong> 5가지 브랜치를
+          체계적으로 관리하는 전통적인 전략. 정기 릴리스 사이클과 버전 관리에 최적화되어 있습니다.
+        </p>
+        <div class="badge-list">
+          <span class="badge badge-gitflow">복잡도: 높음</span>
+          <span class="badge badge-gitflow">버전 관리: ✓</span>
+          <span class="badge badge-neutral">배포 빈도: 낮음</span>
+          <span class="badge badge-neutral">팀 규모: 중·대형</span>
+        </div>
+        <span class="card-link-hint">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M3.75 2h8.5c.966 0 1.75.784 1.75 1.75v8.5A1.75 1.75 0 0 1 12.25 14h-8.5A1.75 1.75 0 0 1 2 12.25v-8.5C2 2.784 2.784 2 3.75 2zm0 1.5a.25.25 0 0 0-.25.25v8.5c0 .138.112.25.25.25h8.5a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25h-8.5z"/>
+          </svg>
+          gitflow.html 열기
+        </span>
+      </a>
+
+      <!-- GitHub Flow 카드 -->
+      <a class="workflow-card" href="github-flow.html" data-color="github-flow">
+        <div class="card-header">
+          <span class="card-dot" style="background:#2196F3;"></span>
+          <span class="card-title">GitHub Flow</span>
+          <span class="card-icon">🔄</span>
+        </div>
+        <p class="card-desc">
+          <strong>main + feature branch</strong>만으로 운용하는 단순한 PR 기반 흐름.
+          CI/CD와 결합해 지속적 배포(CD)를 실현하며, 작은 팀에 적합합니다.
+        </p>
+        <div class="badge-list">
+          <span class="badge badge-github">복잡도: 낮음</span>
+          <span class="badge badge-github">PR 중심: ✓</span>
+          <span class="badge badge-neutral">배포 빈도: 높음</span>
+          <span class="badge badge-neutral">팀 규모: 소·중형</span>
+        </div>
+        <span class="card-link-hint">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M3.75 2h8.5c.966 0 1.75.784 1.75 1.75v8.5A1.75 1.75 0 0 1 12.25 14h-8.5A1.75 1.75 0 0 1 2 12.25v-8.5C2 2.784 2.784 2 3.75 2zm0 1.5a.25.25 0 0 0-.25.25v8.5c0 .138.112.25.25.25h8.5a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25h-8.5z"/>
+          </svg>
+          github-flow.html 열기
+        </span>
+      </a>
+
+      <!-- 워크플로우 비교 카드 -->
+      <a class="workflow-card" href="comparison.html" data-color="gitlab-flow">
+        <div class="card-header">
+          <span class="card-dot" style="background:#FF9800;"></span>
+          <span class="card-title">워크플로우 비교</span>
+          <span class="card-icon">⚖️</span>
+        </div>
+        <p class="card-desc">
+          GitFlow · GitHub Flow · GitLab Flow · Trunk-Based 4가지 전략을 한 화면에서
+          비교합니다. 장단점과 사용 시나리오를 시각적으로 확인하세요.
+        </p>
+        <div class="badge-list">
+          <span class="badge badge-gitlab">4가지 전략</span>
+          <span class="badge badge-gitlab">장단점 비교</span>
+          <span class="badge badge-neutral">시나리오 안내</span>
+        </div>
+        <span class="card-link-hint">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M3.75 2h8.5c.966 0 1.75.784 1.75 1.75v8.5A1.75 1.75 0 0 1 12.25 14h-8.5A1.75 1.75 0 0 1 2 12.25v-8.5C2 2.784 2.784 2 3.75 2zm0 1.5a.25.25 0 0 0-.25.25v8.5c0 .138.112.25.25.25h8.5a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25h-8.5z"/>
+          </svg>
+          comparison.html 열기
+        </span>
+      </a>
+
+      <!-- 커밋 컨벤션 카드 (인포그래픽, 이 페이지 내) -->
+      <a class="workflow-card" href="#commit" data-color="trunk"
+         onclick="event.preventDefault(); scrollToSection('commit');">
+        <div class="card-header">
+          <span class="card-dot" style="background:#9C27B0;"></span>
+          <span class="card-title">커밋 컨벤션</span>
+          <span class="card-icon">✍️</span>
+        </div>
+        <p class="card-desc">
+          Conventional Commits 규격 기반의 커밋 메시지 작성법 인포그래픽. 팀 전체가
+          일관성 있게 히스토리를 관리할 수 있습니다.
+        </p>
+        <div class="badge-list">
+          <span class="badge badge-trunk">Conventional Commits</span>
+          <span class="badge badge-trunk">자동화 연동</span>
+          <span class="badge badge-neutral">CHANGELOG 생성</span>
+        </div>
+        <span class="card-link-hint">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 8 8 8 8 0 0 0 8-8 8 8 0 0 0-8-8zm0 14.5A6.5 6.5 0 0 1 1.5 8 6.5 6.5 0 0 1 8 1.5 6.5 6.5 0 0 1 14.5 8 6.5 6.5 0 0 1 8 14.5zM7.25 4.75v3.5H4.5l3.5 3.5 3.5-3.5H8.75v-3.5h-1.5z"/>
+          </svg>
+          아래로 스크롤
+        </span>
+      </a>
+
+    </div>
+  </section>
+
+  <!-- 섹션 2: 빠른 비교 테이블 -->
+  <section class="section" id="compare">
+    <h2 class="section-title">빠른 비교</h2>
+    <p class="section-desc">팀 규모 · 배포 빈도 · 복잡도 기준으로 4가지 워크플로우를 한눈에 비교합니다.</p>
+
+    <div class="compare-table-wrap">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>워크플로우</th>
+            <th>팀 규모</th>
+            <th>배포 빈도</th>
+            <th>복잡도</th>
+            <th>버전 태깅</th>
+            <th>CI/CD 친화</th>
+            <th>적합한 상황</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="flow-name">
+                <span class="flow-dot" style="background:#4CAF50;"></span>
+                GitFlow
+              </div>
+            </td>
+            <td>중·대형</td>
+            <td>
+              <div class="meter">
+                <div class="meter-bar" style="width:30px;background:#4CAF50;"></div>
+                <span class="meter-label">낮음</span>
+              </div>
+            </td>
+            <td>
+              <div class="meter">
+                <div class="meter-bar" style="width:80px;background:#4CAF50;"></div>
+                <span class="meter-label">높음</span>
+              </div>
+            </td>
+            <td>✅</td>
+            <td>보통</td>
+            <td>SemVer, 정기 릴리스</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="flow-name">
+                <span class="flow-dot" style="background:#2196F3;"></span>
+                GitHub Flow
+              </div>
+            </td>
+            <td>소·중형</td>
+            <td>
+              <div class="meter">
+                <div class="meter-bar" style="width:80px;background:#2196F3;"></div>
+                <span class="meter-label">높음</span>
+              </div>
+            </td>
+            <td>
+              <div class="meter">
+                <div class="meter-bar" style="width:28px;background:#2196F3;"></div>
+                <span class="meter-label">낮음</span>
+              </div>
+            </td>
+            <td>❌</td>
+            <td>✅ 최적</td>
+            <td>SaaS, 지속적 배포</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="flow-name">
+                <span class="flow-dot" style="background:#FF9800;"></span>
+                GitLab Flow
+              </div>
+            </td>
+            <td>중형</td>
+            <td>
+              <div class="meter">
+                <div class="meter-bar" style="width:56px;background:#FF9800;"></div>
+                <span class="meter-label">중간</span>
+              </div>
+            </td>
+            <td>
+              <div class="meter">
+                <div class="meter-bar" style="width:56px;background:#FF9800;"></div>
+                <span class="meter-label">중간</span>
+              </div>
+            </td>
+            <td>선택</td>
+            <td>✅ 양호</td>
+            <td>환경별 배포 (dev/stage/prod)</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="flow-name">
+                <span class="flow-dot" style="background:#9C27B0;"></span>
+                Trunk-Based
+              </div>
+            </td>
+            <td>모든 규모</td>
+            <td>
+              <div class="meter">
+                <div class="meter-bar" style="width:90px;background:#9C27B0;"></div>
+                <span class="meter-label">매우 높음</span>
+              </div>
+            </td>
+            <td>
+              <div class="meter">
+                <div class="meter-bar" style="width:20px;background:#9C27B0;"></div>
+                <span class="meter-label">매우 낮음</span>
+              </div>
+            </td>
+            <td>❌</td>
+            <td>✅ 필수</td>
+            <td>Google/Facebook 규모, DevOps 성숙 팀</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 섹션 3: 커밋 컨벤션 인포그래픽 -->
+  <section class="section" id="commit">
+    <h2 class="section-title">커밋 컨벤션 인포그래픽</h2>
+    <p class="section-desc">Conventional Commits 규격으로 일관성 있는 히스토리를 유지하세요.</p>
+
+    <div class="commit-infographic">
+      <h3 style="font-size:15px;color:var(--text-secondary);font-weight:500;margin-bottom:16px;">
+        커밋 타입 & 의미
+      </h3>
+
+      <div class="commit-type-grid">
+        <div class="commit-type-item">
+          <span class="commit-type-tag" style="background:rgba(126,231,135,0.15);color:#7ee787;">feat</span>
+          <span class="commit-type-desc">새로운 기능 추가</span>
+        </div>
+        <div class="commit-type-item">
+          <span class="commit-type-tag" style="background:rgba(248,81,73,0.15);color:#f85149;">fix</span>
+          <span class="commit-type-desc">버그 수정</span>
+        </div>
+        <div class="commit-type-item">
+          <span class="commit-type-tag" style="background:rgba(88,166,255,0.15);color:#58a6ff;">docs</span>
+          <span class="commit-type-desc">문서 변경</span>
+        </div>
+        <div class="commit-type-item">
+          <span class="commit-type-tag" style="background:rgba(255,166,87,0.15);color:#ffa657;">style</span>
+          <span class="commit-type-desc">코드 스타일 (포맷 등)</span>
+        </div>
+        <div class="commit-type-item">
+          <span class="commit-type-tag" style="background:rgba(210,153,34,0.15);color:#d29922;">refactor</span>
+          <span class="commit-type-desc">리팩토링</span>
+        </div>
+        <div class="commit-type-item">
+          <span class="commit-type-tag" style="background:rgba(139,148,158,0.15);color:#8b949e;">test</span>
+          <span class="commit-type-desc">테스트 추가·수정</span>
+        </div>
+        <div class="commit-type-item">
+          <span class="commit-type-tag" style="background:rgba(188,140,255,0.15);color:#bc8cff;">chore</span>
+          <span class="commit-type-desc">빌드·설정 변경</span>
+        </div>
+        <div class="commit-type-item">
+          <span class="commit-type-tag" style="background:rgba(86,211,228,0.15);color:#56d3e4;">perf</span>
+          <span class="commit-type-desc">성능 개선</span>
+        </div>
+        <div class="commit-type-item">
+          <span class="commit-type-tag" style="background:rgba(248,81,73,0.1);color:#f85149;">revert</span>
+          <span class="commit-type-desc">이전 커밋 되돌리기</span>
+        </div>
+        <div class="commit-type-item">
+          <span class="commit-type-tag" style="background:rgba(126,231,135,0.1);color:#7ee787;">ci</span>
+          <span class="commit-type-desc">CI 파이프라인 변경</span>
+        </div>
+      </div>
+
+      <div class="commit-example">
+        <div class="commit-example-label">예시 커밋 메시지</div>
+        <div class="commit-example-code">
+          <span class="ce-type">feat</span><span style="color:#8b949e;">(</span><span class="ce-scope">auth</span><span style="color:#8b949e;">)</span><span style="color:#8b949e;">:</span> <span class="ce-msg">소셜 로그인 기능 추가</span><br>
+          <br>
+          <span class="ce-body">Google OAuth 2.0 연동으로 소셜 로그인 기능을 구현했습니다.</span><br>
+          <span class="ce-body">기존 이메일 로그인 흐름에 영향을 주지 않도록 분리했습니다.</span><br>
+          <br>
+          <span class="ce-footer">BREAKING CHANGE: /api/v1/login 엔드포인트 응답 구조 변경</span><br>
+          <span class="ce-footer">Closes #42</span>
+        </div>
+      </div>
+
+      <div style="margin-top:20px;padding:14px 18px;background:rgba(88,166,255,0.06);border-radius:var(--radius-sm);border:1px solid rgba(88,166,255,0.2);">
+        <p style="font-size:13px;color:var(--text-secondary);line-height:1.7;">
+          <strong style="color:#58a6ff;">구조:</strong>
+          <code style="font-family:monospace;color:#7ee787;">&lt;type&gt;</code>(<code style="color:#ffa657;">scope</code>): <code style="color:var(--text-primary);">&lt;subject&gt;</code><br>
+          Breaking Change 는 footer에 <code style="font-family:monospace;color:#f85149;">BREAKING CHANGE:</code> 를 작성하면 자동으로
+          major 버전이 올라갑니다 (semantic-release 사용 시).
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 섹션 4: 추천 퀴즈 -->
+  <section class="section" id="quiz">
+    <h2 class="section-title">나에게 맞는 워크플로우는?</h2>
+    <p class="section-desc">3가지 질문에 답하면 팀에 최적인 Git 전략을 추천해 드립니다.</p>
+
+    <div class="quiz-box">
+
+      <!-- 진행 표시 -->
+      <div class="quiz-progress" id="quizProgress">
+        <div class="quiz-progress-dot done" id="pd0"></div>
+        <div class="quiz-progress-dot" id="pd1"></div>
+        <div class="quiz-progress-dot" id="pd2"></div>
+      </div>
+
+      <!-- 퀴즈 컨텐츠 -->
+      <div id="quizContent">
+        <div class="quiz-question" id="quizQuestion"></div>
+        <div class="quiz-question-sub" id="quizQuestionSub"></div>
+        <div class="quiz-options" id="quizOptions"></div>
+        <div class="quiz-nav">
+          <span class="quiz-step-label" id="quizStepLabel"></span>
+          <div style="display:flex;gap:8px;">
+            <button class="quiz-btn quiz-btn-secondary" id="quizPrevBtn" onclick="quizPrev()" style="display:none;">이전</button>
+            <button class="quiz-btn quiz-btn-primary" id="quizNextBtn" onclick="quizNext()" disabled>다음</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 결과 -->
+      <div class="quiz-result" id="quizResult">
+        <div class="quiz-result-icon" id="resultIcon"></div>
+        <div class="quiz-result-title" id="resultTitle"></div>
+        <div class="quiz-result-desc" id="resultDesc"></div>
+        <div class="quiz-result-badges" id="resultBadges"></div>
+        <button class="quiz-retry-btn" onclick="quizReset()">다시 시작</button>
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+<!-- ===== 푸터 ===== -->
+<footer class="site-footer">
+  <p>Git 워크플로우 시각화 &nbsp;·&nbsp; study-log</p>
+  <p style="margin-top:6px;">
+    관련 문서:
+    <a href="../01-git-basics.md">Git 기초</a> &nbsp;|&nbsp;
+    <a href="../02-gitflow.md">GitFlow</a> &nbsp;|&nbsp;
+    <a href="../03-github-flow.md">GitHub Flow</a> &nbsp;|&nbsp;
+    <a href="../04-gitlab-flow.md">GitLab Flow</a> &nbsp;|&nbsp;
+    <a href="../05-trunk-based.md">Trunk-Based</a> &nbsp;|&nbsp;
+    <a href="../06-commit-convention.md">커밋 컨벤션</a>
+  </p>
+</footer>
+
+<script>
+/* ============================================================
+   네비게이션 유틸
+   ============================================================ */
+function scrollToSection(id) {
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // 탭 활성화
+  document.querySelectorAll('.nav-tab').forEach((tab, i) => {
+    const ids = ['workflows', 'compare', 'commit', 'quiz'];
+    tab.classList.toggle('active', ids[i] === id);
+  });
+}
+
+/* ============================================================
+   Intersection Observer — 카드 fade-in
+   ============================================================ */
+(function initFadeIn() {
+  const targets = document.querySelectorAll(
+    '.workflow-card, .commit-infographic'
+  );
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          // 여러 카드가 동시에 보일 때 순서대로 지연 적용
+          const siblings = Array.from(
+            entry.target.parentElement.children
+          );
+          const idx = siblings.indexOf(entry.target);
+          entry.target.style.transitionDelay = `${idx * 80}ms`;
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.12 }
+  );
+
+  targets.forEach((el) => observer.observe(el));
+})();
+
+/* ============================================================
+   퀴즈 로직
+   ============================================================ */
+const QUESTIONS = [
+  {
+    q: '팀 규모가 어느 정도인가요?',
+    sub: '브랜치를 동시에 관리할 개발자 수를 기준으로 선택하세요.',
+    options: [
+      { label: '1~3명 (스타트업 / 사이드 프로젝트)', value: 'small' },
+      { label: '4~10명 (소규모 팀)', value: 'medium' },
+      { label: '11명 이상 (중·대형 조직)', value: 'large' },
+    ],
+  },
+  {
+    q: '서비스를 얼마나 자주 배포하나요?',
+    sub: '현재 또는 목표 배포 주기를 선택하세요.',
+    options: [
+      { label: '하루에도 여러 번 (지속적 배포)', value: 'daily' },
+      { label: '주 1~3회', value: 'weekly' },
+      { label: '격주 ~ 월 1회 이하 (정기 릴리스)', value: 'monthly' },
+    ],
+  },
+  {
+    q: '명시적 버전 관리(SemVer)가 필요한가요?',
+    sub: 'v1.2.3 과 같은 버전 태그 및 CHANGELOG 관리 필요 여부를 선택하세요.',
+    options: [
+      { label: '예 — 버전 태그와 릴리스 노트가 필수입니다', value: 'yes' },
+      { label: '부분적으로 — 있으면 좋지만 필수는 아닙니다', value: 'partial' },
+      { label: '아니요 — 버전보다 속도가 중요합니다', value: 'no' },
+    ],
+  },
+];
+
+const RESULTS = {
+  gitflow: {
+    icon: '🌳',
+    title: 'GitFlow 추천',
+    color: '#4CAF50',
+    desc:
+      '팀 규모가 크거나 정기 릴리스와 SemVer 버전 관리가 중요한 경우 GitFlow가 최적입니다. ' +
+      'main · develop · feature · release · hotfix 의 명확한 브랜치 구조로 ' +
+      '복잡한 병렬 개발을 안전하게 관리할 수 있습니다.',
+    badges: ['복잡도: 높음', '버전 관리 강점', '정기 릴리스'],
+    badgeClass: 'badge-gitflow',
+  },
+  'github-flow': {
+    icon: '🔄',
+    title: 'GitHub Flow 추천',
+    color: '#2196F3',
+    desc:
+      '소·중형 팀에서 빠른 배포를 원한다면 GitHub Flow가 딱 맞습니다. ' +
+      'main 브랜치 하나와 단수 feature 브랜치, PR 코드리뷰로 단순하게 운영합니다. ' +
+      'CI/CD 파이프라인과 조합하면 하루에도 여러 번 안전하게 배포할 수 있습니다.',
+    badges: ['복잡도: 낮음', 'CD 최적화', 'PR 중심'],
+    badgeClass: 'badge-github',
+  },
+  'gitlab-flow': {
+    icon: '🦊',
+    title: 'GitLab Flow 추천',
+    color: '#FF9800',
+    desc:
+      '개발 · 스테이징 · 프로덕션처럼 환경별 배포가 필요할 때 GitLab Flow가 유리합니다. ' +
+      'GitHub Flow의 단순함에 환경 브랜치를 추가해 중간 검증 단계를 가져갈 수 있어, ' +
+      '중형 팀의 실용적인 선택지입니다.',
+    badges: ['복잡도: 중간', '환경별 배포', '균형잡힌 전략'],
+    badgeClass: 'badge-gitlab',
+  },
+  trunk: {
+    icon: '🚀',
+    title: 'Trunk-Based Development 추천',
+    color: '#9C27B0',
+    desc:
+      '모든 개발자가 메인 브랜치에 소량의 변경을 자주 통합하는 전략입니다. ' +
+      '강력한 CI와 Feature Flag 인프라가 있다면 가장 빠른 배포 속도를 얻을 수 있습니다. ' +
+      'Google · Facebook 같은 대형 기술 기업이 채택한 검증된 방식입니다.',
+    badges: ['배포 빈도: 최고', 'Feature Flag 필요', 'CI 필수'],
+    badgeClass: 'badge-trunk',
+  },
+};
+
+// 점수 맵핑: [teamSize, deployFreq, versionNeed]
+function calcResult(answers) {
+  const [team, freq, ver] = answers;
+
+  // Trunk-Based: 매우 잦은 배포 + 버전 불필요
+  if (freq === 'daily' && ver === 'no') return 'trunk';
+
+  // GitFlow: 정기 배포 + 버전 필요
+  if (freq === 'monthly' && ver === 'yes') return 'gitflow';
+  if (freq === 'monthly' && team === 'large') return 'gitflow';
+
+  // GitLab Flow: 중간 배포 빈도 또는 일부 버전 관리
+  if (freq === 'weekly' && ver === 'partial') return 'gitlab-flow';
+  if (freq === 'weekly' && team === 'medium') return 'gitlab-flow';
+  if (freq === 'daily' && ver === 'partial') return 'gitlab-flow';
+
+  // GitHub Flow: 빠른 배포 + 버전 불필요 + 소팀
+  if (freq === 'daily' || (team === 'small' && ver !== 'yes')) {
+    return 'github-flow';
+  }
+
+  // 기본 fallback
+  return 'github-flow';
+}
+
+let currentStep = 0;
+let answers = [];
+let selectedIdx = null;
+
+function renderQuiz() {
+  const q = QUESTIONS[currentStep];
+  document.getElementById('quizQuestion').textContent = q.q;
+  document.getElementById('quizQuestionSub').textContent = q.sub;
+  document.getElementById('quizStepLabel').textContent =
+    `질문 ${currentStep + 1} / ${QUESTIONS.length}`;
+
+  const nextBtn = document.getElementById('quizNextBtn');
+  nextBtn.textContent =
+    currentStep < QUESTIONS.length - 1 ? '다음' : '결과 보기';
+  nextBtn.disabled = selectedIdx === null;
+
+  document.getElementById('quizPrevBtn').style.display =
+    currentStep > 0 ? 'inline-flex' : 'none';
+
+  // 진행 dots
+  QUESTIONS.forEach((_, i) => {
+    const dot = document.getElementById(`pd${i}`);
+    if (dot) {
+      dot.classList.toggle('done', i <= currentStep);
+    }
+  });
+
+  // 옵션 렌더
+  const container = document.getElementById('quizOptions');
+  container.innerHTML = '';
+  const keys = ['A', 'B', 'C', 'D'];
+
+  q.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className =
+      'quiz-option' + (selectedIdx === i ? ' selected' : '');
+    btn.innerHTML = `
+      <span class="quiz-option-key">${keys[i]}</span>
+      <span class="quiz-option-text">${opt.label}</span>
+    `;
+    btn.onclick = () => selectOption(i);
+    container.appendChild(btn);
+  });
+}
+
+function selectOption(idx) {
+  selectedIdx = idx;
+  document.querySelectorAll('.quiz-option').forEach((el, i) => {
+    el.classList.toggle('selected', i === idx);
+  });
+  document.getElementById('quizNextBtn').disabled = false;
+}
+
+function quizNext() {
+  if (selectedIdx === null) return;
+
+  answers[currentStep] = QUESTIONS[currentStep].options[selectedIdx].value;
+
+  if (currentStep < QUESTIONS.length - 1) {
+    currentStep++;
+    selectedIdx = answers[currentStep] !== undefined
+      ? QUESTIONS[currentStep].options.findIndex(
+          (o) => o.value === answers[currentStep]
+        )
+      : null;
+    renderQuiz();
+  } else {
+    showResult();
+  }
+}
+
+function quizPrev() {
+  if (currentStep > 0) {
+    currentStep--;
+    selectedIdx = answers[currentStep] !== undefined
+      ? QUESTIONS[currentStep].options.findIndex(
+          (o) => o.value === answers[currentStep]
+        )
+      : null;
+    renderQuiz();
+  }
+}
+
+function showResult() {
+  const key = calcResult(answers);
+  const r = RESULTS[key];
+
+  document.getElementById('resultIcon').textContent = r.icon;
+  document.getElementById('resultTitle').textContent = r.title;
+  document.getElementById('resultTitle').style.color = r.color;
+  document.getElementById('resultDesc').textContent = r.desc;
+
+  const badgeContainer = document.getElementById('resultBadges');
+  badgeContainer.innerHTML = r.badges
+    .map(
+      (b) =>
+        `<span class="badge ${r.badgeClass}">${b}</span>`
+    )
+    .join('');
+
+  document.getElementById('quizContent').style.display = 'none';
+  document.getElementById('quizProgress').style.display = 'none';
+  const resultEl = document.getElementById('quizResult');
+  resultEl.classList.add('show');
+}
+
+function quizReset() {
+  currentStep = 0;
+  answers = [];
+  selectedIdx = null;
+
+  document.getElementById('quizContent').style.display = 'block';
+  document.getElementById('quizProgress').style.display = 'flex';
+  document.getElementById('quizResult').classList.remove('show');
+
+  renderQuiz();
+}
+
+/* 초기 렌더 */
+renderQuiz();
+
+/* ============================================================
+   스크롤 시 네비 탭 동기화
+   ============================================================ */
+(function syncNavOnScroll() {
+  const sectionIds = ['workflows', 'compare', 'commit', 'quiz'];
+  const tabs = document.querySelectorAll('.nav-tab');
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const idx = sectionIds.indexOf(entry.target.id);
+          if (idx !== -1) {
+            tabs.forEach((t, i) =>
+              t.classList.toggle('active', i === idx)
+            );
+          }
+        }
+      });
+    },
+    { rootMargin: '-40% 0px -55% 0px' }
+  );
+
+  sectionIds.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) observer.observe(el);
+  });
+})();
+</script>
+</body>
+</html>

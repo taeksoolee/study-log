@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GitFlow 인터랙티브 시각화</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #121212;
+      --surface: #1e1e1e;
+      --surface2: #2a2a2a;
+      --border: #333;
+      --text: #e0e0e0;
+      --text-muted: #9e9e9e;
+      --main-color: #e0e0e0;
+      --develop-color: #2196F3;
+      --feature-color: #4CAF50;
+      --release-color: #FFC107;
+      --hotfix-color: #f44336;
+      --accent: #7c4dff;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px;
+    }
+
+    header {
+      width: 100%;
+      max-width: 900px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: var(--text);
+    }
+
+    header h1 span {
+      color: var(--accent);
+    }
+
+    header p.subtitle {
+      margin-top: 6px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .stage-banner {
+      width: 100%;
+      max-width: 900px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent);
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin-bottom: 18px;
+    }
+
+    .stage-banner .stage-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+
+    .stage-banner .stage-desc {
+      font-size: 0.88rem;
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .canvas-wrap {
+      width: 100%;
+      max-width: 900px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 18px;
+    }
+
+    #gitflow-svg {
+      width: 100%;
+      display: block;
+    }
+
+    .legend {
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .controls {
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 18px;
+    }
+
+    button {
+      padding: 9px 18px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-weight: 600;
+      transition: opacity 0.2s, transform 0.1s;
+      outline: none;
+    }
+
+    button:hover:not(:disabled) { opacity: 0.85; transform: translateY(-1px); }
+    button:active:not(:disabled) { transform: translateY(0); }
+    button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    .btn-next { background: var(--accent); color: #fff; }
+    .btn-reset { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-step { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-active { border-color: var(--accent) !important; color: var(--accent) !important; }
+
+    .code-block {
+      width: 100%;
+      max-width: 900px;
+      background: #0d0d0d;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 18px;
+    }
+
+    .code-block .code-title {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .code-block pre {
+      font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+      font-size: 0.85rem;
+      line-height: 1.7;
+      color: #a8d8a8;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .code-block pre .comment { color: #6a9955; }
+    .code-block pre .cmd { color: #9cdcfe; }
+    .code-block pre .arg { color: #ce9178; }
+
+    .progress-bar-wrap {
+      width: 100%;
+      max-width: 900px;
+      height: 4px;
+      background: var(--surface2);
+      border-radius: 2px;
+      margin-bottom: 18px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.4s ease;
+    }
+
+    .step-counter {
+      width: 100%;
+      max-width: 900px;
+      text-align: right;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: -14px;
+      margin-bottom: 14px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Git<span>Flow</span> 인터랙티브 시각화</h1>
+  <p class="subtitle">GitFlow 브랜치 전략을 단계별로 시뮬레이션합니다.</p>
+</header>
+
+<div class="stage-banner">
+  <div class="stage-title" id="stage-title">단계 0 / 초기화</div>
+  <div class="stage-desc" id="stage-desc">main 브랜치와 develop 브랜치가 생성된 초기 상태입니다. GitFlow는 두 개의 주요 장수(long-lived) 브랜치를 기반으로 합니다.</div>
+</div>
+
+<div class="progress-bar-wrap">
+  <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+</div>
+<div class="step-counter" id="step-counter">1 / 8 단계</div>
+
+<div class="canvas-wrap">
+  <svg id="gitflow-svg" viewBox="0 0 860 340" preserveAspectRatio="xMidYMid meet"></svg>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#e0e0e0"></div>main</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#2196F3"></div>develop</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#4CAF50"></div>feature</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#FFC107"></div>release</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f44336"></div>hotfix</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>merge</div>
+</div>
+
+<div class="controls">
+  <button class="btn-reset" id="btn-reset" onclick="resetAll()">&#8635; 전체 리셋</button>
+  <button class="btn-step" id="btn-prev" onclick="goPrev()" disabled>&#8592; 이전</button>
+  <button class="btn-next" id="btn-next" onclick="goNext()">다음 단계 &#8594;</button>
+</div>
+
+<div class="code-block">
+  <div class="code-title">Git 명령어</div>
+  <pre id="code-display"></pre>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ─── 상수 ────────────────────────────────────────────────────────────────
+  const SVG_W = 860;
+  const SVG_H = 340;
+  const LANE_X = 120;          // 브랜치 레이블 오른쪽 끝 x
+  const COMMIT_R = 9;          // 커밋 원 반지름
+  const COMMIT_GAP = 68;       // 커밋 사이 간격
+  const START_X = 160;         // 첫 커밋 x 좌표
+
+  const LANES = {
+    main:    { y: 55,  color: '#e0e0e0', label: 'main' },
+    develop: { y: 130, color: '#2196F3', label: 'develop' },
+    feature: { y: 205, color: '#4CAF50', label: 'feature' },
+    release: { y: 205, color: '#FFC107', label: 'release' },
+    hotfix:  { y: 275, color: '#f44336', label: 'hotfix' },
+  };
+
+  const MERGE_COLOR = '#7c4dff';
+
+  // ─── 단계 정의 ────────────────────────────────────────────────────────────
+  // 각 단계는 현재까지의 전체 상태를 기술합니다.
+  const STEPS = [
+    {
+      title: '단계 1 / 초기화',
+      desc: 'main 브랜치와 develop 브랜치가 초기화된 상태입니다. main은 항상 배포 가능한 소스를 가리키며, develop은 다음 릴리즈를 위한 통합 브랜치입니다.',
+      code: [
+        '# 저장소 초기화 및 기본 브랜치 생성',
+        'git init',
+        'git commit -m "Initial commit"',
+        'git branch develop',
+        'git checkout develop',
+      ],
+      // commits: [{ id, branch, x, label }]
+      commits: [
+        { id: 'c0', branch: 'main',    x: START_X,            label: 'C0' },
+        { id: 'c1', branch: 'develop', x: START_X,            label: 'C0' },
+      ],
+      // lines: [{ from: {branch, x}, to: {branch, x}, type: 'branch'|'merge' }]
+      lines: [
+        { from: { branch: 'main', x: START_X },    to: { branch: 'main', x: START_X + COMMIT_GAP }, type: 'branch-line' },
+        { from: { branch: 'develop', x: START_X }, to: { branch: 'develop', x: START_X + COMMIT_GAP }, type: 'branch-line' },
+      ],
+      // arrows: [{from:{branch,x}, to:{branch,x}, type:'fork'|'merge'}]
+      arrows: [],
+      visible_branches: ['main', 'develop'],
+    },
+    {
+      title: '단계 2 / feature 브랜치 시작',
+      desc: 'develop 브랜치에서 feature 브랜치를 분기합니다. 새로운 기능 개발은 항상 독립된 feature 브랜치에서 진행합니다.',
+      code: [
+        '# feature 브랜치 생성 (develop에서 분기)',
+        'git checkout develop',
+        'git checkout -b feature/my-feature',
+        '',
+        '# 또는 (Git Flow 플러그인 사용 시)',
+        'git flow feature start my-feature',
+      ],
+      commits: [
+        { id: 'c0',  branch: 'main',    x: START_X,                   label: 'C0' },
+        { id: 'c1',  branch: 'develop', x: START_X,                   label: 'C0' },
+        { id: 'c2',  branch: 'develop', x: START_X + COMMIT_GAP,      label: 'D1' },
+        { id: 'cf0', branch: 'feature', x: START_X + COMMIT_GAP,      label: 'F0' },
+      ],
+      lines: [
+        { from: { branch: 'main',    x: START_X }, to: { branch: 'main',    x: START_X + COMMIT_GAP * 3 }, type: 'branch-line' },
+        { from: { branch: 'develop', x: START_X }, to: { branch: 'develop', x: START_X + COMMIT_GAP * 3 }, type: 'branch-line' },
+        { from: { branch: 'feature', x: START_X + COMMIT_GAP }, to: { branch: 'feature', x: START_X + COMMIT_GAP * 2.5 }, type: 'branch-line' },
+      ],
+      arrows: [
+        { from: { branch: 'develop', x: START_X + COMMIT_GAP }, to: { branch: 'feature', x: START_X + COMMIT_GAP }, type: 'fork' },
+      ],
+      visible_branches: ['main', 'develop', 'feature'],
+    },
+    {
+      title: '단계 3 / feature 커밋 추가',
+      desc: 'feature 브랜치에서 기능 개발을 진행하며 커밋을 쌓습니다. develop 브랜치에는 영향을 주지 않고 독립적으로 작업합니다.',
+      code: [
+        '# feature 브랜치에서 개발 및 커밋',
+        'git checkout feature/my-feature',
+        '',
+        '# ... 코드 작성 ...',
+        'git add .',
+        'git commit -m "feat: 새 기능 구현"',
+        '',
+        'git add .',
+        'git commit -m "feat: 기능 보완"',
+      ],
+      commits: [
+        { id: 'c0',  branch: 'main',    x: START_X,                   label: 'C0' },
+        { id: 'c1',  branch: 'develop', x: START_X,                   label: 'C0' },
+        { id: 'c2',  branch: 'develop', x: START_X + COMMIT_GAP,      label: 'D1' },
+        { id: 'cf0', branch: 'feature', x: START_X + COMMIT_GAP,      label: 'F0' },
+        { id: 'cf1', branch: 'feature', x: START_X + COMMIT_GAP * 2,  label: 'F1' },
+        { id: 'cf2', branch: 'feature', x: START_X + COMMIT_GAP * 3,  label: 'F2' },
+      ],
+      lines: [
+        { from: { branch: 'main',    x: START_X }, to: { branch: 'main',    x: START_X + COMMIT_GAP * 5 }, type: 'branch-line' },
+        { from: { branch: 'develop', x: START_X }, to: { branch: 'develop', x: START_X + COMMIT_GAP * 5 }, type: 'branch-line' },
+        { from: { branch: 'feature', x: START_X + COMMIT_GAP }, to: { branch: 'feature', x: START_X + COMMIT_GAP * 4 }, type: 'branch-line' },
+      ],
+      arrows: [
+        { from: { branch: 'develop', x: START_X + COMMIT_GAP }, to: { branch: 'feature', x: START_X + COMMIT_GAP }, type: 'fork' },
+      ],
+      visible_branches: ['main', 'develop', 'feature'],
+    },
+    {
+      title: '단계 4 / feature → develop merge',
+      desc: 'feature 브랜치 개발이 완료되면 develop 브랜치로 merge합니다. 코드 리뷰 후 Pull Request를 통해 병합하는 것이 일반적입니다.',
+      code: [
+        '# feature 브랜치를 develop으로 merge',
+        'git checkout develop',
+        'git merge --no-ff feature/my-feature',
+        'git branch -d feature/my-feature',
+        '',
+        '# 또는 (Git Flow 플러그인)',
+        'git flow feature finish my-feature',
+      ],
+      commits: [
+        { id: 'c0',  branch: 'main',    x: START_X,                   label: 'C0' },
+        { id: 'c1',  branch: 'develop', x: START_X,                   label: 'C0' },
+        { id: 'c2',  branch: 'develop', x: START_X + COMMIT_GAP,      label: 'D1' },
+        { id: 'cf0', branch: 'feature', x: START_X + COMMIT_GAP,      label: 'F0' },
+        { id: 'cf1', branch: 'feature', x: START_X + COMMIT_GAP * 2,  label: 'F1' },
+        { id: 'cf2', branch: 'feature', x: START_X + COMMIT_GAP * 3,  label: 'F2' },
+        { id: 'c3',  branch: 'develop', x: START_X + COMMIT_GAP * 4,  label: 'D2', isMerge: true },
+      ],
+      lines: [
+        { from: { branch: 'main',    x: START_X }, to: { branch: 'main',    x: START_X + COMMIT_GAP * 6 }, type: 'branch-line' },
+        { from: { branch: 'develop', x: START_X }, to: { branch: 'develop', x: START_X + COMMIT_GAP * 6 }, type: 'branch-line' },
+        { from: { branch: 'feature', x: START_X + COMMIT_GAP }, to: { branch: 'feature', x: START_X + COMMIT_GAP * 3 }, type: 'branch-line' },
+      ],
+      arrows: [
+        { from: { branch: 'develop', x: START_X + COMMIT_GAP },      to: { branch: 'feature', x: START_X + COMMIT_GAP },      type: 'fork' },
+        { from: { branch: 'feature', x: START_X + COMMIT_GAP * 3 },  to: { branch: 'develop', x: START_X + COMMIT_GAP * 4 },  type: 'merge' },
+      ],
+      visible_branches: ['main', 'develop', 'feature'],
+    },
+    {
+      title: '단계 5 / release 브랜치 시작',
+      desc: 'develop 브랜치에서 release 브랜치를 분기합니다. 릴리즈 준비(버전 번호 업데이트, 버그 수정 등)는 이 브랜치에서 진행하며, 새로운 feature는 추가하지 않습니다.',
+      code: [
+        '# release 브랜치 생성 (develop에서 분기)',
+        'git checkout develop',
+        'git checkout -b release/v1.0.0',
+        '',
+        '# 버전 번호 업데이트',
+        'git commit -m "chore: bump version to 1.0.0"',
+        '',
+        '# 또는 (Git Flow 플러그인)',
+        'git flow release start v1.0.0',
+      ],
+      commits: [
+        { id: 'c0',  branch: 'main',    x: START_X,                   label: 'C0' },
+        { id: 'c1',  branch: 'develop', x: START_X,                   label: 'C0' },
+        { id: 'c2',  branch: 'develop', x: START_X + COMMIT_GAP,      label: 'D1' },
+        { id: 'cf0', branch: 'feature', x: START_X + COMMIT_GAP,      label: 'F0' },
+        { id: 'cf1', branch: 'feature', x: START_X + COMMIT_GAP * 2,  label: 'F1' },
+        { id: 'cf2', branch: 'feature', x: START_X + COMMIT_GAP * 3,  label: 'F2' },
+        { id: 'c3',  branch: 'develop', x: START_X + COMMIT_GAP * 4,  label: 'D2', isMerge: true },
+        { id: 'cr0', branch: 'release', x: START_X + COMMIT_GAP * 4,  label: 'R0' },
+        { id: 'cr1', branch: 'release', x: START_X + COMMIT_GAP * 5,  label: 'R1' },
+      ],
+      lines: [
+        { from: { branch: 'main',    x: START_X }, to: { branch: 'main',    x: START_X + COMMIT_GAP * 7 }, type: 'branch-line' },
+        { from: { branch: 'develop', x: START_X }, to: { branch: 'develop', x: START_X + COMMIT_GAP * 7 }, type: 'branch-line' },
+        { from: { branch: 'feature', x: START_X + COMMIT_GAP }, to: { branch: 'feature', x: START_X + COMMIT_GAP * 3 }, type: 'branch-line' },
+        { from: { branch: 'release', x: START_X + COMMIT_GAP * 4 }, to: { branch: 'release', x: START_X + COMMIT_GAP * 6 }, type: 'branch-line' },
+      ],
+      arrows: [
+        { from: { branch: 'develop', x: START_X + COMMIT_GAP },      to: { branch: 'feature', x: START_X + COMMIT_GAP },      type: 'fork' },
+        { from: { branch: 'feature', x: START_X + COMMIT_GAP * 3 },  to: { branch: 'develop', x: START_X + COMMIT_GAP * 4 },  type: 'merge' },
+        { from: { branch: 'develop', x: START_X + COMMIT_GAP * 4 },  to: { branch: 'release', x: START_X + COMMIT_GAP * 4 },  type: 'fork' },
+      ],
+      visible_branches: ['main', 'develop', 'feature', 'release'],
+    },
+    {
+      title: '단계 6 / release 완료 (main + develop merge)',
+      desc: 'release 브랜치를 main과 develop 모두에 merge합니다. main merge 후 버전 태그를 붙이고, develop에도 merge하여 release 중 수정된 내용을 반영합니다.',
+      code: [
+        '# release → main merge 및 태그',
+        'git checkout main',
+        'git merge --no-ff release/v1.0.0',
+        'git tag -a v1.0.0 -m "Release version 1.0.0"',
+        '',
+        '# release → develop merge',
+        'git checkout develop',
+        'git merge --no-ff release/v1.0.0',
+        'git branch -d release/v1.0.0',
+        '',
+        '# 또는 (Git Flow 플러그인)',
+        'git flow release finish v1.0.0',
+      ],
+      commits: [
+        { id: 'c0',  branch: 'main',    x: START_X,                   label: 'C0' },
+        { id: 'c1',  branch: 'develop', x: START_X,                   label: 'C0' },
+        { id: 'c2',  branch: 'develop', x: START_X + COMMIT_GAP,      label: 'D1' },
+        { id: 'cf0', branch: 'feature', x: START_X + COMMIT_GAP,      label: 'F0' },
+        { id: 'cf1', branch: 'feature', x: START_X + COMMIT_GAP * 2,  label: 'F1' },
+        { id: 'cf2', branch: 'feature', x: START_X + COMMIT_GAP * 3,  label: 'F2' },
+        { id: 'c3',  branch: 'develop', x: START_X + COMMIT_GAP * 4,  label: 'D2', isMerge: true },
+        { id: 'cr0', branch: 'release', x: START_X + COMMIT_GAP * 4,  label: 'R0' },
+        { id: 'cr1', branch: 'release', x: START_X + COMMIT_GAP * 5,  label: 'R1' },
+        { id: 'cm1', branch: 'main',    x: START_X + COMMIT_GAP * 6,  label: 'v1.0', isMerge: true, tag: 'v1.0.0' },
+        { id: 'cd3', branch: 'develop', x: START_X + COMMIT_GAP * 6,  label: 'D3',  isMerge: true },
+      ],
+      lines: [
+        { from: { branch: 'main',    x: START_X }, to: { branch: 'main',    x: START_X + COMMIT_GAP * 7 }, type: 'branch-line' },
+        { from: { branch: 'develop', x: START_X }, to: { branch: 'develop', x: START_X + COMMIT_GAP * 7 }, type: 'branch-line' },
+        { from: { branch: 'feature', x: START_X + COMMIT_GAP }, to: { branch: 'feature', x: START_X + COMMIT_GAP * 3 }, type: 'branch-line' },
+        { from: { branch: 'release', x: START_X + COMMIT_GAP * 4 }, to: { branch: 'release', x: START_X + COMMIT_GAP * 5 }, type: 'branch-line' },
+      ],
+      arrows: [
+        { from: { branch: 'develop', x: START_X + COMMIT_GAP },      to: { branch: 'feature', x: START_X + COMMIT_GAP },      type: 'fork' },
+        { from: { branch: 'feature', x: START_X + COMMIT_GAP * 3 },  to: { branch: 'develop', x: START_X + COMMIT_GAP * 4 },  type: 'merge' },
+        { from: { branch: 'develop', x: START_X + COMMIT_GAP * 4 },  to: { branch: 'release', x: START_X + COMMIT_GAP * 4 },  type: 'fork' },
+        { from: { branch: 'release', x: START_X + COMMIT_GAP * 5 },  to: { branch: 'main',    x: START_X + COMMIT_GAP * 6 },  type: 'merge' },
+        { from: { branch: 'release', x: START_X + COMMIT_GAP * 5 },  to: { branch: 'develop', x: START_X + COMMIT_GAP * 6 },  type: 'merge' },
+      ],
+      visible_branches: ['main', 'develop', 'feature', 'release'],
+    },
+    {
+      title: '단계 7 / hotfix 브랜치 시작',
+      desc: '운영 환경(main)에서 긴급 버그가 발견되면 main 브랜치에서 직접 hotfix 브랜치를 분기합니다. develop 브랜치를 거치지 않고 즉시 수정이 필요할 때 사용합니다.',
+      code: [
+        '# hotfix 브랜치 생성 (main에서 분기)',
+        'git checkout main',
+        'git checkout -b hotfix/critical-bug',
+        '',
+        '# 버그 수정',
+        'git add .',
+        'git commit -m "fix: 긴급 버그 수정"',
+        '',
+        '# 또는 (Git Flow 플러그인)',
+        'git flow hotfix start critical-bug',
+      ],
+      commits: [
+        { id: 'c0',  branch: 'main',    x: START_X,                   label: 'C0' },
+        { id: 'c1',  branch: 'develop', x: START_X,                   label: 'C0' },
+        { id: 'c2',  branch: 'develop', x: START_X + COMMIT_GAP,      label: 'D1' },
+        { id: 'cf0', branch: 'feature', x: START_X + COMMIT_GAP,      label: 'F0' },
+        { id: 'cf1', branch: 'feature', x: START_X + COMMIT_GAP * 2,  label: 'F1' },
+        { id: 'cf2', branch: 'feature', x: START_X + COMMIT_GAP * 3,  label: 'F2' },
+        { id: 'c3',  branch: 'develop', x: START_X + COMMIT_GAP * 4,  label: 'D2', isMerge: true },
+        { id: 'cr0', branch: 'release', x: START_X + COMMIT_GAP * 4,  label: 'R0' },
+        { id: 'cr1', branch: 'release', x: START_X + COMMIT_GAP * 5,  label: 'R1' },
+        { id: 'cm1', branch: 'main',    x: START_X + COMMIT_GAP * 6,  label: 'v1.0', isMerge: true, tag: 'v1.0.0' },
+        { id: 'cd3', branch: 'develop', x: START_X + COMMIT_GAP * 6,  label: 'D3',  isMerge: true },
+        { id: 'ch0', branch: 'hotfix',  x: START_X + COMMIT_GAP * 6,  label: 'H0' },
+        { id: 'ch1', branch: 'hotfix',  x: START_X + COMMIT_GAP * 7,  label: 'H1' },
+      ],
+      lines: [
+        { from: { branch: 'main',    x: START_X }, to: { branch: 'main',    x: START_X + COMMIT_GAP * 8 + 20 }, type: 'branch-line' },
+        { from: { branch: 'develop', x: START_X }, to: { branch: 'develop', x: START_X + COMMIT_GAP * 8 + 20 }, type: 'branch-line' },
+        { from: { branch: 'feature', x: START_X + COMMIT_GAP },      to: { branch: 'feature', x: START_X + COMMIT_GAP * 3 },      type: 'branch-line' },
+        { from: { branch: 'release', x: START_X + COMMIT_GAP * 4 },  to: { branch: 'release', x: START_X + COMMIT_GAP * 5 },      type: 'branch-line' },
+        { from: { branch: 'hotfix',  x: START_X + COMMIT_GAP * 6 },  to: { branch: 'hotfix',  x: START_X + COMMIT_GAP * 7 + 20 }, type: 'branch-line' },
+      ],
+      arrows: [
+        { from: { branch: 'develop', x: START_X + COMMIT_GAP },      to: { branch: 'feature', x: START_X + COMMIT_GAP },      type: 'fork' },
+        { from: { branch: 'feature', x: START_X + COMMIT_GAP * 3 },  to: { branch: 'develop', x: START_X + COMMIT_GAP * 4 },  type: 'merge' },
+        { from: { branch: 'develop', x: START_X + COMMIT_GAP * 4 },  to: { branch: 'release', x: START_X + COMMIT_GAP * 4 },  type: 'fork' },
+        { from: { branch: 'release', x: START_X + COMMIT_GAP * 5 },  to: { branch: 'main',    x: START_X + COMMIT_GAP * 6 },  type: 'merge' },
+        { from: { branch: 'release', x: START_X + COMMIT_GAP * 5 },  to: { branch: 'develop', x: START_X + COMMIT_GAP * 6 },  type: 'merge' },
+        { from: { branch: 'main',    x: START_X + COMMIT_GAP * 6 },  to: { branch: 'hotfix',  x: START_X + COMMIT_GAP * 6 },  type: 'fork' },
+      ],
+      visible_branches: ['main', 'develop', 'feature', 'release', 'hotfix'],
+    },
+    {
+      title: '단계 8 / hotfix 완료 (main + develop merge)',
+      desc: 'hotfix가 완료되면 main과 develop 모두에 merge합니다. main에는 패치 버전 태그를 붙이고, develop에도 merge하여 수정 내용을 반영합니다. GitFlow의 전체 사이클이 완성됩니다.',
+      code: [
+        '# hotfix → main merge 및 태그',
+        'git checkout main',
+        'git merge --no-ff hotfix/critical-bug',
+        'git tag -a v1.0.1 -m "Hotfix version 1.0.1"',
+        '',
+        '# hotfix → develop merge',
+        'git checkout develop',
+        'git merge --no-ff hotfix/critical-bug',
+        'git branch -d hotfix/critical-bug',
+        '',
+        '# 또는 (Git Flow 플러그인)',
+        'git flow hotfix finish critical-bug',
+      ],
+      commits: [
+        { id: 'c0',  branch: 'main',    x: START_X,                   label: 'C0' },
+        { id: 'c1',  branch: 'develop', x: START_X,                   label: 'C0' },
+        { id: 'c2',  branch: 'develop', x: START_X + COMMIT_GAP,      label: 'D1' },
+        { id: 'cf0', branch: 'feature', x: START_X + COMMIT_GAP,      label: 'F0' },
+        { id: 'cf1', branch: 'feature', x: START_X + COMMIT_GAP * 2,  label: 'F1' },
+        { id: 'cf2', branch: 'feature', x: START_X + COMMIT_GAP * 3,  label: 'F2' },
+        { id: 'c3',  branch: 'develop', x: START_X + COMMIT_GAP * 4,  label: 'D2', isMerge: true },
+        { id: 'cr0', branch: 'release', x: START_X + COMMIT_GAP * 4,  label: 'R0' },
+        { id: 'cr1', branch: 'release', x: START_X + COMMIT_GAP * 5,  label: 'R1' },
+        { id: 'cm1', branch: 'main',    x: START_X + COMMIT_GAP * 6,  label: 'v1.0', isMerge: true, tag: 'v1.0.0' },
+        { id: 'cd3', branch: 'develop', x: START_X + COMMIT_GAP * 6,  label: 'D3',  isMerge: true },
+        { id: 'ch0', branch: 'hotfix',  x: START_X + COMMIT_GAP * 6,  label: 'H0' },
+        { id: 'ch1', branch: 'hotfix',  x: START_X + COMMIT_GAP * 7,  label: 'H1' },
+        { id: 'cm2', branch: 'main',    x: START_X + COMMIT_GAP * 8,  label: 'v1.0.1', isMerge: true, tag: 'v1.0.1' },
+        { id: 'cd4', branch: 'develop', x: START_X + COMMIT_GAP * 8,  label: 'D4',  isMerge: true },
+      ],
+      lines: [
+        { from: { branch: 'main',    x: START_X }, to: { branch: 'main',    x: START_X + COMMIT_GAP * 9 }, type: 'branch-line' },
+        { from: { branch: 'develop', x: START_X }, to: { branch: 'develop', x: START_X + COMMIT_GAP * 9 }, type: 'branch-line' },
+        { from: { branch: 'feature', x: START_X + COMMIT_GAP },      to: { branch: 'feature', x: START_X + COMMIT_GAP * 3 },      type: 'branch-line' },
+        { from: { branch: 'release', x: START_X + COMMIT_GAP * 4 },  to: { branch: 'release', x: START_X + COMMIT_GAP * 5 },      type: 'branch-line' },
+        { from: { branch: 'hotfix',  x: START_X + COMMIT_GAP * 6 },  to: { branch: 'hotfix',  x: START_X + COMMIT_GAP * 7 },      type: 'branch-line' },
+      ],
+      arrows: [
+        { from: { branch: 'develop', x: START_X + COMMIT_GAP },      to: { branch: 'feature', x: START_X + COMMIT_GAP },      type: 'fork' },
+        { from: { branch: 'feature', x: START_X + COMMIT_GAP * 3 },  to: { branch: 'develop', x: START_X + COMMIT_GAP * 4 },  type: 'merge' },
+        { from: { branch: 'develop', x: START_X + COMMIT_GAP * 4 },  to: { branch: 'release', x: START_X + COMMIT_GAP * 4 },  type: 'fork' },
+        { from: { branch: 'release', x: START_X + COMMIT_GAP * 5 },  to: { branch: 'main',    x: START_X + COMMIT_GAP * 6 },  type: 'merge' },
+        { from: { branch: 'release', x: START_X + COMMIT_GAP * 5 },  to: { branch: 'develop', x: START_X + COMMIT_GAP * 6 },  type: 'merge' },
+        { from: { branch: 'main',    x: START_X + COMMIT_GAP * 6 },  to: { branch: 'hotfix',  x: START_X + COMMIT_GAP * 6 },  type: 'fork' },
+        { from: { branch: 'hotfix',  x: START_X + COMMIT_GAP * 7 },  to: { branch: 'main',    x: START_X + COMMIT_GAP * 8 },  type: 'merge' },
+        { from: { branch: 'hotfix',  x: START_X + COMMIT_GAP * 7 },  to: { branch: 'develop', x: START_X + COMMIT_GAP * 8 },  type: 'merge' },
+      ],
+      visible_branches: ['main', 'develop', 'feature', 'release', 'hotfix'],
+    },
+  ];
+
+  // ─── 상태 ────────────────────────────────────────────────────────────────
+  let currentStep = 0;
+  const TOTAL_STEPS = STEPS.length;
+
+  // ─── SVG 유틸리티 ─────────────────────────────────────────────────────────
+  function svgEl(tag, attrs) {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      el.setAttribute(k, v);
+    }
+    return el;
+  }
+
+  // ─── SVG 렌더링 ──────────────────────────────────────────────────────────
+  function renderSVG(step) {
+    const svg = document.getElementById('gitflow-svg');
+    // SVG 높이 동적 조정
+    const visibleBranches = step.visible_branches;
+    const maxY = Math.max(...visibleBranches.map(b => LANES[b].y)) + 50;
+    const svgHeight = Math.max(340, maxY + 20);
+    svg.setAttribute('viewBox', `0 0 ${SVG_W} ${svgHeight}`);
+
+    // 애니메이션을 위해 기존 요소들의 id 수집
+    const existingIds = new Set();
+    svg.querySelectorAll('[data-id]').forEach(el => existingIds.add(el.getAttribute('data-id')));
+
+    // 새 그룹에 렌더링 후 교체
+    svg.innerHTML = '';
+
+    // 배경 그리드
+    const gridG = svgEl('g', { opacity: '0.04' });
+    for (let x = 0; x < SVG_W; x += 40) {
+      gridG.appendChild(svgEl('line', { x1: x, y1: 0, x2: x, y2: svgHeight, stroke: '#fff', 'stroke-width': '1' }));
+    }
+    for (let y = 0; y < svgHeight; y += 40) {
+      gridG.appendChild(svgEl('line', { x1: 0, y1: y, x2: SVG_W, y2: y, stroke: '#fff', 'stroke-width': '1' }));
+    }
+    svg.appendChild(gridG);
+
+    // 브랜치 레인 레이블 배경 패널
+    const panelRect = svgEl('rect', { x: 0, y: 0, width: LANE_X, height: svgHeight, fill: '#161616' });
+    svg.appendChild(panelRect);
+
+    // 브랜치 레인 라벨
+    visibleBranches.forEach(bName => {
+      const lane = LANES[bName];
+      const labelText = svgEl('text', {
+        x: LANE_X - 8,
+        y: lane.y + 5,
+        'text-anchor': 'end',
+        fill: lane.color,
+        'font-size': '11',
+        'font-family': 'Segoe UI, system-ui, sans-serif',
+        'font-weight': '600',
+      });
+      labelText.textContent = lane.label;
+      svg.appendChild(labelText);
+
+      // 레인 구분선
+      svg.appendChild(svgEl('line', {
+        x1: LANE_X, y1: lane.y,
+        x2: SVG_W - 10, y2: lane.y,
+        stroke: lane.color,
+        'stroke-width': '1',
+        opacity: '0.12',
+        'stroke-dasharray': '4,6',
+      }));
+    });
+
+    // 브랜치 라인 (수평)
+    step.lines.forEach(line => {
+      const lane = LANES[line.from.branch];
+      svg.appendChild(svgEl('line', {
+        x1: line.from.x, y1: lane.y,
+        x2: line.to.x,   y2: lane.y,
+        stroke: lane.color,
+        'stroke-width': '3',
+        'stroke-linecap': 'round',
+        opacity: '0.7',
+      }));
+    });
+
+    // 화살표 (fork / merge 연결선)
+    step.arrows.forEach((arrow, i) => {
+      const fromLane = LANES[arrow.from.branch];
+      const toLane   = LANES[arrow.to.branch];
+      const x1 = arrow.from.x, y1 = fromLane.y;
+      const x2 = arrow.to.x,   y2 = toLane.y;
+
+      const color = arrow.type === 'merge' ? MERGE_COLOR : '#888';
+
+      // 베지어 곡선
+      const midX = (x1 + x2) / 2;
+      const d = `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`;
+
+      svg.appendChild(svgEl('path', {
+        d, fill: 'none',
+        stroke: color,
+        'stroke-width': '2',
+        'stroke-dasharray': '5,3',
+        opacity: '0.75',
+      }));
+
+      // 화살표 마커 (작은 삼각형)
+      const angle = Math.atan2(y2 - y1, x2 - x1);
+      const aLen = 7;
+      const ax1 = x2 - aLen * Math.cos(angle - 0.4);
+      const ay1 = y2 - aLen * Math.sin(angle - 0.4);
+      const ax2 = x2 - aLen * Math.cos(angle + 0.4);
+      const ay2 = y2 - aLen * Math.sin(angle + 0.4);
+      svg.appendChild(svgEl('polygon', {
+        points: `${x2},${y2} ${ax1},${ay1} ${ax2},${ay2}`,
+        fill: color,
+        opacity: '0.85',
+      }));
+    });
+
+    // 커밋 원
+    step.commits.forEach((commit, idx) => {
+      const lane = LANES[commit.branch];
+      const isNew = !existingIds.has(commit.id);
+      const g = svgEl('g', { 'data-id': commit.id });
+
+      // 외부 글로우 (merge 커밋)
+      if (commit.isMerge) {
+        g.appendChild(svgEl('circle', {
+          cx: commit.x, cy: lane.y, r: COMMIT_R + 5,
+          fill: 'none',
+          stroke: MERGE_COLOR,
+          'stroke-width': '1.5',
+          opacity: '0.4',
+        }));
+      }
+
+      // 커밋 원 배경
+      g.appendChild(svgEl('circle', {
+        cx: commit.x, cy: lane.y, r: COMMIT_R + 2,
+        fill: '#1e1e1e',
+      }));
+
+      // 커밋 원 본체
+      const circle = svgEl('circle', {
+        cx: commit.x, cy: lane.y, r: COMMIT_R,
+        fill: commit.isMerge ? MERGE_COLOR : lane.color,
+        stroke: '#1e1e1e',
+        'stroke-width': '2',
+      });
+      if (isNew) {
+        circle.style.opacity = '0';
+        circle.style.transition = 'opacity 0.5s ease';
+        setTimeout(() => { circle.style.opacity = '1'; }, 50 + idx * 30);
+      }
+      g.appendChild(circle);
+
+      // 커밋 레이블
+      const text = svgEl('text', {
+        x: commit.x, y: lane.y - COMMIT_R - 5,
+        'text-anchor': 'middle',
+        fill: commit.isMerge ? MERGE_COLOR : lane.color,
+        'font-size': '9',
+        'font-family': 'Fira Code, Consolas, monospace',
+        'font-weight': '600',
+      });
+      text.textContent = commit.label;
+      g.appendChild(text);
+
+      // 버전 태그
+      if (commit.tag) {
+        const tagBg = svgEl('rect', {
+          x: commit.x - 18, y: lane.y + COMMIT_R + 2,
+          width: 36, height: 14,
+          rx: 3, ry: 3,
+          fill: MERGE_COLOR, opacity: '0.85',
+        });
+        const tagText = svgEl('text', {
+          x: commit.x, y: lane.y + COMMIT_R + 12,
+          'text-anchor': 'middle',
+          fill: '#fff',
+          'font-size': '7.5',
+          'font-family': 'Fira Code, Consolas, monospace',
+          'font-weight': '700',
+        });
+        tagText.textContent = commit.tag;
+        g.appendChild(tagBg);
+        g.appendChild(tagText);
+      }
+
+      svg.appendChild(g);
+    });
+
+    // HEAD 포인터 (마지막 main 커밋)
+    const mainCommits = step.commits.filter(c => c.branch === 'main');
+    if (mainCommits.length > 0) {
+      const last = mainCommits[mainCommits.length - 1];
+      const mainLane = LANES.main;
+      const headG = svgEl('g', {});
+      headG.appendChild(svgEl('rect', {
+        x: last.x - 14, y: mainLane.y + COMMIT_R + 14,
+        width: 28, height: 13,
+        rx: 3, fill: '#333', stroke: '#555', 'stroke-width': '1',
+      }));
+      const headText = svgEl('text', {
+        x: last.x, y: mainLane.y + COMMIT_R + 23,
+        'text-anchor': 'middle',
+        fill: '#aaa',
+        'font-size': '8',
+        'font-family': 'Fira Code, Consolas, monospace',
+      });
+      headText.textContent = 'HEAD';
+      headG.appendChild(headText);
+      svg.appendChild(headG);
+    }
+  }
+
+  // ─── 코드 블록 렌더링 ─────────────────────────────────────────────────────
+  function renderCode(step) {
+    const pre = document.getElementById('code-display');
+    pre.innerHTML = step.code.map(line => {
+      if (line.startsWith('#')) {
+        return `<span class="comment">${escHtml(line)}</span>`;
+      } else if (line === '') {
+        return '';
+      } else {
+        const parts = line.split(' ');
+        if (parts[0] === 'git') {
+          const cmd = parts.slice(0, 2).join(' ');
+          const rest = parts.slice(2).join(' ');
+          return `<span class="cmd">${escHtml(cmd)}</span> <span class="arg">${escHtml(rest)}</span>`;
+        }
+        return `<span class="cmd">${escHtml(line)}</span>`;
+      }
+    }).join('\n');
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // ─── UI 업데이트 ─────────────────────────────────────────────────────────
+  function updateUI() {
+    const step = STEPS[currentStep];
+    document.getElementById('stage-title').textContent = step.title;
+    document.getElementById('stage-desc').textContent = step.desc;
+
+    const pct = Math.round(((currentStep + 1) / TOTAL_STEPS) * 100);
+    document.getElementById('progress-bar').style.width = pct + '%';
+    document.getElementById('step-counter').textContent = `${currentStep + 1} / ${TOTAL_STEPS} 단계`;
+
+    document.getElementById('btn-prev').disabled = currentStep === 0;
+    document.getElementById('btn-next').disabled = currentStep === TOTAL_STEPS - 1;
+    if (currentStep === TOTAL_STEPS - 1) {
+      document.getElementById('btn-next').textContent = '완료 ✓';
+    } else {
+      document.getElementById('btn-next').textContent = '다음 단계 →';
+    }
+
+    renderSVG(step);
+    renderCode(step);
+  }
+
+  // ─── 공개 함수 ────────────────────────────────────────────────────────────
+  window.goNext = function () {
+    if (currentStep < TOTAL_STEPS - 1) {
+      currentStep++;
+      updateUI();
+    }
+  };
+
+  window.goPrev = function () {
+    if (currentStep > 0) {
+      currentStep--;
+      updateUI();
+    }
+  };
+
+  window.resetAll = function () {
+    currentStep = 0;
+    updateUI();
+  };
+
+  // ─── 키보드 단축키 ────────────────────────────────────────────────────────
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      window.goNext();
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      window.goPrev();
+    } else if (e.key === 'r' || e.key === 'R') {
+      window.resetAll();
+    }
+  });
+
+  // ─── 초기 렌더 ────────────────────────────────────────────────────────────
+  updateUI();
+})();
+</script>
+
+</body>
+</html>

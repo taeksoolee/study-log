@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>백트래킹 시각화 - N-Queens</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f1117;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 24px 64px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: #ffffff;
+      margin-bottom: 8px;
+    }
+
+    header p {
+      font-size: 0.95rem;
+      color: #8b9ab5;
+      max-width: 560px;
+      line-height: 1.6;
+    }
+
+    .main-container {
+      display: flex;
+      flex-direction: row;
+      gap: 32px;
+      align-items: flex-start;
+      width: 100%;
+      max-width: 1100px;
+    }
+
+    /* ── Controls ── */
+    .controls-panel {
+      background: #161b27;
+      border: 1px solid #2a3347;
+      border-radius: 14px;
+      padding: 24px;
+      min-width: 240px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .control-group label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #8b9ab5;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    select, input[type="range"] {
+      background: #0f1117;
+      border: 1px solid #2a3347;
+      border-radius: 8px;
+      color: #e0e0e0;
+      padding: 8px 12px;
+      font-size: 0.9rem;
+      width: 100%;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    select:hover, select:focus {
+      border-color: #4f6ef7;
+    }
+
+    input[type="range"] {
+      padding: 4px 0;
+      accent-color: #4f6ef7;
+    }
+
+    .speed-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: #5a6a87;
+    }
+
+    .btn {
+      padding: 10px 16px;
+      border-radius: 9px;
+      border: none;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      width: 100%;
+    }
+
+    .btn-primary {
+      background: #4f6ef7;
+      color: #fff;
+    }
+
+    .btn-primary:hover:not(:disabled) { background: #3a58e4; }
+
+    .btn-secondary {
+      background: #1e2a40;
+      color: #a0b0cc;
+      border: 1px solid #2a3347;
+    }
+
+    .btn-secondary:hover:not(:disabled) { background: #253044; color: #e0e0e0; }
+
+    .btn-danger {
+      background: #2a1a1a;
+      color: #f87171;
+      border: 1px solid #4a2020;
+    }
+
+    .btn-danger:hover:not(:disabled) { background: #3a2020; }
+
+    .btn-success {
+      background: #1a2a1a;
+      color: #4ade80;
+      border: 1px solid #1e4a20;
+    }
+
+    .btn-success:hover:not(:disabled) { background: #1e3a1e; }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* ── Stats ── */
+    .stats-panel {
+      background: #161b27;
+      border: 1px solid #2a3347;
+      border-radius: 14px;
+      padding: 20px 24px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: #5a6a87;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #e0e0e0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat-value.highlight { color: #4f6ef7; }
+    .stat-value.danger    { color: #f87171; }
+    .stat-value.success   { color: #4ade80; }
+
+    /* ── Board area ── */
+    .board-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      align-items: center;
+    }
+
+    .board-wrapper {
+      background: #161b27;
+      border: 1px solid #2a3347;
+      border-radius: 14px;
+      padding: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #board {
+      display: grid;
+      gap: 2px;
+      /* columns set dynamically */
+    }
+
+    .cell {
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      border-radius: 4px;
+      position: relative;
+      transition: background-color 0.18s, transform 0.15s;
+      user-select: none;
+    }
+
+    /* chess pattern – applied via JS */
+    .cell.light { background: #4a5568; }
+    .cell.dark  { background: #2d3748; }
+
+    /* states */
+    .cell.trying {
+      background: #6b5800 !important;
+      animation: pulse-yellow 0.4s ease;
+    }
+
+    .cell.valid {
+      background: #2a3a4a !important;
+    }
+
+    .cell.conflict {
+      background: #6b1a1a !important;
+      animation: flash-red 0.3s ease;
+    }
+
+    .cell.attacked {
+      background: #4a3a1a !important;
+      transition: background-color 0.1s;
+    }
+
+    .cell.backtrack {
+      animation: flash-backtrack 0.35s ease forwards;
+    }
+
+    .cell.solution {
+      background: #1a3a1a !important;
+      animation: glow-green 0.6s ease;
+    }
+
+    .queen {
+      display: block;
+      transition: color 0.2s, transform 0.2s;
+      line-height: 1;
+    }
+
+    .queen.trying   { color: #fbbf24; }
+    .queen.valid    { color: #e2e8f0; }
+    .queen.conflict { color: #f87171; }
+    .queen.solution { color: #4ade80; }
+
+    @keyframes pulse-yellow {
+      0%   { transform: scale(0.6); opacity: 0.5; }
+      60%  { transform: scale(1.15); }
+      100% { transform: scale(1);   opacity: 1;   }
+    }
+
+    @keyframes flash-red {
+      0%   { background: #9b1a1a !important; }
+      100% { background: #6b1a1a !important; }
+    }
+
+    @keyframes flash-backtrack {
+      0%   { background: #8b1a1a !important; transform: scale(1);   opacity: 1; }
+      50%  { background: #6b1a1a !important; transform: scale(0.8); opacity: 0.7; }
+      100% { transform: scale(1); opacity: 0; }
+    }
+
+    @keyframes glow-green {
+      0%   { box-shadow: 0 0 0px #4ade80; }
+      50%  { box-shadow: 0 0 18px #4ade8088; }
+      100% { box-shadow: 0 0 6px #4ade8044; }
+    }
+
+    /* ── Status bar ── */
+    .status-bar {
+      background: #161b27;
+      border: 1px solid #2a3347;
+      border-radius: 10px;
+      padding: 12px 20px;
+      font-size: 0.88rem;
+      color: #8b9ab5;
+      width: 100%;
+      min-height: 44px;
+      text-align: center;
+      transition: color 0.2s;
+    }
+
+    .status-bar.active  { color: #fbbf24; }
+    .status-bar.success { color: #4ade80; }
+    .status-bar.error   { color: #f87171; }
+
+    /* ── Solutions view ── */
+    .solutions-panel {
+      background: #161b27;
+      border: 1px solid #2a3347;
+      border-radius: 14px;
+      padding: 20px 24px;
+      width: 100%;
+      display: none;
+    }
+
+    .solutions-panel.visible { display: block; }
+
+    .solutions-panel h3 {
+      font-size: 0.9rem;
+      color: #8b9ab5;
+      margin-bottom: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .solution-nav {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .solution-counter {
+      font-size: 0.88rem;
+      color: #a0b0cc;
+      min-width: 80px;
+      text-align: center;
+    }
+
+    .mini-boards {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .mini-board {
+      display: grid;
+      gap: 1px;
+      cursor: pointer;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 2px solid transparent;
+      transition: border-color 0.15s;
+    }
+
+    .mini-board:hover { border-color: #4f6ef7; }
+    .mini-board.active-sol { border-color: #4ade80; }
+
+    .mini-cell {
+      width: 14px;
+      height: 14px;
+      font-size: 0.55rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .mini-cell.light    { background: #4a5568; }
+    .mini-cell.dark     { background: #2d3748; }
+    .mini-cell.has-queen { color: #4ade80; }
+
+    /* responsive */
+    @media (max-width: 760px) {
+      .main-container { flex-direction: column; align-items: center; }
+      .controls-panel { width: 100%; max-width: 480px; }
+      .cell { width: 44px; height: 44px; font-size: 1.3rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>백트래킹 시각화</h1>
+  <p>N-Queens 문제 — 백트래킹 알고리즘이 어떻게 N×N 체스판에 N개의 퀸을 충돌 없이 배치하는지 단계별로 시각화합니다.</p>
+</header>
+
+<div class="main-container">
+
+  <!-- ── Left: controls ── -->
+  <div style="display:flex;flex-direction:column;gap:16px;min-width:240px;">
+
+    <!-- Stats -->
+    <div class="stats-panel">
+      <div class="stat-item">
+        <span class="stat-label">해(Solutions)</span>
+        <span class="stat-value success" id="stat-solutions">0</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">백트랙</span>
+        <span class="stat-value danger" id="stat-backtracks">0</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">스텝</span>
+        <span class="stat-value highlight" id="stat-steps">0</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">현재 행</span>
+        <span class="stat-value" id="stat-row">-</span>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls-panel">
+      <div class="control-group">
+        <label>퀸 개수 (N)</label>
+        <select id="n-select">
+          <option value="4">4×4</option>
+          <option value="5">5×5</option>
+          <option value="6">6×6</option>
+          <option value="7">7×7</option>
+          <option value="8" selected>8×8</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label>애니메이션 속도</label>
+        <input type="range" id="speed-slider" min="1" max="10" value="5" />
+        <div class="speed-label"><span>느리게</span><span>빠르게</span></div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button class="btn btn-primary" id="btn-auto">▶ 자동 실행</button>
+        <button class="btn btn-secondary" id="btn-step">→ 다음 스텝</button>
+        <button class="btn btn-danger" id="btn-reset">↺ 초기화</button>
+      </div>
+
+      <div id="solutions-btn-wrap" style="display:none;">
+        <button class="btn btn-success" id="btn-solutions">★ 모든 해 보기</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Right: board ── -->
+  <div class="board-area">
+    <div class="board-wrapper">
+      <div id="board"></div>
+    </div>
+    <div class="status-bar" id="status-bar">초기화 후 시작하세요.</div>
+
+    <div class="solutions-panel" id="solutions-panel">
+      <h3>발견된 모든 해</h3>
+      <div class="solution-nav">
+        <button class="btn btn-secondary" id="btn-prev-sol" style="width:80px;">◀ 이전</button>
+        <span class="solution-counter" id="sol-counter">1 / 1</span>
+        <button class="btn btn-secondary" id="btn-next-sol" style="width:80px;">다음 ▶</button>
+      </div>
+      <div class="mini-boards" id="mini-boards"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ================================================================
+   N-Queens Backtracking Visualizer
+   Pure JS — no external dependencies
+   ================================================================ */
+
+(function () {
+  'use strict';
+
+  /* ── DOM refs ── */
+  const boardEl        = document.getElementById('board');
+  const nSelect        = document.getElementById('n-select');
+  const speedSlider    = document.getElementById('speed-slider');
+  const btnAuto        = document.getElementById('btn-auto');
+  const btnStep        = document.getElementById('btn-step');
+  const btnReset       = document.getElementById('btn-reset');
+  const btnSolutions   = document.getElementById('btn-solutions');
+  const btnSolWrap     = document.getElementById('solutions-btn-wrap');
+  const statusBar      = document.getElementById('status-bar');
+  const statSolutions  = document.getElementById('stat-solutions');
+  const statBacktracks = document.getElementById('stat-backtracks');
+  const statSteps      = document.getElementById('stat-steps');
+  const statRow        = document.getElementById('stat-row');
+  const solutionsPanel = document.getElementById('solutions-panel');
+  const miniBoards     = document.getElementById('mini-boards');
+  const solCounter     = document.getElementById('sol-counter');
+  const btnPrevSol     = document.getElementById('btn-prev-sol');
+  const btnNextSol     = document.getElementById('btn-next-sol');
+
+  /* ── State ── */
+  let N = 8;
+  let queens = [];           // queens[row] = col, -1 if empty
+  let cells  = [];           // cells[row][col] = DOM element
+  let allSolutions = [];
+  let currentSolIdx = 0;
+
+  /* solver step sequence */
+  let stepQueue  = [];       // array of step objects
+  let stepIndex  = 0;
+  let autoTimer  = null;
+  let isRunning  = false;
+  let isFinished = false;
+
+  let statSolCount  = 0;
+  let statBtCount   = 0;
+  let statStepCount = 0;
+
+  /* ── Helpers ── */
+  function getDelay() {
+    const v = parseInt(speedSlider.value, 10); // 1-10
+    // map: 1→800ms, 10→30ms
+    return Math.round(800 - (v - 1) * (770 / 9));
+  }
+
+  function setStatus(msg, type = '') {
+    statusBar.textContent = msg;
+    statusBar.className = 'status-bar' + (type ? ' ' + type : '');
+  }
+
+  function updateStats() {
+    statSolutions.textContent  = statSolCount;
+    statBacktracks.textContent = statBtCount;
+    statSteps.textContent      = statStepCount;
+  }
+
+  /* ── Board rendering ── */
+  function buildBoard() {
+    boardEl.innerHTML = '';
+    boardEl.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
+    cells = [];
+    queens = new Array(N).fill(-1);
+
+    for (let r = 0; r < N; r++) {
+      cells[r] = [];
+      for (let c = 0; c < N; c++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+        cell.dataset.row = r;
+        cell.dataset.col = c;
+        boardEl.appendChild(cell);
+        cells[r][c] = cell;
+      }
+    }
+  }
+
+  function clearCellStates() {
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        const base = (r + c) % 2 === 0 ? 'light' : 'dark';
+        cells[r][c].className = 'cell ' + base;
+        cells[r][c].innerHTML = '';
+      }
+    }
+  }
+
+  function placeQueenDOM(row, col, state) {
+    const cell = cells[row][col];
+    const base = (row + col) % 2 === 0 ? 'light' : 'dark';
+    cell.className = `cell ${base} ${state}`;
+    const q = document.createElement('span');
+    q.className = `queen ${state}`;
+    q.textContent = '♛';
+    cell.appendChild(q);
+  }
+
+  function removeQueenDOM(row, animate) {
+    const col = queens[row];
+    if (col === -1) return;
+    const cell = cells[row][col];
+    const base = (row + col) % 2 === 0 ? 'light' : 'dark';
+
+    if (animate) {
+      cell.className = `cell ${base} backtrack`;
+      setTimeout(() => {
+        cell.className = `cell ${base}`;
+        cell.innerHTML = '';
+      }, 340);
+    } else {
+      cell.className = `cell ${base}`;
+      cell.innerHTML = '';
+    }
+  }
+
+  function setCellState(row, col, state) {
+    const cell = cells[row][col];
+    const base = (row + col) % 2 === 0 ? 'light' : 'dark';
+    cell.className = `cell ${base}` + (state ? ` ${state}` : '');
+  }
+
+  function highlightAttacked(row, col, on) {
+    /* highlight entire row, column and diagonals */
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        if (r === row && c === col) continue;
+        if (queens[r] !== -1) continue; // skip occupied
+        const sameRow  = r === row;
+        const sameCol  = c === col;
+        const sameDiag = Math.abs(r - row) === Math.abs(c - col);
+        if (sameRow || sameCol || sameDiag) {
+          if (on) {
+            setCellState(r, c, 'attacked');
+          } else {
+            setCellState(r, c, '');
+          }
+        }
+      }
+    }
+  }
+
+  /* ── Conflict check ── */
+  function isSafe(row, col) {
+    for (let r = 0; r < row; r++) {
+      const qc = queens[r];
+      if (qc === col) return false;
+      if (Math.abs(r - row) === Math.abs(qc - col)) return false;
+    }
+    return true;
+  }
+
+  /* ── Build step sequence (pre-compute all steps) ── */
+  /*
+    Step types:
+      { type:'try',      row, col }          — trying to place queen
+      { type:'attacked', row, col, on }      — show/hide attacked cells
+      { type:'conflict', row, col }          — conflict detected, mark red
+      { type:'place',    row, col }          — safe, mark valid (recurse down)
+      { type:'solution', queens:[...] }      — solution found
+      { type:'backtrack',row, col }          — remove queen from row
+      { type:'done' }                        — search complete
+  */
+  function buildSteps() {
+    const steps = [];
+    const state = new Array(N).fill(-1);
+    let solutions = 0;
+    let backtracks = 0;
+
+    function solve(row) {
+      if (row === N) {
+        solutions++;
+        steps.push({ type: 'solution', queens: [...state], solIdx: solutions - 1 });
+        return;
+      }
+      for (let col = 0; col < N; col++) {
+        steps.push({ type: 'try', row, col });
+        steps.push({ type: 'attacked', row, col, on: true });
+
+        if (isSafeInState(state, row, col)) {
+          state[row] = col;
+          steps.push({ type: 'place', row, col });
+          steps.push({ type: 'attacked', row, col, on: false });
+          solve(row + 1);
+          // backtrack
+          backtracks++;
+          steps.push({ type: 'backtrack', row, col, btCount: backtracks });
+          state[row] = -1;
+        } else {
+          steps.push({ type: 'conflict', row, col });
+          steps.push({ type: 'attacked', row, col, on: false });
+        }
+      }
+    }
+
+    function isSafeInState(st, row, col) {
+      for (let r = 0; r < row; r++) {
+        const qc = st[r];
+        if (qc === col) return false;
+        if (Math.abs(r - row) === Math.abs(qc - col)) return false;
+      }
+      return true;
+    }
+
+    solve(0);
+    steps.push({ type: 'done', solutions });
+    return steps;
+  }
+
+  /* ── Apply a single step to the visual board ── */
+  function applyStep(step) {
+    statStepCount++;
+    updateStats();
+
+    switch (step.type) {
+
+      case 'try':
+        statRow.textContent = step.row + 1;
+        // clear previous tries on this row that are not placed
+        for (let c = 0; c < N; c++) {
+          const cell = cells[step.row][c];
+          if (cell.classList.contains('trying')) {
+            const base = (step.row + c) % 2 === 0 ? 'light' : 'dark';
+            cell.className = `cell ${base}`;
+            cell.innerHTML = '';
+          }
+        }
+        placeQueenDOM(step.row, step.col, 'trying');
+        setStatus(`행 ${step.row + 1}, 열 ${step.col + 1} 에 퀸 배치 시도 중...`, 'active');
+        break;
+
+      case 'attacked':
+        highlightAttacked(step.row, step.col, step.on);
+        break;
+
+      case 'conflict': {
+        const cell = cells[step.row][step.col];
+        const base = (step.row + step.col) % 2 === 0 ? 'light' : 'dark';
+        cell.className = `cell ${base} conflict`;
+        const q = cell.querySelector('.queen');
+        if (q) { q.className = 'queen conflict'; }
+        setStatus(`충돌 발생! 행 ${step.row + 1}, 열 ${step.col + 1} 에는 배치 불가.`, 'error');
+        // briefly show then clear
+        setTimeout(() => {
+          cell.className = `cell ${base}`;
+          cell.innerHTML = '';
+        }, Math.min(getDelay() * 0.8, 300));
+        break;
+      }
+
+      case 'place':
+        queens[step.row] = step.col;
+        placeQueenDOM(step.row, step.col, 'valid');
+        setStatus(`행 ${step.row + 1}, 열 ${step.col + 1} 에 퀸 배치 완료.`, '');
+        break;
+
+      case 'solution': {
+        allSolutions.push(step.queens);
+        statSolCount++;
+        updateStats();
+        // turn all current queens gold/green
+        for (let r = 0; r < N; r++) {
+          const qc = queens[r];
+          if (qc !== -1) {
+            placeQueenDOM(r, qc, 'solution');
+          }
+        }
+        setStatus(`해 #${statSolCount} 발견! 현재까지 ${statSolCount}개의 해를 찾았습니다.`, 'success');
+        // revert visuals back to valid after a brief flash
+        setTimeout(() => {
+          for (let r = 0; r < N; r++) {
+            const qc = queens[r];
+            if (qc !== -1) {
+              placeQueenDOM(r, qc, 'valid');
+            }
+          }
+        }, Math.min(getDelay() * 1.2, 600));
+        break;
+      }
+
+      case 'backtrack': {
+        statBtCount = step.btCount;
+        updateStats();
+        const col = queens[step.row];
+        if (col !== -1) {
+          removeQueenDOM(step.row, true);
+          queens[step.row] = -1;
+        }
+        // clear any trying queen in this row too
+        for (let c = 0; c < N; c++) {
+          const cell = cells[step.row][c];
+          if (cell.classList.contains('trying') || cell.classList.contains('conflict')) {
+            const base = (step.row + c) % 2 === 0 ? 'light' : 'dark';
+            cell.className = `cell ${base}`;
+            cell.innerHTML = '';
+          }
+        }
+        setStatus(`백트랙! 행 ${step.row + 1}에서 물러납니다. (백트랙 ${step.btCount}회)`, 'error');
+        break;
+      }
+
+      case 'done':
+        isFinished = true;
+        isRunning  = false;
+        setRunningState(false);
+        setStatus(`탐색 완료! 총 ${step.solutions}개의 해를 발견했습니다.`, 'success');
+        statRow.textContent = '-';
+        if (allSolutions.length > 0) {
+          btnSolWrap.style.display = 'block';
+        }
+        break;
+    }
+  }
+
+  /* ── Step execution ── */
+  function executeStep() {
+    if (stepIndex >= stepQueue.length) return;
+    const step = stepQueue[stepIndex];
+    stepIndex++;
+    applyStep(step);
+  }
+
+  function scheduleNext() {
+    if (!isRunning) return;
+    if (stepIndex >= stepQueue.length) {
+      isRunning = false;
+      setRunningState(false);
+      return;
+    }
+    autoTimer = setTimeout(() => {
+      executeStep();
+      scheduleNext();
+    }, getDelay());
+  }
+
+  function startAuto() {
+    if (isFinished) return;
+    isRunning = true;
+    setRunningState(true);
+    scheduleNext();
+  }
+
+  function pauseAuto() {
+    isRunning = false;
+    if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
+    setRunningState(false);
+    setStatus('일시 정지됨. "다음 스텝" 또는 "자동 실행"으로 계속하세요.', '');
+  }
+
+  function setRunningState(running) {
+    if (running) {
+      btnAuto.textContent = '⏸ 일시 정지';
+      btnAuto.className   = 'btn btn-secondary';
+      btnStep.disabled    = true;
+    } else {
+      btnAuto.textContent = '▶ 자동 실행';
+      btnAuto.className   = 'btn btn-primary';
+      btnStep.disabled    = isFinished;
+    }
+    btnReset.disabled = false;
+  }
+
+  /* ── Solutions panel ── */
+  function buildMiniBoards() {
+    miniBoards.innerHTML = '';
+    allSolutions.forEach((sol, idx) => {
+      const mb = document.createElement('div');
+      mb.className = 'mini-board' + (idx === currentSolIdx ? ' active-sol' : '');
+      mb.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
+      mb.dataset.idx = idx;
+
+      for (let r = 0; r < N; r++) {
+        for (let c = 0; c < N; c++) {
+          const mc = document.createElement('div');
+          mc.className = 'mini-cell ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+          if (sol[r] === c) {
+            mc.classList.add('has-queen');
+            mc.textContent = '♛';
+          }
+          mb.appendChild(mc);
+        }
+      }
+
+      mb.addEventListener('click', () => showSolution(idx));
+      miniBoards.appendChild(mb);
+    });
+  }
+
+  function showSolution(idx) {
+    currentSolIdx = idx;
+    solCounter.textContent = `${idx + 1} / ${allSolutions.length}`;
+
+    // highlight active mini board
+    document.querySelectorAll('.mini-board').forEach((mb, i) => {
+      mb.classList.toggle('active-sol', i === idx);
+    });
+
+    // render solution on main board
+    clearCellStates();
+    const sol = allSolutions[idx];
+    for (let r = 0; r < N; r++) {
+      queens[r] = sol[r];
+      placeQueenDOM(r, sol[r], 'solution');
+    }
+    setStatus(`해 #${idx + 1} 표시 중 — ${allSolutions.length}개의 해 중 하나입니다.`, 'success');
+  }
+
+  /* ── Reset ── */
+  function reset() {
+    if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
+    isRunning  = false;
+    isFinished = false;
+    stepQueue  = [];
+    stepIndex  = 0;
+    allSolutions   = [];
+    currentSolIdx  = 0;
+    statSolCount   = 0;
+    statBtCount    = 0;
+    statStepCount  = 0;
+
+    N = parseInt(nSelect.value, 10);
+    buildBoard();
+    queens = new Array(N).fill(-1);
+
+    updateStats();
+    statRow.textContent = '-';
+    setStatus('준비됨. "자동 실행" 또는 "다음 스텝"을 눌러 시작하세요.', '');
+
+    btnAuto.textContent = '▶ 자동 실행';
+    btnAuto.className   = 'btn btn-primary';
+    btnAuto.disabled    = false;
+    btnStep.disabled    = false;
+    btnReset.disabled   = false;
+    btnSolWrap.style.display = 'none';
+    solutionsPanel.classList.remove('visible');
+    miniBoards.innerHTML = '';
+
+    // pre-build step queue
+    stepQueue = buildSteps();
+  }
+
+  /* ── Event listeners ── */
+  btnAuto.addEventListener('click', () => {
+    if (isFinished) return;
+    if (isRunning) {
+      pauseAuto();
+    } else {
+      startAuto();
+    }
+  });
+
+  btnStep.addEventListener('click', () => {
+    if (isRunning || isFinished) return;
+    executeStep();
+  });
+
+  btnReset.addEventListener('click', reset);
+
+  nSelect.addEventListener('change', reset);
+
+  btnSolutions.addEventListener('click', () => {
+    solutionsPanel.classList.toggle('visible');
+    if (solutionsPanel.classList.contains('visible')) {
+      buildMiniBoards();
+      showSolution(0);
+    }
+  });
+
+  btnPrevSol.addEventListener('click', () => {
+    if (currentSolIdx > 0) showSolution(currentSolIdx - 1);
+  });
+
+  btnNextSol.addEventListener('click', () => {
+    if (currentSolIdx < allSolutions.length - 1) showSolution(currentSolIdx + 1);
+  });
+
+  /* ── Init ── */
+  reset();
+
+})();
+</script>
+</body>
+</html>

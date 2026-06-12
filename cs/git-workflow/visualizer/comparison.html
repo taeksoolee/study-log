@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Git 워크플로우 비교</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0d1117;
+    color: #c9d1d9;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+  }
+  header {
+    background: #161b22;
+    border-bottom: 1px solid #30363d;
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  header h1 { font-size: 22px; font-weight: 700; color: #f0f6fc; }
+  header p { font-size: 13px; color: #8b949e; margin-top: 3px; }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+
+  /* Section headers */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .section-header h2 { font-size: 18px; font-weight: 700; color: #f0f6fc; }
+  .section-badge {
+    background: #21262d;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 2px 10px;
+    font-size: 11px;
+    color: #8b949e;
+  }
+  .section { margin-bottom: 48px; }
+
+  /* Workflow cards grid */
+  .workflow-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  .workflow-card {
+    background: #161b22;
+    border: 2px solid #30363d;
+    border-radius: 12px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+  .workflow-card:hover { border-color: #58a6ff; transform: translateY(-2px); }
+  .workflow-card.selected { border-color: var(--wf-color, #58a6ff); }
+  .workflow-card.selected::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--wf-color, #58a6ff)10, transparent 60%);
+    opacity: 0.08;
+    pointer-events: none;
+  }
+  .wf-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .wf-name { font-size: 14px; font-weight: 700; color: #f0f6fc; }
+  .wf-tag {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+  .wf-svg { width: 100%; height: 90px; display: block; margin-bottom: 10px; }
+  .wf-desc { font-size: 11px; color: #8b949e; line-height: 1.6; }
+  .wf-expand {
+    background: #0d1117;
+    border-top: 1px solid #30363d;
+    margin: 10px -16px -16px;
+    padding: 14px 16px;
+    display: none;
+    font-size: 12px;
+    color: #c9d1d9;
+    line-height: 1.7;
+  }
+  .wf-expand.open { display: block; }
+  .wf-expand ul { list-style: none; }
+  .wf-expand ul li::before { content: '→ '; color: var(--wf-color, #58a6ff); }
+
+  /* Radar chart */
+  .radar-section { display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap; }
+  .radar-wrap {
+    flex: 1;
+    min-width: 320px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .radar-controls {
+    flex: 0 0 200px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .radar-controls h3 { font-size: 13px; font-weight: 600; color: #8b949e; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: 6px;
+    transition: background 0.2s;
+    user-select: none;
+  }
+  .legend-item:hover { background: #21262d; }
+  .legend-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .legend-dot.hidden { background: #21262d !important; opacity: 0.4; }
+  .legend-label { font-size: 13px; color: #c9d1d9; }
+  .legend-check {
+    margin-left: auto;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #30363d;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: #3fb950;
+    flex-shrink: 0;
+  }
+  .legend-check.checked { background: #1a4f1a; border-color: #238636; }
+
+  /* Q&A */
+  .qa-container {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .qa-progress {
+    height: 4px;
+    background: #21262d;
+  }
+  .qa-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #1f6feb, #388bfd);
+    transition: width 0.4s ease;
+  }
+  .qa-body { padding: 24px 28px; }
+  .qa-question {
+    font-size: 16px;
+    font-weight: 600;
+    color: #f0f6fc;
+    margin-bottom: 6px;
+  }
+  .qa-hint { font-size: 12px; color: #8b949e; margin-bottom: 20px; }
+  .qa-options { display: flex; flex-direction: column; gap: 10px; }
+  .qa-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #0d1117;
+    border: 2px solid #30363d;
+    border-radius: 10px;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 14px;
+    color: #c9d1d9;
+  }
+  .qa-option:hover { border-color: #58a6ff; background: #0d2d6b22; }
+  .qa-option.selected { border-color: #1f6feb; background: #0d2d6b44; color: #f0f6fc; }
+  .qa-option-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #21262d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+  .qa-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 28px;
+    border-top: 1px solid #30363d;
+    background: #0d1117;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+    background: none;
+    color: #c9d1d9;
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-secondary { border-color: #30363d; background: #21262d; }
+  .btn-secondary:hover:not(:disabled) { background: #30363d; }
+  .btn-primary { background: #1f6feb; border-color: #388bfd; color: #fff; font-weight: 600; }
+  .btn-primary:hover:not(:disabled) { background: #388bfd; }
+  .btn-success { background: #238636; border-color: #2ea043; color: #fff; font-weight: 600; }
+  .btn-success:hover:not(:disabled) { background: #2ea043; }
+
+  /* Result card */
+  .result-card {
+    background: #161b22;
+    border: 2px solid #30363d;
+    border-radius: 12px;
+    overflow: hidden;
+    display: none;
+  }
+  .result-card.visible { display: block; }
+  .result-header {
+    padding: 20px 24px;
+    background: linear-gradient(135deg, var(--result-color, #1f6feb)22, transparent);
+    border-bottom: 1px solid #30363d;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .result-icon { font-size: 36px; }
+  .result-title { font-size: 20px; font-weight: 700; color: #f0f6fc; }
+  .result-subtitle { font-size: 13px; color: #8b949e; margin-top: 3px; }
+  .result-body { padding: 20px 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .result-section h4 { font-size: 12px; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 10px; }
+  .result-reason { font-size: 13px; color: #c9d1d9; line-height: 1.7; }
+  .result-steps { list-style: none; }
+  .result-steps li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: #c9d1d9; margin-bottom: 6px; }
+  .result-steps li::before { content: '→'; color: var(--result-color, #1f6feb); flex-shrink: 0; }
+  .result-footer { padding: 16px 24px; border-top: 1px solid #30363d; background: #0d1117; display: flex; gap: 10px; align-items: center; }
+  .retry-btn { cursor: pointer; background: none; border: 1px solid #30363d; color: #8b949e; border-radius: 6px; padding: 6px 14px; font-size: 12px; transition: all 0.2s; }
+  .retry-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+  .score-bar-wrap { display: flex; gap: 8px; flex-direction: column; margin-top: 6px; }
+  .score-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #8b949e; }
+  .score-label { width: 80px; text-align: right; flex-shrink: 0; }
+  .score-track { flex: 1; height: 8px; background: #21262d; border-radius: 4px; overflow: hidden; }
+  .score-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+
+  /* Comparison table */
+  .compare-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .compare-table th {
+    background: #161b22;
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    color: #8b949e;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    border-bottom: 2px solid #30363d;
+  }
+  .compare-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #21262d;
+    vertical-align: top;
+    color: #c9d1d9;
+    line-height: 1.5;
+  }
+  .compare-table tr:last-child td { border-bottom: none; }
+  .compare-table tr:hover td { background: #161b22; }
+  .compare-table .row-header { font-weight: 600; color: #f0f6fc; width: 160px; }
+  .complexity-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge-low { background: #1a4f1a; color: #3fb950; }
+  .badge-mid { background: #2a3f1a; color: #7ee787; }
+  .badge-high { background: #5a4a1f; color: #e3b341; }
+  .badge-vhigh { background: #4f1a1a; color: #f85149; }
+
+  /* Tabs */
+  .tab-bar { display: flex; gap: 4px; padding: 0 24px; background: #161b22; border-bottom: 1px solid #30363d; }
+  .tab-btn {
+    padding: 12px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #8b949e;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: -1px;
+  }
+  .tab-btn.active { color: #f0f6fc; border-bottom-color: #1f6feb; }
+  .tab-btn:hover:not(.active) { color: #c9d1d9; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  @media (max-width: 900px) {
+    .workflow-grid { grid-template-columns: repeat(2, 1fr); }
+    .radar-section { flex-direction: column; }
+    .radar-controls { flex: none; width: 100%; }
+    .result-body { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    .workflow-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span style="font-size:26px;">🌿</span>
+  <div>
+    <h1>Git 워크플로우 비교</h1>
+    <p>GitFlow · GitHub Flow · GitLab Flow · Trunk-based — 팀에 맞는 워크플로우를 선택하세요</p>
+  </div>
+</header>
+
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('mini')">📊 미니 다이어그램</button>
+  <button class="tab-btn" onclick="switchTab('radar')">🕸️ 레이더 차트</button>
+  <button class="tab-btn" onclick="switchTab('qa')">🧭 워크플로우 선택 가이드</button>
+  <button class="tab-btn" onclick="switchTab('table')">📋 비교표</button>
+</div>
+
+<!-- Tab 1: Mini diagrams -->
+<div class="tab-content active" id="tab-mini">
+  <div class="container">
+    <div class="section">
+      <div class="section-header">
+        <h2>워크플로우 미니 다이어그램</h2>
+        <span class="section-badge">카드 클릭 시 상세 정보</span>
+      </div>
+      <div class="workflow-grid" id="workflowGrid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Tab 2: Radar chart -->
+<div class="tab-content" id="tab-radar">
+  <div class="container">
+    <div class="section">
+      <div class="section-header">
+        <h2>워크플로우 특성 비교 (레이더 차트)</h2>
+        <span class="section-badge">체크박스로 show/hide</span>
+      </div>
+      <div class="radar-section">
+        <div class="radar-wrap">
+          <canvas id="radarCanvas" width="420" height="380"></canvas>
+        </div>
+        <div class="radar-controls">
+          <h3>워크플로우 선택</h3>
+          <div id="legendContainer"></div>
+          <div style="margin-top:20px;padding-top:16px;border-top:1px solid #30363d;">
+            <h3>평가 축</h3>
+            <div id="axisLegend" style="font-size:12px;color:#8b949e;line-height:2;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tab 3: Q&A -->
+<div class="tab-content" id="tab-qa">
+  <div class="container">
+    <div class="section">
+      <div class="section-header">
+        <h2>인터랙티브 워크플로우 선택 가이드</h2>
+        <span class="section-badge">4가지 질문으로 최적 워크플로우 추천</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;">
+        <div class="qa-container">
+          <div class="qa-progress"><div class="qa-progress-fill" id="qaProgressFill" style="width:25%"></div></div>
+          <div class="qa-body" id="qaBody"></div>
+          <div class="qa-nav">
+            <button class="btn btn-secondary" id="qaPrevBtn" onclick="qaNav(-1)" disabled>← 이전</button>
+            <span style="font-size:12px;color:#8b949e;" id="qaStepLabel">1 / 4</span>
+            <button class="btn btn-primary" id="qaNextBtn" onclick="qaNav(1)">다음 →</button>
+          </div>
+        </div>
+        <div>
+          <div class="result-card" id="resultCard">
+            <div class="result-header">
+              <div class="result-icon" id="resultIcon">🌿</div>
+              <div>
+                <div class="result-title" id="resultTitle">추천 워크플로우</div>
+                <div class="result-subtitle" id="resultSubtitle">분석 결과</div>
+              </div>
+            </div>
+            <div class="result-body">
+              <div class="result-section">
+                <h4>추천 이유</h4>
+                <p class="result-reason" id="resultReason"></p>
+              </div>
+              <div class="result-section">
+                <h4>시작 단계</h4>
+                <ul class="result-steps" id="resultSteps"></ul>
+              </div>
+            </div>
+            <div style="padding:16px 24px;border-top:1px solid #30363d;">
+              <h4 style="font-size:12px;font-weight:600;color:#8b949e;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:10px;">워크플로우 점수</h4>
+              <div class="score-bar-wrap" id="scoreBarWrap"></div>
+            </div>
+            <div class="result-footer">
+              <button class="retry-btn" onclick="qaReset()">↩ 다시 시작</button>
+              <span style="font-size:12px;color:#8b949e;margin-left:auto;">답변 기반 자동 추천</span>
+            </div>
+          </div>
+          <div id="resultPlaceholder" style="background:#161b22;border:1px dashed #30363d;border-radius:12px;padding:32px;text-align:center;color:#8b949e;font-size:13px;">
+            <div style="font-size:32px;margin-bottom:12px;">🧭</div>
+            4개 질문에 답하면<br>최적 워크플로우를 추천해 드립니다
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tab 4: Table -->
+<div class="tab-content" id="tab-table">
+  <div class="container">
+    <div class="section">
+      <div class="section-header">
+        <h2>특징 비교표</h2>
+        <span class="section-badge">한눈에 비교</span>
+      </div>
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:12px;overflow:hidden;">
+        <table class="compare-table" id="compareTable"></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==============================
+// Data
+// ==============================
+const WORKFLOWS = [
+  {
+    id: 'gitflow',
+    name: 'GitFlow',
+    color: '#e3b341',
+    icon: '🌊',
+    tag: '전통적',
+    tagColor: '#5a4a1f',
+    tagText: '#e3b341',
+    shortDesc: '장기 릴리즈 사이클, 명확한 브랜치 전략',
+    details: [
+      'main / develop / feature / release / hotfix 5종류 브랜치',
+      '시맨틱 버전 관리에 최적화',
+      '릴리즈 준비와 개발 분리 가능',
+      '규칙이 엄격해 초기 러닝 커브 높음',
+      '대규모 팀, 정기 릴리즈 제품에 적합'
+    ],
+    radar: [3, 2, 5, 2, 5],
+    table: {
+      branchCount: '5종 (main, develop, feature, release, hotfix)',
+      complexity: 'high',
+      deploy: '수동 릴리즈, 계획된 배포',
+      teamFit: '중대형 팀, 오픈소스, SaaS 정기 릴리즈',
+      learning: '높음 — 브랜치 규칙 학습 필요'
+    }
+  },
+  {
+    id: 'githubflow',
+    name: 'GitHub Flow',
+    color: '#3fb950',
+    icon: '🔀',
+    tag: '단순',
+    tagColor: '#1a4f1a',
+    tagText: '#3fb950',
+    shortDesc: '단순하고 빠른 배포, CI/CD 친화적',
+    details: [
+      'main + feature 브랜치만 사용',
+      'PR 기반 코드 리뷰',
+      'main merge = 즉시 배포',
+      '단순함이 장점 — 배우기 쉬움',
+      '소규모 팀, 지속적 배포 서비스에 최적'
+    ],
+    radar: [4, 5, 2, 5, 3],
+    table: {
+      branchCount: '2종 (main, feature/*)',
+      complexity: 'low',
+      deploy: 'main push → 자동 배포 (CD)',
+      teamFit: '소·중규모 팀, SaaS, 웹 서비스',
+      learning: '낮음 — 가장 단순한 모델'
+    }
+  },
+  {
+    id: 'gitlabflow',
+    name: 'GitLab Flow',
+    color: '#fc6d26',
+    icon: '🦊',
+    tag: '환경 기반',
+    tagColor: '#5a2a1a',
+    tagText: '#fc6d26',
+    shortDesc: '환경별 브랜치로 배포 단계 관리',
+    details: [
+      'main + feature + 환경 브랜치 (staging, production)',
+      '업스트림 병합 원칙',
+      '환경별 배포 흐름 명확',
+      'GitFlow보다 단순, GitHub Flow보다 유연',
+      '여러 배포 환경이 있는 팀에 적합'
+    ],
+    radar: [4, 3, 3, 4, 4],
+    table: {
+      branchCount: '3~4종 (main, feature, staging, production)',
+      complexity: 'mid',
+      deploy: '환경 브랜치 merge → 환경별 자동 배포',
+      teamFit: '중규모 팀, 스테이징/프로덕션 분리 필요',
+      learning: '중간 — 환경 브랜치 개념 이해 필요'
+    }
+  },
+  {
+    id: 'trunkbased',
+    name: 'Trunk-based',
+    color: '#58a6ff',
+    icon: '🏎️',
+    tag: '고속',
+    tagColor: '#0d2d6b',
+    tagText: '#58a6ff',
+    shortDesc: 'main에 직접 push, 초고속 배포 사이클',
+    details: [
+      'main(trunk)에 직접 또는 단기 브랜치로 통합',
+      'Feature Flag로 미완성 기능 숨김',
+      '하루에도 수십 번 배포 가능',
+      '강력한 CI/CD와 테스트 커버리지 필수',
+      'Google/Facebook 등 빅테크 표준'
+    ],
+    radar: [5, 5, 1, 5, 2],
+    table: {
+      branchCount: '1~2종 (main, 단기 feature)',
+      complexity: 'vhigh',
+      deploy: '상시 자동 배포 (Feature Flag 활용)',
+      teamFit: '고급 DevOps 팀, 빅테크, 마이크로서비스',
+      learning: '높음 — Feature Flag, 강한 테스트 필요'
+    }
+  }
+];
+
+const RADAR_AXES = [
+  '팀규모 적합도',
+  '배포 빈도',
+  '복잡도',
+  'CI/CD 친화도',
+  '버전 관리 명확도'
+];
+
+// ==============================
+// Tabs
+// ==============================
+function switchTab(id) {
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    const tabs = ['mini','radar','qa','table'];
+    b.classList.toggle('active', tabs[i] === id);
+  });
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+
+  if (id === 'radar') setTimeout(drawRadar, 50);
+}
+
+// ==============================
+// Mini Diagram SVGs
+// ==============================
+function buildMiniSVG_GitFlow() {
+  const W = 180, mainY = 20, devY = 50, featY = 75, relY = 50, hotY = 20;
+  let s = `<svg width="${W}" height="90" viewBox="0 0 ${W} 90">`;
+  // develop
+  s += `<line x1="10" y1="${devY}" x2="${W-10}" y2="${devY}" stroke="#e3b341" stroke-width="1.5" stroke-dasharray="5,3"/>`;
+  // main
+  s += `<line x1="10" y1="${mainY}" x2="${W-10}" y2="${mainY}" stroke="#f0f6fc" stroke-width="2"/>`;
+  // feature branch off develop
+  s += `<path d="M50,${devY} Q55,${featY} 80,${featY}" fill="none" stroke="#3fb950" stroke-width="1.5"/>`;
+  s += `<path d="M80,${featY} Q105,${featY} 110,${devY}" fill="none" stroke="#3fb950" stroke-width="1.5"/>`;
+  // release
+  s += `<path d="M120,${devY} Q125,${relY} 140,${relY}" fill="none" stroke="#bc8cff" stroke-width="1.5"/>`;
+  s += `<path d="M140,${relY} Q155,${relY} 160,${mainY}" fill="none" stroke="#bc8cff" stroke-width="1.5"/>`;
+  // commits
+  [[20,mainY,'#f0f6fc'],[170,mainY,'#f0f6fc'],[30,devY,'#e3b341'],[80,devY,'#e3b341'],[110,devY,'#e3b341'],[160,devY,'#e3b341'],[80,featY,'#3fb950'],[140,relY,'#bc8cff']].forEach(([x,y,c]) => {
+    s += `<circle cx="${x}" cy="${y}" r="5" fill="${c}" stroke="#0d1117" stroke-width="1.5"/>`;
+  });
+  // labels
+  s += `<text x="22" y="14" font-size="8" fill="#f0f6fc" font-family="sans-serif">main</text>`;
+  s += `<text x="22" y="44" font-size="8" fill="#e3b341" font-family="sans-serif">develop</text>`;
+  s += `<text x="60" y="88" font-size="8" fill="#3fb950" font-family="sans-serif">feature</text>`;
+  s += `<text x="125" y="44" font-size="8" fill="#bc8cff" font-family="sans-serif">release</text>`;
+  s += `</svg>`;
+  return s;
+}
+
+function buildMiniSVG_GitHubFlow() {
+  const W = 180, mainY = 25, featY = 65;
+  let s = `<svg width="${W}" height="90" viewBox="0 0 ${W} 90">`;
+  s += `<line x1="10" y1="${mainY}" x2="${W-10}" y2="${mainY}" stroke="#f0f6fc" stroke-width="2"/>`;
+  s += `<path d="M50,${mainY} Q60,${featY} 80,${featY}" fill="none" stroke="#3fb950" stroke-width="1.5"/>`;
+  s += `<line x1="80" y1="${featY}" x2="140" y2="${featY}" stroke="#3fb950" stroke-width="1.5"/>`;
+  s += `<path d="M140,${featY} Q155,${featY} 160,${mainY}" fill="none" stroke="#3fb950" stroke-width="1.5"/>`;
+  [[20,mainY,'#f0f6fc'],[170,mainY,'#f0f6fc'],[100,featY,'#3fb950'],[130,featY,'#3fb950'],[160,mainY,'#bc8cff']].forEach(([x,y,c]) => {
+    s += `<circle cx="${x}" cy="${y}" r="5" fill="${c}" stroke="#0d1117" stroke-width="1.5"/>`;
+  });
+  s += `<text x="22" y="18" font-size="8" fill="#f0f6fc" font-family="sans-serif">main</text>`;
+  s += `<text x="82" y="82" font-size="8" fill="#3fb950" font-family="sans-serif">feature/xxx</text>`;
+  s += `</svg>`;
+  return s;
+}
+
+function buildMiniSVG_GitLabFlow() {
+  const W = 180, mainY = 20, stagY = 50, prodY = 75;
+  let s = `<svg width="${W}" height="90" viewBox="0 0 ${W} 90">`;
+  s += `<line x1="10" y1="${mainY}" x2="${W-10}" y2="${mainY}" stroke="#f0f6fc" stroke-width="2"/>`;
+  s += `<line x1="10" y1="${stagY}" x2="${W-10}" y2="${stagY}" stroke="#fc6d26" stroke-width="1.5" stroke-dasharray="5,3"/>`;
+  s += `<line x1="10" y1="${prodY}" x2="${W-10}" y2="${prodY}" stroke="#e3b341" stroke-width="1.5" stroke-dasharray="5,3"/>`;
+  // merge arrows
+  s += `<line x1="80" y1="${mainY}" x2="100" y2="${stagY}" stroke="#fc6d26" stroke-width="1" opacity="0.6"/>`;
+  s += `<line x1="130" y1="${stagY}" x2="145" y2="${prodY}" stroke="#e3b341" stroke-width="1" opacity="0.6"/>`;
+  [[20,mainY,'#f0f6fc'],[50,mainY,'#f0f6fc'],[80,mainY,'#f0f6fc'],[130,mainY,'#f0f6fc'],[100,stagY,'#fc6d26'],[130,stagY,'#fc6d26'],[145,prodY,'#e3b341']].forEach(([x,y,c]) => {
+    s += `<circle cx="${x}" cy="${y}" r="5" fill="${c}" stroke="#0d1117" stroke-width="1.5"/>`;
+  });
+  s += `<text x="12" y="14" font-size="8" fill="#f0f6fc" font-family="sans-serif">main</text>`;
+  s += `<text x="12" y="45" font-size="8" fill="#fc6d26" font-family="sans-serif">staging</text>`;
+  s += `<text x="12" y="89" font-size="8" fill="#e3b341" font-family="sans-serif">production</text>`;
+  s += `</svg>`;
+  return s;
+}
+
+function buildMiniSVG_TrunkBased() {
+  const W = 180, mainY = 40, featY = 70;
+  let s = `<svg width="${W}" height="90" viewBox="0 0 ${W} 90">`;
+  s += `<line x1="10" y1="${mainY}" x2="${W-10}" y2="${mainY}" stroke="#58a6ff" stroke-width="2.5"/>`;
+  // short-lived branches
+  s += `<path d="M60,${mainY} Q65,${featY} 80,${featY}" fill="none" stroke="#8b949e" stroke-width="1.5" stroke-dasharray="3,2"/>`;
+  s += `<path d="M80,${featY} Q95,${featY} 100,${mainY}" fill="none" stroke="#8b949e" stroke-width="1.5" stroke-dasharray="3,2"/>`;
+  [[20,mainY,'#58a6ff'],[40,mainY,'#58a6ff'],[60,mainY,'#58a6ff'],[100,mainY,'#58a6ff'],[120,mainY,'#58a6ff'],[140,mainY,'#58a6ff'],[160,mainY,'#58a6ff'],[80,featY,'#8b949e']].forEach(([x,y,c]) => {
+    s += `<circle cx="${x}" cy="${y}" r="5" fill="${c}" stroke="#0d1117" stroke-width="1.5"/>`;
+  });
+  // deploy flags
+  [40,100,140].forEach(x => {
+    s += `<line x1="${x}" y1="${mainY-5}" x2="${x}" y2="${mainY-18}" stroke="#3fb950" stroke-width="1.5"/>`;
+    s += `<polygon points="${x},${mainY-18} ${x+10},${mainY-14} ${x},${mainY-10}" fill="#3fb950" opacity="0.8"/>`;
+  });
+  s += `<text x="15" y="34" font-size="8" fill="#58a6ff" font-family="sans-serif">main (trunk)</text>`;
+  s += `<text x="62" y="88" font-size="8" fill="#8b949e" font-family="sans-serif">단기 브랜치</text>`;
+  s += `</svg>`;
+  return s;
+}
+
+const miniSVGFns = [buildMiniSVG_GitFlow, buildMiniSVG_GitHubFlow, buildMiniSVG_GitLabFlow, buildMiniSVG_TrunkBased];
+
+function buildWorkflowGrid() {
+  const grid = document.getElementById('workflowGrid');
+  WORKFLOWS.forEach((wf, i) => {
+    const card = document.createElement('div');
+    card.className = 'workflow-card';
+    card.style.setProperty('--wf-color', wf.color);
+    card.innerHTML = `
+      <div class="wf-header">
+        <div class="wf-name">${wf.icon} ${wf.name}</div>
+        <span class="wf-tag" style="background:${wf.tagColor};color:${wf.tagText};">${wf.tag}</span>
+      </div>
+      ${miniSVGFns[i]()}
+      <div class="wf-desc">${wf.shortDesc}</div>
+      <div class="wf-expand" id="expand-${wf.id}">
+        <ul>${wf.details.map(d => `<li>${d}</li>`).join('')}</ul>
+      </div>
+    `;
+    card.addEventListener('click', () => {
+      const expand = document.getElementById('expand-' + wf.id);
+      const isOpen = expand.classList.contains('open');
+      document.querySelectorAll('.wf-expand').forEach(e => e.classList.remove('open'));
+      document.querySelectorAll('.workflow-card').forEach(c => c.classList.remove('selected'));
+      if (!isOpen) {
+        expand.classList.add('open');
+        card.classList.add('selected');
+      }
+    });
+    grid.appendChild(card);
+  });
+}
+
+// ==============================
+// Radar Chart
+// ==============================
+let radarVisible = [true, true, true, true];
+
+function buildLegend() {
+  const container = document.getElementById('legendContainer');
+  WORKFLOWS.forEach((wf, i) => {
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+    item.innerHTML = `
+      <div class="legend-dot" id="ldot-${i}" style="background:${wf.color};border-color:${wf.color}"></div>
+      <span class="legend-label">${wf.icon} ${wf.name}</span>
+      <div class="legend-check checked" id="lcheck-${i}">✓</div>
+    `;
+    item.addEventListener('click', () => {
+      radarVisible[i] = !radarVisible[i];
+      document.getElementById('ldot-' + i).classList.toggle('hidden', !radarVisible[i]);
+      const check = document.getElementById('lcheck-' + i);
+      check.classList.toggle('checked', radarVisible[i]);
+      check.textContent = radarVisible[i] ? '✓' : '';
+      drawRadar();
+    });
+    container.appendChild(item);
+  });
+
+  const axisDiv = document.getElementById('axisLegend');
+  axisDiv.innerHTML = RADAR_AXES.map((a, i) => `<div>${i+1}. ${a}</div>`).join('');
+}
+
+function drawRadar() {
+  const canvas = document.getElementById('radarCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const cx = W / 2, cy = H / 2 - 10;
+  const R = Math.min(W, H) / 2 - 60;
+  const n = RADAR_AXES.length;
+  const step = (Math.PI * 2) / n;
+  const startAngle = -Math.PI / 2;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  ctx.fillStyle = '#161b22';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid circles
+  for (let level = 1; level <= 5; level++) {
+    const r = (R / 5) * level;
+    ctx.beginPath();
+    for (let i = 0; i <= n; i++) {
+      const angle = startAngle + i * step;
+      const x = cx + r * Math.cos(angle);
+      const y = cy + r * Math.sin(angle);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = level === 5 ? '#30363d' : '#21262d';
+    ctx.lineWidth = level === 5 ? 1.5 : 1;
+    ctx.stroke();
+    // Level label
+    ctx.fillStyle = '#484f58';
+    ctx.font = '10px sans-serif';
+    ctx.fillText(level, cx + 4, cy - r + 4);
+  }
+
+  // Axis lines and labels
+  for (let i = 0; i < n; i++) {
+    const angle = startAngle + i * step;
+    const x = cx + R * Math.cos(angle);
+    const y = cy + R * Math.sin(angle);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(x, y);
+    ctx.strokeStyle = '#21262d';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Label
+    const lx = cx + (R + 22) * Math.cos(angle);
+    const ly = cy + (R + 22) * Math.sin(angle);
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(RADAR_AXES[i], lx, ly);
+  }
+
+  // Data polygons
+  WORKFLOWS.forEach((wf, wi) => {
+    if (!radarVisible[wi]) return;
+    const values = wf.radar;
+    ctx.beginPath();
+    for (let i = 0; i <= n; i++) {
+      const idx = i % n;
+      const angle = startAngle + idx * step;
+      const r = (R / 5) * values[idx];
+      const x = cx + r * Math.cos(angle);
+      const y = cy + r * Math.sin(angle);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    // Fill
+    const hex = wf.color;
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    ctx.fillStyle = `rgba(${r},${g},${b},0.15)`;
+    ctx.fill();
+    // Stroke
+    ctx.strokeStyle = wf.color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Dots
+    for (let i = 0; i < n; i++) {
+      const angle = startAngle + i * step;
+      const rv = (R / 5) * values[i];
+      const x = cx + rv * Math.cos(angle);
+      const y = cy + rv * Math.sin(angle);
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = wf.color;
+      ctx.fill();
+      ctx.strokeStyle = '#0d1117';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+  });
+
+  // Legend bottom
+  let lx = 20;
+  WORKFLOWS.forEach((wf, i) => {
+    if (!radarVisible[i]) return;
+    ctx.fillStyle = wf.color;
+    ctx.fillRect(lx, H - 22, 12, 12);
+    ctx.fillStyle = '#c9d1d9';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(wf.name, lx + 16, H - 22);
+    lx += ctx.measureText(wf.name).width + 36;
+  });
+}
+
+// ==============================
+// Q&A
+// ==============================
+const QA_QUESTIONS = [
+  {
+    q: '팀 규모는 어느 정도인가요?',
+    hint: '동시에 코드를 작성하는 개발자 수를 기준으로 선택하세요',
+    options: [
+      { text: '소규모 (1~5명)', icon: '👤', scores: { gitflow: 1, githubflow: 3, gitlabflow: 2, trunkbased: 2 } },
+      { text: '중간 (6~20명)', icon: '👥', scores: { gitflow: 3, githubflow: 3, gitlabflow: 4, trunkbased: 3 } },
+      { text: '대규모 (20명 이상)', icon: '🏢', scores: { gitflow: 4, githubflow: 2, gitlabflow: 3, trunkbased: 4 } }
+    ]
+  },
+  {
+    q: '배포 빈도는 어느 정도를 원하시나요?',
+    hint: '이상적인 배포 사이클을 기준으로 선택하세요',
+    options: [
+      { text: '하루 여러 번 (CI/CD 자동화)', icon: '🚀', scores: { gitflow: 0, githubflow: 5, gitlabflow: 3, trunkbased: 5 } },
+      { text: '주 1~2회', icon: '📅', scores: { gitflow: 3, githubflow: 4, gitlabflow: 5, trunkbased: 3 } },
+      { text: '격주 이상 (계획 릴리즈)', icon: '🗓️', scores: { gitflow: 5, githubflow: 2, gitlabflow: 3, trunkbased: 1 } }
+    ]
+  },
+  {
+    q: '시맨틱 버저닝(v1.0.0)이 필요한가요?',
+    hint: '명시적인 버전 번호 관리가 중요한 경우 선택하세요',
+    options: [
+      { text: '예 — 버전 관리가 중요합니다', icon: '🏷️', scores: { gitflow: 5, githubflow: 2, gitlabflow: 3, trunkbased: 1 } },
+      { text: '아니오 — 지속적 배포가 중요합니다', icon: '♾️', scores: { gitflow: 1, githubflow: 5, gitlabflow: 3, trunkbased: 5 } }
+    ]
+  },
+  {
+    q: 'CI/CD 파이프라인이 잘 갖춰져 있나요?',
+    hint: '자동화된 테스트, 빌드, 배포 인프라를 기준으로 선택하세요',
+    options: [
+      { text: '예 — 자동화가 잘 되어 있습니다', icon: '⚙️', scores: { gitflow: 3, githubflow: 5, gitlabflow: 5, trunkbased: 5 } },
+      { text: '일부 있지만 완전하지 않습니다', icon: '🔧', scores: { gitflow: 4, githubflow: 3, gitlabflow: 4, trunkbased: 2 } },
+      { text: '아니오 — 수동 프로세스 위주입니다', icon: '🖐️', scores: { gitflow: 5, githubflow: 1, gitlabflow: 2, trunkbased: 0 } }
+    ]
+  }
+];
+
+let qaStep = 0;
+let qaAnswers = [null, null, null, null];
+const QA_KEYS = ['gitflow','githubflow','gitlabflow','trunkbased'];
+const QA_NAMES = { gitflow: 'GitFlow', githubflow: 'GitHub Flow', gitlabflow: 'GitLab Flow', trunkbased: 'Trunk-based' };
+const QA_COLORS = { gitflow: '#e3b341', githubflow: '#3fb950', gitlabflow: '#fc6d26', trunkbased: '#58a6ff' };
+const QA_ICONS = { gitflow: '🌊', githubflow: '🔀', gitlabflow: '🦊', trunkbased: '🏎️' };
+
+const QA_REASONS = {
+  gitflow: '명확한 릴리즈 사이클과 시맨틱 버전 관리가 필요한 환경에 최적입니다. develop 브랜치로 개발을 분리하고, release 브랜치로 안정적인 배포를 준비할 수 있습니다.',
+  githubflow: '단순하고 빠른 배포를 원하는 팀에 최적입니다. feature 브랜치에서 작업 후 PR → 리뷰 → merge → 즉시 배포의 사이클이 명확하고 배우기 쉽습니다.',
+  gitlabflow: '여러 환경(staging, production)에서의 배포 흐름을 체계적으로 관리하고 싶은 팀에 적합합니다. GitFlow의 복잡성과 GitHub Flow의 단순함 사이에서 균형을 잡습니다.',
+  trunkbased: '강력한 CI/CD와 Feature Flag를 활용하여 지속적 통합을 극대화하는 방식입니다. 팀이 작은 단위로 자주 통합하여 머지 충돌을 최소화합니다.'
+};
+
+const QA_NEXT_STEPS = {
+  gitflow: ['git-flow 도구 설치 (brew install git-flow)', 'develop 브랜치 생성 및 보호 규칙 설정', 'release 브랜치 전략 팀 내 합의', 'hotfix 프로세스 문서화'],
+  githubflow: ['branch protection rules 설정 (main)', 'GitHub Actions CI/CD 파이프라인 구성', 'PR 템플릿 작성', 'CODEOWNERS 파일 추가'],
+  gitlabflow: ['staging/production 환경 브랜치 생성', '환경별 CD 파이프라인 설정', '업스트림 병합 규칙 문서화', '환경 변수 분리 관리'],
+  trunkbased: ['Feature Flag 시스템 도입 (LaunchDarkly 등)', 'main 브랜치 자동 배포 파이프라인 구성', '테스트 커버리지 80% 이상 확보', '단기 브랜치 수명 1~2일로 제한']
+};
+
+function renderQA() {
+  const q = QA_QUESTIONS[qaStep];
+  const body = document.getElementById('qaBody');
+  const answered = qaAnswers[qaStep];
+
+  body.innerHTML = `
+    <div class="qa-question">${qaStep + 1}. ${q.q}</div>
+    <div class="qa-hint">${q.hint}</div>
+    <div class="qa-options">
+      ${q.options.map((opt, i) => `
+        <div class="qa-option ${answered === i ? 'selected' : ''}" onclick="qaSelect(${i})">
+          <div class="qa-option-icon">${opt.icon}</div>
+          <span>${opt.text}</span>
+          ${answered === i ? '<span style="margin-left:auto;color:#3fb950;">✓</span>' : ''}
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  const total = QA_QUESTIONS.length;
+  document.getElementById('qaProgressFill').style.width = `${((qaStep + 1) / total) * 100}%`;
+  document.getElementById('qaStepLabel').textContent = `${qaStep + 1} / ${total}`;
+  document.getElementById('qaPrevBtn').disabled = qaStep === 0;
+
+  const nextBtn = document.getElementById('qaNextBtn');
+  if (qaStep === total - 1) {
+    nextBtn.textContent = '결과 보기 →';
+    nextBtn.className = 'btn btn-success';
+  } else {
+    nextBtn.textContent = '다음 →';
+    nextBtn.className = 'btn btn-primary';
+  }
+  nextBtn.disabled = answered === null;
+}
+
+function qaSelect(idx) {
+  qaAnswers[qaStep] = idx;
+  renderQA();
+}
+
+function qaNav(delta) {
+  if (delta > 0 && qaStep === QA_QUESTIONS.length - 1) {
+    showResult();
+    return;
+  }
+  const newStep = qaStep + delta;
+  if (newStep < 0 || newStep >= QA_QUESTIONS.length) return;
+  qaStep = newStep;
+  renderQA();
+}
+
+function calcScores() {
+  const totals = { gitflow: 0, githubflow: 0, gitlabflow: 0, trunkbased: 0 };
+  QA_QUESTIONS.forEach((q, qi) => {
+    const ans = qaAnswers[qi];
+    if (ans !== null) {
+      QA_KEYS.forEach(k => { totals[k] += q.options[ans].scores[k]; });
+    }
+  });
+  return totals;
+}
+
+function showResult() {
+  const scores = calcScores();
+  const best = Object.entries(scores).sort((a,b) => b[1]-a[1])[0][0];
+  const maxScore = Math.max(...Object.values(scores));
+
+  document.getElementById('resultPlaceholder').style.display = 'none';
+  const card = document.getElementById('resultCard');
+  card.classList.add('visible');
+  card.style.setProperty('--result-color', QA_COLORS[best]);
+
+  document.getElementById('resultIcon').textContent = QA_ICONS[best];
+  document.getElementById('resultTitle').textContent = QA_NAMES[best];
+  document.getElementById('resultSubtitle').textContent = '답변 기반 최적 추천';
+  document.getElementById('resultReason').textContent = QA_REASONS[best];
+
+  const stepsList = document.getElementById('resultSteps');
+  stepsList.innerHTML = QA_NEXT_STEPS[best].map(s => `<li>${s}</li>`).join('');
+  stepsList.style.setProperty('--result-color', QA_COLORS[best]);
+
+  const scoreWrap = document.getElementById('scoreBarWrap');
+  const sorted = Object.entries(scores).sort((a,b) => b[1]-a[1]);
+  scoreWrap.innerHTML = sorted.map(([k, v]) => {
+    const pct = Math.round((v / (maxScore || 1)) * 100);
+    return `<div class="score-row">
+      <span class="score-label" style="color:${QA_COLORS[k]}">${QA_NAMES[k]}</span>
+      <div class="score-track">
+        <div class="score-fill" style="width:${pct}%;background:${QA_COLORS[k]}"></div>
+      </div>
+      <span style="font-size:11px;color:#8b949e;width:28px;text-align:right;">${v}pt</span>
+    </div>`;
+  }).join('');
+}
+
+function qaReset() {
+  qaStep = 0;
+  qaAnswers = [null, null, null, null];
+  document.getElementById('resultCard').classList.remove('visible');
+  document.getElementById('resultPlaceholder').style.display = 'block';
+  renderQA();
+}
+
+// ==============================
+// Comparison Table
+// ==============================
+function buildTable() {
+  const rows = [
+    { label: '브랜치 수', key: 'branchCount' },
+    { label: '복잡도', key: 'complexity' },
+    { label: '배포 방식', key: 'deploy' },
+    { label: '적합한 팀', key: 'teamFit' },
+    { label: '학습 곡선', key: 'learning' }
+  ];
+
+  const table = document.getElementById('compareTable');
+  const complexityMap = { low: ['low','낮음'], mid: ['mid','중간'], high: ['high','높음'], vhigh: ['vhigh','매우 높음'] };
+
+  let html = `<thead><tr>
+    <th>항목</th>
+    ${WORKFLOWS.map(w => `<th style="color:${w.color}">${w.icon} ${w.name}</th>`).join('')}
+  </tr></thead><tbody>`;
+
+  rows.forEach(row => {
+    html += `<tr><td class="row-header">${row.label}</td>`;
+    WORKFLOWS.forEach(w => {
+      const val = w.table[row.key];
+      if (row.key === 'complexity') {
+        const [cls, label] = complexityMap[val] || ['low', val];
+        html += `<td><span class="complexity-badge badge-${cls}">${label}</span></td>`;
+      } else {
+        html += `<td>${val}</td>`;
+      }
+    });
+    html += `</tr>`;
+  });
+
+  html += `</tbody>`;
+  table.innerHTML = html;
+}
+
+// ==============================
+// Init
+// ==============================
+buildWorkflowGrid();
+buildLegend();
+renderQA();
+buildTable();
+</script>
+</body>
+</html>

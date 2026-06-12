@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>알고리즘 패턴 시각화</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f1117;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 24px 64px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 56px;
+    }
+
+    header h1 {
+      font-size: 2.4rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: #ffffff;
+      margin-bottom: 10px;
+    }
+
+    header p {
+      font-size: 1rem;
+      color: #888;
+      letter-spacing: 0.3px;
+    }
+
+    .accent { color: #4d8cff; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 24px;
+      width: 100%;
+      max-width: 960px;
+    }
+
+    .card {
+      background: #1a1d27;
+      border: 1px solid #2a2d3a;
+      border-radius: 14px;
+      padding: 28px 24px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+      cursor: default;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: #4d8cff;
+      box-shadow: 0 8px 32px rgba(77, 140, 255, 0.15);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .card-number {
+      background: #4d8cff22;
+      color: #4d8cff;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 20px;
+      border: 1px solid #4d8cff44;
+      letter-spacing: 0.5px;
+    }
+
+    .card-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: #ffffff;
+    }
+
+    .card-desc {
+      font-size: 0.88rem;
+      color: #888;
+      line-height: 1.6;
+      flex: 1;
+    }
+
+    .card-btn {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 8px 20px;
+      background: #4d8cff;
+      color: #fff;
+      font-size: 0.88rem;
+      font-weight: 600;
+      border-radius: 8px;
+      text-decoration: none;
+      text-align: center;
+      transition: background 0.15s ease, transform 0.1s ease;
+      align-self: flex-start;
+    }
+
+    .card-btn:hover {
+      background: #6aa0ff;
+      transform: scale(1.03);
+    }
+
+    footer {
+      margin-top: 64px;
+      font-size: 0.8rem;
+      color: #444;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>알고리즘 <span class="accent">패턴</span> 시각화</h1>
+    <p>핵심 알고리즘 패턴을 인터랙티브하게 시각화하여 이해를 돕습니다</p>
+  </header>
+
+  <main class="grid" id="grid"></main>
+
+  <footer>study-log &mdash; algorithm pattern visualizer</footer>
+
+  <script>
+    const pages = [
+      {
+        num: "01",
+        title: "정렬 알고리즘",
+        desc: "버블 / 선택 / 삽입 / 병합 / 퀵 / 힙 정렬을 단계별 애니메이션으로 비교해보세요. 비교·교환·정렬 완료 상태를 색상으로 구분합니다.",
+        file: "01-sorting.html"
+      },
+      {
+        num: "02",
+        title: "투 포인터 패턴",
+        desc: "두 포인터를 활용해 배열에서 합이 목표값인 쌍을 찾는 과정을 시각화합니다. 포인터 이동 논리를 직관적으로 확인하세요.",
+        file: "02-two-pointers.html"
+      },
+      {
+        num: "03",
+        title: "슬라이딩 윈도우",
+        desc: "고정·가변 크기 윈도우가 배열을 이동하며 최적값을 탐색하는 과정을 실시간으로 시각화합니다.",
+        file: "03-sliding-window.html"
+      },
+      {
+        num: "04",
+        title: "BFS / DFS 패턴",
+        desc: "그래프 또는 트리 위에서 너비 우선·깊이 우선 탐색이 노드를 방문하는 순서를 애니메이션으로 보여줍니다.",
+        file: "04-bfs-dfs-pattern.html"
+      },
+      {
+        num: "05",
+        title: "동적 프로그래밍",
+        desc: "피보나치, 배낭 문제 등 DP 테이블이 채워지는 과정을 시각화하여 메모이제이션 원리를 이해합니다.",
+        file: "05-dp-visualizer.html"
+      },
+      {
+        num: "06",
+        title: "그리디 알고리즘",
+        desc: "탐욕적 선택이 매 단계 어떻게 이루어지는지 애니메이션으로 확인하세요. 최적 해와의 관계도 시각적으로 표현합니다.",
+        file: "06-greedy-visualizer.html"
+      },
+      {
+        num: "07",
+        title: "백트래킹",
+        desc: "N-Queens, 순열 생성 등 백트래킹 탐색 트리를 그려가며 가지치기(pruning) 동작을 단계별로 시각화합니다.",
+        file: "07-backtracking-visualizer.html"
+      }
+    ];
+
+    const grid = document.getElementById("grid");
+
+    pages.forEach(({ num, title, desc, file }) => {
+      const card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML = `
+        <div class="card-header">
+          <span class="card-number">#${num}</span>
+          <span class="card-title">${title}</span>
+        </div>
+        <p class="card-desc">${desc}</p>
+        <a class="card-btn" href="${file}">열기 &rarr;</a>
+      `;
+      grid.appendChild(card);
+    });
+  </script>
+</body>
+</html>

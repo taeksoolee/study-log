@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BFS / DFS 패턴 시각화</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f1117;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 24px 16px 60px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #888;
+      font-size: 0.9rem;
+      margin-bottom: 28px;
+    }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: #1a1d2e;
+      border-radius: 10px;
+      padding: 4px;
+      max-width: 480px;
+      margin: 0 auto 28px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 10px 0;
+      border: none;
+      border-radius: 7px;
+      background: transparent;
+      color: #888;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      background: #2a2d3e;
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Card ── */
+    .card {
+      background: #1a1d2e;
+      border-radius: 14px;
+      padding: 22px;
+      margin-bottom: 20px;
+    }
+
+    .card-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #a0a8d0;
+      margin-bottom: 16px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-size: 0.78rem;
+    }
+
+    /* ── Controls ── */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .radio-group {
+      display: flex;
+      gap: 10px;
+    }
+
+    .radio-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      color: #ccc;
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: 1px solid #333;
+      transition: all 0.2s;
+    }
+
+    .radio-label input { display: none; }
+
+    .radio-label.selected {
+      border-color: #4fc3f7;
+      color: #4fc3f7;
+      background: rgba(79,195,247,0.08);
+    }
+
+    .btn {
+      padding: 8px 20px;
+      border-radius: 7px;
+      border: none;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.18s;
+    }
+
+    .btn-start {
+      background: #4fc3f7;
+      color: #0f1117;
+    }
+
+    .btn-start:hover { background: #29b6f6; }
+    .btn-start:disabled { background: #2a3a4a; color: #555; cursor: not-allowed; }
+
+    .btn-reset {
+      background: #2a2d3e;
+      color: #ccc;
+      border: 1px solid #383b52;
+    }
+
+    .btn-reset:hover { background: #383b52; }
+
+    .speed-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: #888;
+    }
+
+    input[type="range"] {
+      accent-color: #4fc3f7;
+      width: 100px;
+    }
+
+    /* ── GRID TAB ── */
+    #grid-container {
+      max-width: 520px;
+      margin: 0 auto;
+    }
+
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 3px;
+      background: #111320;
+      padding: 3px;
+      border-radius: 8px;
+      user-select: none;
+    }
+
+    .cell {
+      aspect-ratio: 1;
+      border-radius: 3px;
+      background: #2a2d3e;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.55rem;
+      font-weight: 700;
+      color: #0f1117;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .cell.start    { background: #4caf50; }
+    .cell.target   { background: #ef5350; }
+    .cell.wall     { background: #444; cursor: pointer; }
+    .cell.visited-bfs { background: #4fc3f7; }
+    .cell.visited-dfs { background: #ce93d8; }
+    .cell.path     { background: #ffeb3b; }
+    .cell.current  { background: #ffd54f; box-shadow: 0 0 0 2px #ffd54f44; }
+
+    .grid-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 14px;
+      font-size: 0.8rem;
+      color: #aaa;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .legend-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+    }
+
+    .grid-status {
+      margin-top: 12px;
+      font-size: 0.85rem;
+      color: #888;
+      min-height: 22px;
+    }
+
+    /* ── GRAPH TAB ── */
+    #graph-layout {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    #graph-svg-wrap {
+      flex: 1 1 500px;
+    }
+
+    #graph-svg {
+      width: 100%;
+      height: 360px;
+      background: #111320;
+      border-radius: 10px;
+      display: block;
+    }
+
+    .node-circle {
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    #graph-side {
+      flex: 0 0 200px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .side-panel {
+      background: #111320;
+      border-radius: 10px;
+      padding: 14px;
+    }
+
+    .side-panel h3 {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #a0a8d0;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 10px;
+    }
+
+    #adj-list { font-size: 0.82rem; line-height: 1.8; color: #bbb; }
+    #adj-list span { color: #4fc3f7; font-weight: 600; }
+
+    #queue-stack-display {
+      font-size: 0.82rem;
+      color: #bbb;
+      min-height: 40px;
+      word-break: break-all;
+    }
+
+    #queue-stack-display .qs-item {
+      display: inline-block;
+      background: #2a2d3e;
+      border-radius: 4px;
+      padding: 2px 8px;
+      margin: 2px 3px;
+      font-weight: 600;
+      color: #e0e0e0;
+    }
+
+    #queue-stack-display .qs-item.qs-current {
+      background: #ffd54f;
+      color: #111;
+    }
+
+    .graph-status {
+      font-size: 0.85rem;
+      color: #888;
+      min-height: 22px;
+      margin-top: 10px;
+    }
+
+    #visited-order {
+      font-size: 0.82rem;
+      color: #bbb;
+      word-break: break-word;
+    }
+
+    #visited-order span {
+      display: inline-block;
+      background: #4fc3f7;
+      color: #111;
+      border-radius: 4px;
+      padding: 1px 7px;
+      margin: 2px;
+      font-weight: 700;
+    }
+
+    /* ── START NODE SELECT ── */
+    select {
+      background: #2a2d3e;
+      color: #e0e0e0;
+      border: 1px solid #383b52;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 0.88rem;
+      cursor: pointer;
+    }
+
+    /* ── INFO SECTION ── */
+    .info-section {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 600px) {
+      .info-grid { grid-template-columns: 1fr; }
+    }
+
+    .info-card {
+      background: #1a1d2e;
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    .info-card h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .info-card.bfs h3 { color: #4fc3f7; }
+    .info-card.dfs h3 { color: #ce93d8; }
+
+    .info-card ul {
+      list-style: none;
+      font-size: 0.85rem;
+      line-height: 2;
+      color: #bbb;
+    }
+
+    .info-card ul li::before {
+      content: '▸ ';
+      color: #555;
+    }
+
+    .complexity-tag {
+      display: inline-block;
+      font-family: monospace;
+      background: #111320;
+      border-radius: 4px;
+      padding: 1px 7px;
+      font-size: 0.82rem;
+      color: #ffd54f;
+      margin-left: 4px;
+    }
+
+    .info-compare {
+      background: #1a1d2e;
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 16px;
+    }
+
+    .info-compare h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #a0a8d0;
+      margin-bottom: 14px;
+    }
+
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    .compare-table th,
+    .compare-table td {
+      padding: 9px 12px;
+      text-align: left;
+      border-bottom: 1px solid #2a2d3e;
+    }
+
+    .compare-table th {
+      color: #a0a8d0;
+      font-weight: 600;
+    }
+
+    .compare-table td:first-child {
+      color: #888;
+    }
+
+    .compare-table td.bfs-cell { color: #4fc3f7; }
+    .compare-table td.dfs-cell { color: #ce93d8; }
+
+    .section-header {
+      text-align: center;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #a0a8d0;
+      margin-bottom: 18px;
+      letter-spacing: 0.05em;
+    }
+  </style>
+</head>
+<body>
+
+<h1>BFS / DFS 패턴 시각화</h1>
+<p class="subtitle">너비 우선 탐색과 깊이 우선 탐색 알고리즘을 단계별로 시각화합니다</p>
+
+<!-- Tab Buttons -->
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('grid')">그리드</button>
+  <button class="tab-btn" onclick="switchTab('graph')">그래프</button>
+</div>
+
+<!-- ══════════════════════ GRID TAB ══════════════════════ -->
+<div id="tab-grid" class="tab-panel active">
+  <div style="max-width:900px;margin:0 auto;">
+    <div class="card">
+      <div class="card-title">그리드 탐색</div>
+
+      <div class="controls">
+        <div class="radio-group" id="grid-algo-group">
+          <label class="radio-label selected" id="grid-bfs-label">
+            <input type="radio" name="grid-algo" value="bfs" checked onchange="gridAlgoChange(this)">
+            BFS (너비 우선)
+          </label>
+          <label class="radio-label" id="grid-dfs-label">
+            <input type="radio" name="grid-algo" value="dfs" onchange="gridAlgoChange(this)">
+            DFS (깊이 우선)
+          </label>
+        </div>
+
+        <button class="btn btn-start" id="grid-start-btn" onclick="runGrid()">시작</button>
+        <button class="btn btn-reset" onclick="resetGrid()">초기화</button>
+
+        <div class="speed-wrap">
+          <span>속도</span>
+          <input type="range" id="grid-speed" min="1" max="5" value="3">
+          <span>빠름</span>
+        </div>
+      </div>
+
+      <div id="grid-container">
+        <div id="grid"></div>
+        <div class="grid-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#4caf50"></div>시작</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ef5350"></div>목표</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#444"></div>벽</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#4fc3f7"></div>BFS 방문</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ce93d8"></div>DFS 방문</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ffeb3b"></div>최단 경로</div>
+        </div>
+        <div class="grid-status" id="grid-status">
+          좌클릭: 시작 설정 → 목표 설정 → 벽 토글 / 우클릭: 목표 설정
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ GRAPH TAB ══════════════════════ -->
+<div id="tab-graph" class="tab-panel">
+  <div style="max-width:900px;margin:0 auto;">
+    <div class="card">
+      <div class="card-title">그래프 탐색</div>
+
+      <div class="controls">
+        <div class="radio-group" id="graph-algo-group">
+          <label class="radio-label selected" id="graph-bfs-label">
+            <input type="radio" name="graph-algo" value="bfs" checked onchange="graphAlgoChange(this)">
+            BFS
+          </label>
+          <label class="radio-label" id="graph-dfs-label">
+            <input type="radio" name="graph-algo" value="dfs" onchange="graphAlgoChange(this)">
+            DFS
+          </label>
+        </div>
+
+        <label style="font-size:0.85rem;color:#aaa;display:flex;align-items:center;gap:8px;">
+          시작 노드
+          <select id="graph-start-select">
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+            <option value="D">D</option>
+            <option value="E">E</option>
+            <option value="F">F</option>
+            <option value="G">G</option>
+            <option value="H">H</option>
+          </select>
+        </label>
+
+        <button class="btn btn-start" id="graph-start-btn" onclick="runGraph()">시작</button>
+        <button class="btn btn-reset" onclick="resetGraph()">초기화</button>
+
+        <div class="speed-wrap">
+          <span>속도</span>
+          <input type="range" id="graph-speed" min="1" max="5" value="3">
+          <span>빠름</span>
+        </div>
+      </div>
+
+      <div id="graph-layout">
+        <div id="graph-svg-wrap">
+          <svg id="graph-svg" viewBox="0 0 500 360">
+            <g id="edges-layer"></g>
+            <g id="nodes-layer"></g>
+          </svg>
+          <div class="graph-status" id="graph-status">노드를 클릭하거나 시작 노드를 선택 후 시작 버튼을 누르세요</div>
+        </div>
+
+        <div id="graph-side">
+          <div class="side-panel">
+            <h3 id="qs-label">Queue (BFS)</h3>
+            <div id="queue-stack-display"><span style="color:#555">비어 있음</span></div>
+          </div>
+          <div class="side-panel">
+            <h3>방문 순서</h3>
+            <div id="visited-order"><span style="color:#555">—</span></div>
+          </div>
+          <div class="side-panel">
+            <h3>인접 리스트</h3>
+            <div id="adj-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ INFO SECTION ══════════════════════ -->
+<div class="info-section" style="max-width:900px;margin:0 auto;margin-top:8px;">
+  <p class="section-header">BFS vs DFS 비교</p>
+
+  <div class="info-grid">
+    <div class="info-card bfs">
+      <h3>BFS — 너비 우선 탐색</h3>
+      <ul>
+        <li>시간 복잡도 <span class="complexity-tag">O(V + E)</span></li>
+        <li>공간 복잡도 <span class="complexity-tag">O(V)</span></li>
+        <li>자료 구조: 큐 (Queue)</li>
+        <li>가중치 없는 그래프의 최단 경로 탐색</li>
+        <li>시작 노드에서 가까운 노드부터 탐색</li>
+        <li>레벨 순서(Level-order) 탐색</li>
+        <li>소셜 네트워크 친구 추천 (N촌 이내)</li>
+        <li>웹 크롤러 — 링크 레벨 탐색</li>
+        <li>지도 최단 거리 계산 (미로, 격자)</li>
+      </ul>
+    </div>
+
+    <div class="info-card dfs">
+      <h3>DFS — 깊이 우선 탐색</h3>
+      <ul>
+        <li>시간 복잡도 <span class="complexity-tag">O(V + E)</span></li>
+        <li>공간 복잡도 <span class="complexity-tag">O(V)</span></li>
+        <li>자료 구조: 스택 (Stack) / 재귀</li>
+        <li>한 경로를 끝까지 탐색 후 백트래킹</li>
+        <li>깊은 솔루션을 찾을 때 BFS보다 메모리 효율</li>
+        <li>위상 정렬 (Topological Sort)</li>
+        <li>사이클 감지 (Cycle Detection)</li>
+        <li>연결 요소(Connected Components) 파악</li>
+        <li>미로 생성 알고리즘</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="info-compare">
+    <h3>상세 비교표</h3>
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>항목</th>
+          <th class="bfs-cell">BFS</th>
+          <th class="dfs-cell">DFS</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>탐색 방식</td>
+          <td class="bfs-cell">너비 우선 (계층별)</td>
+          <td class="dfs-cell">깊이 우선 (경로별)</td>
+        </tr>
+        <tr>
+          <td>사용 자료구조</td>
+          <td class="bfs-cell">큐 (FIFO)</td>
+          <td class="dfs-cell">스택 (LIFO) / 재귀</td>
+        </tr>
+        <tr>
+          <td>최단 경로 보장</td>
+          <td class="bfs-cell">✓ 가중치 없는 그래프</td>
+          <td class="dfs-cell">✗ 보장 안 됨</td>
+        </tr>
+        <tr>
+          <td>메모리 사용</td>
+          <td class="bfs-cell">상대적으로 많음</td>
+          <td class="dfs-cell">상대적으로 적음</td>
+        </tr>
+        <tr>
+          <td>완전성(Completeness)</td>
+          <td class="bfs-cell">✓ 유한 그래프에서 보장</td>
+          <td class="dfs-cell">✓ (무한 그래프 제외)</td>
+        </tr>
+        <tr>
+          <td>주요 활용</td>
+          <td class="bfs-cell">최단 거리, 레벨 탐색</td>
+          <td class="dfs-cell">백트래킹, 위상정렬, 연결성</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+/* ─────────────────────────────────────────────
+   SHARED UTILITIES
+───────────────────────────────────────────── */
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function getDelay(sliderId) {
+  const val = parseInt(document.getElementById(sliderId).value, 10);
+  const map = { 1: 500, 2: 250, 3: 120, 4: 50, 5: 15 };
+  return map[val] || 120;
+}
+
+/* ─────────────────────────────────────────────
+   TAB SWITCH
+───────────────────────────────────────────── */
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+/* ─────────────────────────────────────────────
+   GRID TAB
+───────────────────────────────────────────── */
+const ROWS = 10, COLS = 10;
+let gridState = [];
+let gridStart = null;
+let gridTarget = null;
+let gridAnimating = false;
+let gridAlgo = 'bfs';
+
+function gridAlgoChange(radio) {
+  gridAlgo = radio.value;
+  document.getElementById('grid-bfs-label').classList.toggle('selected', gridAlgo === 'bfs');
+  document.getElementById('grid-dfs-label').classList.toggle('selected', gridAlgo === 'dfs');
+}
+
+function initGrid() {
+  gridState = Array.from({ length: ROWS }, () => Array(COLS).fill('empty'));
+  gridStart = null;
+  gridTarget = null;
+  renderGrid();
+  setGridStatus('좌클릭: 시작 → 목표 → 벽 토글 / 우클릭: 목표 설정');
+}
+
+function renderGrid() {
+  const container = document.getElementById('grid');
+  container.innerHTML = '';
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.r = r;
+      cell.dataset.c = c;
+      updateCellClass(cell, r, c);
+      cell.addEventListener('click', onCellClick);
+      cell.addEventListener('contextmenu', onCellRightClick);
+      container.appendChild(cell);
+    }
+  }
+}
+
+function getCell(r, c) {
+  return document.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+}
+
+function updateCellClass(cell, r, c) {
+  cell.className = 'cell';
+  const s = gridState[r][c];
+  if (gridStart && gridStart[0] === r && gridStart[1] === c) cell.classList.add('start');
+  else if (gridTarget && gridTarget[0] === r && gridTarget[1] === c) cell.classList.add('target');
+  else if (s === 'wall') cell.classList.add('wall');
+  else if (s === 'path') cell.classList.add('path');
+  else if (s === 'visited-bfs') cell.classList.add('visited-bfs');
+  else if (s === 'visited-dfs') cell.classList.add('visited-dfs');
+  cell.textContent = cell.dataset.order || '';
+}
+
+function onCellClick(e) {
+  if (gridAnimating) return;
+  const r = parseInt(this.dataset.r);
+  const c = parseInt(this.dataset.c);
+  if (!gridStart) {
+    gridStart = [r, c];
+    setGridStatus('목표 지점을 클릭하거나 우클릭으로 설정하세요 (시작: 녹색)');
+  } else if (gridStart[0] === r && gridStart[1] === c) {
+    gridStart = null;
+    setGridStatus('시작 지점을 클릭하세요');
+  } else if (gridTarget && gridTarget[0] === r && gridTarget[1] === c) {
+    gridTarget = null;
+  } else if (!gridTarget) {
+    gridTarget = [r, c];
+    setGridStatus('빈 칸을 클릭하여 벽을 추가하세요. 준비되면 시작 버튼을 누르세요.');
+  } else {
+    gridState[r][c] = gridState[r][c] === 'wall' ? 'empty' : 'wall';
+  }
+  refreshGrid();
+}
+
+function onCellRightClick(e) {
+  e.preventDefault();
+  if (gridAnimating) return;
+  const r = parseInt(this.dataset.r);
+  const c = parseInt(this.dataset.c);
+  if (gridStart && gridStart[0] === r && gridStart[1] === c) return;
+  if (!gridTarget) {
+    gridTarget = [r, c];
+  } else if (gridTarget[0] === r && gridTarget[1] === c) {
+    gridTarget = null;
+  } else {
+    gridTarget = [r, c];
+  }
+  refreshGrid();
+}
+
+function refreshGrid() {
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = getCell(r, c);
+      if (cell) {
+        delete cell.dataset.order;
+        updateCellClass(cell, r, c);
+      }
+    }
+  }
+}
+
+function resetGrid() {
+  gridAnimating = false;
+  document.getElementById('grid-start-btn').disabled = false;
+  initGrid();
+}
+
+function setGridStatus(msg) {
+  document.getElementById('grid-status').textContent = msg;
+}
+
+async function runGrid() {
+  if (gridAnimating) return;
+  if (!gridStart) { setGridStatus('시작 지점을 먼저 설정하세요!'); return; }
+  if (!gridTarget) { setGridStatus('목표 지점을 먼저 설정하세요!'); return; }
+
+  // clear visited state
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      if (gridState[r][c] !== 'wall') gridState[r][c] = 'empty';
+
+  gridAnimating = true;
+  document.getElementById('grid-start-btn').disabled = true;
+
+  const algo = gridAlgo;
+  const visitClass = algo === 'bfs' ? 'visited-bfs' : 'visited-dfs';
+  const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+  const visited = Array.from({ length: ROWS }, () => Array(COLS).fill(false));
+  const parent = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+  const [sr, sc] = gridStart;
+  const [tr, tc] = gridTarget;
+
+  visited[sr][sc] = true;
+  let order = 0;
+  let found = false;
+
+  if (algo === 'bfs') {
+    const queue = [[sr, sc]];
+    setGridStatus('BFS 탐색 중...');
+    while (queue.length && !found) {
+      const [r, c] = queue.shift();
+      order++;
+      const cell = getCell(r, c);
+      if (!(r === sr && c === sc) && !(r === tr && c === tc)) {
+        gridState[r][c] = 'visited-bfs';
+        cell.dataset.order = order;
+        updateCellClass(cell, r, c);
+      } else if (r === tr && c === tc) {
+        found = true;
+        break;
+      }
+      for (const [dr, dc] of dirs) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && !visited[nr][nc] && gridState[nr][nc] !== 'wall') {
+          visited[nr][nc] = true;
+          parent[nr][nc] = [r, c];
+          if (nr === tr && nc === tc) { found = true; break; }
+          queue.push([nr, nc]);
+        }
+      }
+      await sleep(getDelay('grid-speed'));
+    }
+    if (found) {
+      // trace path
+      let cur = [tr, tc];
+      const path = [];
+      while (cur) {
+        path.push(cur);
+        const [pr, pc] = cur;
+        cur = parent[pr][pc];
+      }
+      path.reverse();
+      for (const [pr, pc] of path) {
+        if ((pr === sr && pc === sc) || (pr === tr && pc === tc)) continue;
+        const pcell = getCell(pr, pc);
+        pcell.classList.remove('visited-bfs', 'visited-dfs');
+        pcell.classList.add('path');
+        await sleep(40);
+      }
+      setGridStatus(`BFS 완료! 방문: ${order}개 셀, 최단 경로: ${path.length - 1}칸`);
+    } else {
+      setGridStatus('경로를 찾을 수 없습니다.');
+    }
+  } else {
+    // DFS — iterative
+    const stack = [[sr, sc]];
+    setGridStatus('DFS 탐색 중...');
+    while (stack.length && !found) {
+      const [r, c] = stack.pop();
+      if (visited[r][c] && !(r === sr && c === sc)) continue;
+      visited[r][c] = true;
+      order++;
+      const cell = getCell(r, c);
+      if (!(r === sr && c === sc) && !(r === tr && c === tc)) {
+        gridState[r][c] = 'visited-dfs';
+        cell.dataset.order = order;
+        updateCellClass(cell, r, c);
+      }
+      if (r === tr && c === tc) { found = true; break; }
+      for (const [dr, dc] of dirs) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && !visited[nr][nc] && gridState[nr][nc] !== 'wall') {
+          stack.push([nr, nc]);
+        }
+      }
+      await sleep(getDelay('grid-speed'));
+    }
+    setGridStatus(found
+      ? `DFS 완료! 방문: ${order}개 셀 (DFS는 최단 경로를 보장하지 않습니다)`
+      : '경로를 찾을 수 없습니다.');
+  }
+
+  gridAnimating = false;
+  document.getElementById('grid-start-btn').disabled = false;
+}
+
+/* ─────────────────────────────────────────────
+   GRAPH TAB
+───────────────────────────────────────────── */
+const GRAPH_NODES = {
+  A: { x: 250, y: 40  },
+  B: { x: 130, y: 130 },
+  C: { x: 370, y: 130 },
+  D: { x:  60, y: 230 },
+  E: { x: 200, y: 230 },
+  F: { x: 300, y: 230 },
+  G: { x: 440, y: 230 },
+  H: { x: 130, y: 320 },
+};
+
+const GRAPH_ADJ = {
+  A: ['B', 'C'],
+  B: ['A', 'D', 'E'],
+  C: ['A', 'F', 'G'],
+  D: ['B', 'H'],
+  E: ['B', 'H'],
+  F: ['C'],
+  G: ['C'],
+  H: ['D', 'E'],
+};
+
+const GRAPH_EDGES = [
+  ['A','B'], ['A','C'],
+  ['B','D'], ['B','E'],
+  ['C','F'], ['C','G'],
+  ['D','H'], ['E','H'],
+];
+
+let graphAnimating = false;
+let graphAlgo = 'bfs';
+let graphNodeStates = {}; // 'unvisited' | 'visited' | 'current'
+let graphNodeOrders = {};
+let graphStartNode = 'A';
+
+function graphAlgoChange(radio) {
+  graphAlgo = radio.value;
+  document.getElementById('graph-bfs-label').classList.toggle('selected', graphAlgo === 'bfs');
+  document.getElementById('graph-dfs-label').classList.toggle('selected', graphAlgo === 'dfs');
+  document.getElementById('qs-label').textContent = graphAlgo === 'bfs' ? 'Queue (BFS)' : 'Stack (DFS)';
+}
+
+function initGraphSVG() {
+  const edgesLayer = document.getElementById('edges-layer');
+  const nodesLayer = document.getElementById('nodes-layer');
+  edgesLayer.innerHTML = '';
+  nodesLayer.innerHTML = '';
+
+  // Draw edges
+  for (const [a, b] of GRAPH_EDGES) {
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', GRAPH_NODES[a].x);
+    line.setAttribute('y1', GRAPH_NODES[a].y);
+    line.setAttribute('x2', GRAPH_NODES[b].x);
+    line.setAttribute('y2', GRAPH_NODES[b].y);
+    line.setAttribute('stroke', '#383b52');
+    line.setAttribute('stroke-width', '2.5');
+    line.setAttribute('id', `edge-${a}-${b}`);
+    edgesLayer.appendChild(line);
+  }
+
+  // Draw nodes
+  for (const [name, pos] of Object.entries(GRAPH_NODES)) {
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('id', `node-g-${name}`);
+    g.style.cursor = 'pointer';
+    g.addEventListener('click', () => {
+      document.getElementById('graph-start-select').value = name;
+      graphStartNode = name;
+    });
+
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', pos.x);
+    circle.setAttribute('cy', pos.y);
+    circle.setAttribute('r', '22');
+    circle.setAttribute('fill', '#555');
+    circle.setAttribute('stroke', '#6a6f90');
+    circle.setAttribute('stroke-width', '2');
+    circle.setAttribute('id', `node-circle-${name}`);
+    g.appendChild(circle);
+
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', pos.x);
+    text.setAttribute('y', pos.y + 1);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('dominant-baseline', 'middle');
+    text.setAttribute('fill', '#fff');
+    text.setAttribute('font-size', '14');
+    text.setAttribute('font-weight', '700');
+    text.setAttribute('id', `node-text-${name}`);
+    text.textContent = name;
+    g.appendChild(text);
+
+    // order label
+    const orderText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    orderText.setAttribute('x', pos.x + 16);
+    orderText.setAttribute('y', pos.y - 16);
+    orderText.setAttribute('text-anchor', 'middle');
+    orderText.setAttribute('fill', '#ffd54f');
+    orderText.setAttribute('font-size', '10');
+    orderText.setAttribute('font-weight', '700');
+    orderText.setAttribute('id', `node-order-${name}`);
+    orderText.textContent = '';
+    g.appendChild(orderText);
+
+    nodesLayer.appendChild(g);
+  }
+
+  // Adjacency list
+  const adjDiv = document.getElementById('adj-list');
+  adjDiv.innerHTML = Object.entries(GRAPH_ADJ).map(([node, neighbors]) =>
+    `<span>${node}</span>: [${neighbors.join(', ')}]`
+  ).join('<br>');
+}
+
+function resetGraph() {
+  graphAnimating = false;
+  document.getElementById('graph-start-btn').disabled = false;
+  graphNodeStates = {};
+  graphNodeOrders = {};
+  Object.keys(GRAPH_NODES).forEach(n => {
+    graphNodeStates[n] = 'unvisited';
+    setNodeVisual(n, 'unvisited', 0);
+    const o = document.getElementById(`node-order-${n}`);
+    if (o) o.textContent = '';
+  });
+  document.getElementById('queue-stack-display').innerHTML = '<span style="color:#555">비어 있음</span>';
+  document.getElementById('visited-order').innerHTML = '<span style="color:#555">—</span>';
+  document.getElementById('graph-status').textContent = '노드를 클릭하거나 시작 노드를 선택 후 시작 버튼을 누르세요';
+
+  for (const [a, b] of GRAPH_EDGES) {
+    const line = document.getElementById(`edge-${a}-${b}`);
+    if (line) {
+      line.setAttribute('stroke', '#383b52');
+      line.setAttribute('stroke-width', '2.5');
+    }
+  }
+}
+
+function setNodeVisual(name, state, order) {
+  const circle = document.getElementById(`node-circle-${name}`);
+  const text = document.getElementById(`node-text-${name}`);
+  if (!circle) return;
+  if (state === 'current') {
+    circle.setAttribute('fill', '#ffd54f');
+    circle.setAttribute('stroke', '#ffb300');
+    text.setAttribute('fill', '#111');
+  } else if (state === 'visited') {
+    circle.setAttribute('fill', '#4fc3f7');
+    circle.setAttribute('stroke', '#0288d1');
+    text.setAttribute('fill', '#111');
+  } else {
+    circle.setAttribute('fill', '#555');
+    circle.setAttribute('stroke', '#6a6f90');
+    text.setAttribute('fill', '#fff');
+  }
+}
+
+function updateQueueStackDisplay(items, currentItem) {
+  const div = document.getElementById('queue-stack-display');
+  if (!items.length) {
+    div.innerHTML = '<span style="color:#555">비어 있음</span>';
+    return;
+  }
+  div.innerHTML = items.map(item =>
+    `<span class="qs-item${item === currentItem ? ' qs-current' : ''}">${item}</span>`
+  ).join('');
+}
+
+function updateVisitedOrder(orders) {
+  const div = document.getElementById('visited-order');
+  if (!orders.length) {
+    div.innerHTML = '<span style="color:#555">—</span>';
+    return;
+  }
+  div.innerHTML = orders.map(n => `<span>${n}</span>`).join('');
+}
+
+async function runGraph() {
+  if (graphAnimating) return;
+  resetGraph();
+
+  graphStartNode = document.getElementById('graph-start-select').value;
+  graphAnimating = true;
+  document.getElementById('graph-start-btn').disabled = true;
+
+  const visited = new Set();
+  const visitedOrder = [];
+  let orderIdx = 0;
+  const algo = graphAlgo;
+
+  if (algo === 'bfs') {
+    document.getElementById('graph-status').textContent = 'BFS 탐색 중...';
+    const queue = [graphStartNode];
+    visited.add(graphStartNode);
+
+    while (queue.length) {
+      const node = queue.shift();
+      orderIdx++;
+      setNodeVisual(node, 'current', orderIdx);
+      visitedOrder.push(node);
+
+      const orderEl = document.getElementById(`node-order-${node}`);
+      if (orderEl) orderEl.textContent = orderIdx;
+
+      updateQueueStackDisplay(queue, null);
+      updateVisitedOrder(visitedOrder);
+      document.getElementById('graph-status').textContent = `BFS: 현재 노드 "${node}" 방문 중`;
+
+      await sleep(getDelay('graph-speed'));
+      setNodeVisual(node, 'visited', orderIdx);
+
+      for (const neighbor of GRAPH_ADJ[node]) {
+        if (!visited.has(neighbor)) {
+          visited.add(neighbor);
+          queue.push(neighbor);
+          // highlight edge
+          highlightEdge(node, neighbor);
+        }
+      }
+      updateQueueStackDisplay(queue, queue[0]);
+      await sleep(getDelay('graph-speed') * 0.5);
+    }
+    document.getElementById('graph-status').textContent = `BFS 완료! 방문 순서: ${visitedOrder.join(' → ')}`;
+  } else {
+    // DFS iterative
+    document.getElementById('graph-status').textContent = 'DFS 탐색 중...';
+    const stack = [graphStartNode];
+    const visitedSet = new Set();
+
+    while (stack.length) {
+      const node = stack.pop();
+      if (visitedSet.has(node)) continue;
+      visitedSet.add(node);
+      orderIdx++;
+      setNodeVisual(node, 'current', orderIdx);
+      visitedOrder.push(node);
+
+      const orderEl = document.getElementById(`node-order-${node}`);
+      if (orderEl) orderEl.textContent = orderIdx;
+
+      updateQueueStackDisplay([...stack].reverse(), stack[stack.length - 1]);
+      updateVisitedOrder(visitedOrder);
+      document.getElementById('graph-status').textContent = `DFS: 현재 노드 "${node}" 방문 중`;
+
+      await sleep(getDelay('graph-speed'));
+      setNodeVisual(node, 'visited', orderIdx);
+
+      const neighbors = [...GRAPH_ADJ[node]].reverse();
+      for (const neighbor of neighbors) {
+        if (!visitedSet.has(neighbor)) {
+          stack.push(neighbor);
+          highlightEdge(node, neighbor);
+        }
+      }
+      updateQueueStackDisplay([...stack].reverse(), null);
+      await sleep(getDelay('graph-speed') * 0.5);
+    }
+    document.getElementById('graph-status').textContent = `DFS 완료! 방문 순서: ${visitedOrder.join(' → ')}`;
+  }
+
+  updateQueueStackDisplay([], null);
+  graphAnimating = false;
+  document.getElementById('graph-start-btn').disabled = false;
+}
+
+function highlightEdge(a, b) {
+  let line = document.getElementById(`edge-${a}-${b}`);
+  if (!line) line = document.getElementById(`edge-${b}-${a}`);
+  if (line) {
+    line.setAttribute('stroke', '#4fc3f7');
+    line.setAttribute('stroke-width', '3');
+  }
+}
+
+/* ─────────────────────────────────────────────
+   INIT
+───────────────────────────────────────────── */
+initGrid();
+initGraphSVG();
+resetGraph();
+</script>
+</body>
+</html>

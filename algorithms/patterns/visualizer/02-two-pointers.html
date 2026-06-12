@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Two Pointers 시각화 — Two Sum II</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f1117;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 24px 80px;
+    }
+
+    a.back-link {
+      align-self: flex-start;
+      color: #7a8599;
+      text-decoration: none;
+      font-size: 0.85rem;
+      margin-bottom: 28px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.2s;
+    }
+    a.back-link:hover { color: #b0bcd4; }
+    a.back-link::before { content: "←"; font-size: 1rem; }
+
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+      width: 100%;
+      max-width: 900px;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+
+    header p.subtitle {
+      font-size: 0.95rem;
+      color: #7a8599;
+      line-height: 1.6;
+    }
+
+    .badge {
+      display: inline-block;
+      background: #1e2130;
+      border: 1px solid #2e3348;
+      border-radius: 20px;
+      padding: 2px 12px;
+      font-size: 0.78rem;
+      color: #8899bb;
+      margin-bottom: 12px;
+    }
+
+    .main-container {
+      width: 100%;
+      max-width: 960px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: #161b27;
+      border: 1px solid #242938;
+      border-radius: 12px;
+      padding: 24px 28px;
+    }
+
+    .card-title {
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #4e5d7a;
+      margin-bottom: 16px;
+    }
+
+    /* ── Config row ── */
+    .config-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: flex-end;
+    }
+
+    .config-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .config-group label {
+      font-size: 0.8rem;
+      color: #7a8599;
+    }
+
+    .config-group select,
+    .config-group input[type="number"] {
+      background: #0f1117;
+      border: 1px solid #2e3348;
+      border-radius: 8px;
+      color: #e0e0e0;
+      padding: 8px 12px;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+      min-width: 200px;
+    }
+
+    .config-group input[type="number"] {
+      min-width: 100px;
+      width: 100px;
+    }
+
+    .config-group select:focus,
+    .config-group input[type="number"]:focus {
+      border-color: #5577ff;
+    }
+
+    /* ── Buttons ── */
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+
+    button {
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-weight: 600;
+      padding: 9px 20px;
+      transition: background 0.15s, transform 0.1s, opacity 0.2s;
+      letter-spacing: 0.02em;
+    }
+
+    button:active { transform: scale(0.97); }
+    button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    .btn-primary {
+      background: #3b5bdb;
+      color: #fff;
+    }
+    .btn-primary:hover:not(:disabled) { background: #4c6ef5; }
+
+    .btn-success {
+      background: #2f7a3f;
+      color: #fff;
+    }
+    .btn-success:hover:not(:disabled) { background: #37a34a; }
+
+    .btn-neutral {
+      background: #1e2535;
+      color: #a0b0cc;
+      border: 1px solid #2e3a52;
+    }
+    .btn-neutral:hover:not(:disabled) { background: #252d42; }
+
+    /* ── Array visualizer ── */
+    .array-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+      padding: 12px 0 8px;
+      overflow-x: auto;
+    }
+
+    .pointer-row {
+      display: flex;
+      justify-content: flex-start;
+      gap: 0;
+      margin-bottom: 0;
+      height: 36px;
+      position: relative;
+    }
+
+    .pointer-cell {
+      width: 64px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: transparent;
+      position: relative;
+      transition: color 0.3s;
+      flex-shrink: 0;
+    }
+
+    .pointer-cell .arrow {
+      font-size: 1.3rem;
+      line-height: 1;
+      margin-bottom: 2px;
+      opacity: 0;
+      transform: translateY(-4px);
+      transition: opacity 0.3s, transform 0.3s;
+    }
+
+    .pointer-cell .label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .pointer-cell.left-active .arrow,
+    .pointer-cell.right-active .arrow,
+    .pointer-cell.both-active .arrow {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .pointer-cell.left-active .label,
+    .pointer-cell.right-active .label,
+    .pointer-cell.both-active .label {
+      opacity: 1;
+    }
+
+    .pointer-cell.left-active  { color: #4c9eff; }
+    .pointer-cell.left-active .arrow { color: #4c9eff; }
+    .pointer-cell.left-active .label { color: #4c9eff; }
+
+    .pointer-cell.right-active { color: #ff6b6b; }
+    .pointer-cell.right-active .arrow { color: #ff6b6b; }
+    .pointer-cell.right-active .label { color: #ff6b6b; }
+
+    .pointer-cell.both-active .arrow { color: #a78bfa; }
+    .pointer-cell.both-active .label { color: #a78bfa; }
+
+    .cells-row {
+      display: flex;
+      gap: 0;
+    }
+
+    .cell {
+      width: 64px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      font-weight: 700;
+      border: 2px solid #242938;
+      border-right-width: 1px;
+      border-left-width: 1px;
+      background: #1a1f2e;
+      transition: background 0.3s, border-color 0.3s, color 0.3s, transform 0.2s;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .cell:first-child { border-left-width: 2px; border-radius: 8px 0 0 8px; }
+    .cell:last-child  { border-right-width: 2px; border-radius: 0 8px 8px 0; }
+
+    .cell.highlight-left {
+      background: #0d2545;
+      border-color: #4c9eff;
+      color: #4c9eff;
+      transform: translateY(-4px);
+    }
+
+    .cell.highlight-right {
+      background: #2a0d0d;
+      border-color: #ff6b6b;
+      color: #ff6b6b;
+      transform: translateY(-4px);
+    }
+
+    .cell.highlight-both {
+      background: #1a1040;
+      border-color: #a78bfa;
+      color: #a78bfa;
+      transform: translateY(-4px);
+    }
+
+    .cell.highlight-found {
+      background: #0d2e1a;
+      border-color: #40c057;
+      color: #40c057;
+      transform: translateY(-6px);
+      box-shadow: 0 4px 20px rgba(64, 192, 87, 0.3);
+    }
+
+    .index-row {
+      display: flex;
+      gap: 0;
+      margin-top: 4px;
+    }
+
+    .index-label {
+      width: 64px;
+      text-align: center;
+      font-size: 0.7rem;
+      color: #3e4a62;
+      flex-shrink: 0;
+    }
+
+    /* ── Sum status bar ── */
+    .sum-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+
+    .sum-chip {
+      background: #1a1f2e;
+      border: 1px solid #2e3a52;
+      border-radius: 8px;
+      padding: 8px 18px;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sum-chip .val {
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    .sum-chip.left  .val { color: #4c9eff; }
+    .sum-chip.right .val { color: #ff6b6b; }
+    .sum-chip.sum   .val { color: #e0e0e0; }
+    .sum-chip.target .val { color: #fcc419; }
+    .sum-chip.verdict-gt .val { color: #ff6b6b; }
+    .sum-chip.verdict-lt .val { color: #4c9eff; }
+    .sum-chip.verdict-eq .val { color: #40c057; }
+
+    .verdict-arrow {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #4e5d7a;
+    }
+    .verdict-arrow.gt { color: #ff6b6b; }
+    .verdict-arrow.lt { color: #4c9eff; }
+    .verdict-arrow.eq { color: #40c057; }
+
+    /* ── Step explanation ── */
+    .step-box {
+      background: #0f1117;
+      border: 1px solid #2e3348;
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 0.92rem;
+      line-height: 1.65;
+      color: #c8d6ee;
+      min-height: 52px;
+      transition: border-color 0.3s;
+    }
+
+    .step-box.found   { border-color: #40c057; color: #6edb7f; }
+    .step-box.not-found { border-color: #ff6b6b; color: #ff9a9a; }
+
+    /* ── Stats row ── */
+    .stats-row {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .stat-chip {
+      background: #1a1f2e;
+      border: 1px solid #2e3348;
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 0.8rem;
+      color: #8899bb;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stat-chip .sv {
+      font-weight: 700;
+      color: #c8d6ee;
+    }
+
+    /* ── Code section ── */
+    .code-block {
+      background: #0a0d14;
+      border-radius: 10px;
+      padding: 18px 20px;
+      font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+      font-size: 0.82rem;
+      line-height: 1.8;
+      overflow-x: auto;
+    }
+
+    .code-line {
+      display: flex;
+      align-items: center;
+      padding: 1px 6px;
+      border-radius: 4px;
+      white-space: pre;
+      transition: background 0.25s;
+      gap: 0;
+    }
+
+    .code-line .ln {
+      width: 28px;
+      color: #3e4a62;
+      user-select: none;
+      flex-shrink: 0;
+      text-align: right;
+      margin-right: 14px;
+      font-size: 0.75rem;
+    }
+
+    .code-line.active {
+      background: #1c2645;
+    }
+
+    .code-line.active .ln {
+      color: #5577ff;
+    }
+
+    .kw  { color: #c792ea; }
+    .fn  { color: #82aaff; }
+    .cm  { color: #546e8a; font-style: italic; }
+    .num { color: #f78c6c; }
+    .op  { color: #89ddff; }
+    .id  { color: #e0e0e0; }
+    .ret { color: #c3e88d; }
+
+    /* ── Layout: code + info side by side on wide screens ── */
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 700px) {
+      .bottom-grid { grid-template-columns: 1fr; }
+      header h1 { font-size: 1.5rem; }
+      .cell { width: 50px; height: 50px; font-size: 1.1rem; }
+      .pointer-cell { width: 50px; }
+      .index-label { width: 50px; }
+    }
+
+    /* ── Found overlay ── */
+    .found-banner {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: #0d2e1a;
+      border: 1px solid #40c057;
+      border-radius: 10px;
+      padding: 14px 20px;
+      font-size: 1rem;
+      color: #6edb7f;
+      font-weight: 600;
+    }
+    .found-banner.visible { display: flex; }
+
+    .not-found-banner {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: #2a0d0d;
+      border: 1px solid #ff6b6b;
+      border-radius: 10px;
+      padding: 14px 20px;
+      font-size: 1rem;
+      color: #ff9a9a;
+      font-weight: 600;
+    }
+    .not-found-banner.visible { display: flex; }
+
+    /* ── Complexity info ── */
+    .complexity-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .complexity-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #242938;
+      color: #c8d6ee;
+    }
+    .complexity-table td:first-child {
+      color: #7a8599;
+      width: 45%;
+    }
+    .complexity-table tr:last-child td { border-bottom: none; }
+    .tag-green { color: #40c057; font-weight: 700; }
+    .tag-yellow { color: #fcc419; font-weight: 700; }
+  </style>
+</head>
+<body>
+
+<a class="back-link" href="../../../index.html">인덱스로 돌아가기</a>
+
+<header>
+  <div class="badge">Two Pointers Pattern</div>
+  <h1>Two Sum II 시각화</h1>
+  <p class="subtitle">
+    정렬된 배열에서 두 수의 합이 목표값이 되는 인덱스를 찾습니다.<br>
+    왼쪽 포인터(파랑)와 오른쪽 포인터(빨강)를 양 끝에서 시작해 좁혀갑니다.
+  </p>
+</header>
+
+<div class="main-container">
+
+  <!-- Config -->
+  <div class="card">
+    <div class="card-title">설정</div>
+    <div class="config-row">
+      <div class="config-group">
+        <label>예제 배열 선택</label>
+        <select id="arraySelect" onchange="onArrayChange()">
+          <option value="0">[-4, -1, 1, 3, 5, 6, 8, 11]  ·  target 예시</option>
+          <option value="1">[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]</option>
+          <option value="2">[2, 7, 11, 15]  ·  LeetCode 기본 예시</option>
+          <option value="3">[1, 3, 4, 5, 7, 10, 11]</option>
+          <option value="4">[-10, -5, -2, 0, 3, 7, 12, 20]</option>
+        </select>
+      </div>
+      <div class="config-group">
+        <label>목표 합 (target)</label>
+        <input type="number" id="targetInput" value="9" onchange="onTargetChange()" />
+      </div>
+      <div class="btn-row">
+        <button class="btn-neutral" onclick="reset()">초기화</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Array Visualization -->
+  <div class="card">
+    <div class="card-title">배열 시각화</div>
+    <div class="array-section">
+      <div class="pointer-row" id="pointerRow"></div>
+      <div class="cells-row"   id="cellsRow"></div>
+      <div class="index-row"   id="indexRow"></div>
+    </div>
+
+    <div class="sum-bar" id="sumBar" style="margin-top:18px;">
+      <div class="sum-chip left">
+        <span>arr[L]</span><span class="val" id="valLeft">–</span>
+      </div>
+      <span class="verdict-arrow" id="verdictArrow">+</span>
+      <div class="sum-chip right">
+        <span>arr[R]</span><span class="val" id="valRight">–</span>
+      </div>
+      <span class="verdict-arrow" id="verdictEq">=</span>
+      <div class="sum-chip sum">
+        <span>합</span><span class="val" id="valSum">–</span>
+      </div>
+      <span class="verdict-arrow" id="cmpArrow">vs</span>
+      <div class="sum-chip target">
+        <span>target</span><span class="val" id="valTarget">–</span>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;">
+      <div class="found-banner"     id="foundBanner">✅ 정답을 찾았습니다!</div>
+      <div class="not-found-banner" id="notFoundBanner">❌ 해당 target을 만드는 쌍이 없습니다.</div>
+    </div>
+  </div>
+
+  <!-- Step explanation + stats -->
+  <div class="card">
+    <div class="card-title">스텝 설명</div>
+    <div class="step-box" id="stepBox">
+      "다음 스텝" 버튼을 눌러 알고리즘을 시작하세요.
+    </div>
+    <div class="stats-row">
+      <div class="stat-chip">스텝 수 <span class="sv" id="stepCount">0</span></div>
+      <div class="stat-chip">비교 횟수 <span class="sv" id="cmpCount">0</span></div>
+      <div class="stat-chip">상태 <span class="sv" id="stateLabel">대기</span></div>
+    </div>
+    <div class="btn-row" style="margin-top:16px;">
+      <button class="btn-primary"  id="btnNext"   onclick="nextStep()">다음 스텝</button>
+      <button class="btn-success"  id="btnAuto"   onclick="toggleAuto()">자동 실행</button>
+      <button class="btn-neutral"  id="btnReset"  onclick="reset()">초기화</button>
+    </div>
+  </div>
+
+  <!-- Bottom: code + complexity -->
+  <div class="bottom-grid">
+
+    <!-- Code -->
+    <div class="card">
+      <div class="card-title">알고리즘 코드 (JavaScript)</div>
+      <div class="code-block" id="codeBlock">
+        <!-- lines injected by JS -->
+      </div>
+    </div>
+
+    <!-- Complexity -->
+    <div class="card">
+      <div class="card-title">복잡도 분석</div>
+      <table class="complexity-table">
+        <tr><td>시간 복잡도</td><td><span class="tag-green">O(n)</span></td></tr>
+        <tr><td>공간 복잡도</td><td><span class="tag-green">O(1)</span></td></tr>
+        <tr><td>전제 조건</td><td>배열이 <strong>오름차순 정렬</strong>되어 있어야 함</td></tr>
+        <tr><td>포인터 이동 규칙</td><td>합 &gt; target → R 왼쪽으로<br>합 &lt; target → L 오른쪽으로<br>합 = target → 정답!</td></tr>
+        <tr><td>최악의 경우</td><td>두 포인터가 서로 만날 때까지 n번 이동</td></tr>
+        <tr><td>vs. 브루트 포스</td><td>O(n²) → <span class="tag-green">O(n)</span></td></tr>
+      </table>
+    </div>
+
+  </div>
+
+</div><!-- /main-container -->
+
+<script>
+  // ─── Data ───────────────────────────────────────────────────────────────
+  const EXAMPLES = [
+    { arr: [-4, -1, 1, 3, 5, 6, 8, 11], defaultTarget: 9 },
+    { arr: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], defaultTarget: 15 },
+    { arr: [2, 7, 11, 15], defaultTarget: 9 },
+    { arr: [1, 3, 4, 5, 7, 10, 11], defaultTarget: 14 },
+    { arr: [-10, -5, -2, 0, 3, 7, 12, 20], defaultTarget: 10 },
+  ];
+
+  // Code lines definition  (id → display text, indent level, html)
+  const CODE_LINES = [
+    { id: 'fn',   html: '<span class="kw">function</span> <span class="fn">twoSumII</span>(<span class="id">nums</span>, <span class="id">target</span>) {' },
+    { id: 'l',    html: '  <span class="kw">let</span> <span class="id">L</span> <span class="op">=</span> <span class="num">0</span>;' },
+    { id: 'r',    html: '  <span class="kw">let</span> <span class="id">R</span> <span class="op">=</span> <span class="id">nums</span>.<span class="fn">length</span> <span class="op">-</span> <span class="num">1</span>;' },
+    { id: 'while',html: '  <span class="kw">while</span> (<span class="id">L</span> <span class="op">&lt;</span> <span class="id">R</span>) {' },
+    { id: 'sum',  html: '    <span class="kw">const</span> <span class="id">sum</span> <span class="op">=</span> <span class="id">nums</span>[<span class="id">L</span>] <span class="op">+</span> <span class="id">nums</span>[<span class="id">R</span>];' },
+    { id: 'if',   html: '    <span class="kw">if</span> (<span class="id">sum</span> <span class="op">===</span> <span class="id">target</span>) {' },
+    { id: 'ret',  html: '      <span class="kw">return</span> [<span class="id">L</span> <span class="op">+</span> <span class="num">1</span>, <span class="id">R</span> <span class="op">+</span> <span class="num">1</span>]; <span class="cm">// 1-indexed</span>' },
+    { id: 'elif', html: '    } <span class="kw">else if</span> (<span class="id">sum</span> <span class="op">&gt;</span> <span class="id">target</span>) {' },
+    { id: 'decr', html: '      <span class="id">R</span><span class="op">--</span>; <span class="cm">// 합이 크므로 R을 왼쪽으로</span>' },
+    { id: 'else', html: '    } <span class="kw">else</span> {' },
+    { id: 'incr', html: '      <span class="id">L</span><span class="op">++</span>; <span class="cm">// 합이 작으므로 L을 오른쪽으로</span>' },
+    { id: 'end1', html: '    }' },
+    { id: 'end2', html: '  }' },
+    { id: 'noans',html: '  <span class="kw">return</span> [<span class="op">-</span><span class="num">1</span>, <span class="op">-</span><span class="num">1</span>]; <span class="cm">// 정답 없음</span>' },
+    { id: 'end3', html: '}' },
+  ];
+
+  // ─── State ───────────────────────────────────────────────────────────────
+  let arr = [];
+  let target = 0;
+  let L = 0, R = 0;
+  let steps = 0, cmps = 0;
+  let phase = 'init';   // init | loop | found | notfound
+  let activeCodeLine = 'fn';
+  let autoTimer = null;
+  let currentSum = null;
+
+  // ─── Init ────────────────────────────────────────────────────────────────
+  function init() {
+    const idx = parseInt(document.getElementById('arraySelect').value);
+    arr = [...EXAMPLES[idx].arr];
+    target = parseInt(document.getElementById('targetInput').value);
+    if (isNaN(target)) {
+      target = EXAMPLES[idx].defaultTarget;
+      document.getElementById('targetInput').value = target;
+    }
+    L = 0;
+    R = arr.length - 1;
+    steps = 0;
+    cmps = 0;
+    phase = 'init';
+    activeCodeLine = 'fn';
+    currentSum = null;
+    if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+    document.getElementById('btnAuto').textContent = '자동 실행';
+    renderAll();
+  }
+
+  function reset() { init(); }
+
+  function onArrayChange() {
+    const idx = parseInt(document.getElementById('arraySelect').value);
+    document.getElementById('targetInput').value = EXAMPLES[idx].defaultTarget;
+    init();
+  }
+
+  function onTargetChange() {
+    init();
+  }
+
+  // ─── Step logic ──────────────────────────────────────────────────────────
+  // Returns explanation string, sets activeCodeLine & phase
+  function advanceStep() {
+    if (phase === 'found' || phase === 'notfound') return;
+
+    if (phase === 'init') {
+      // Declare L
+      activeCodeLine = 'l';
+      phase = 'declL';
+      return '① L = 0 으로 초기화합니다. (배열의 맨 왼쪽 인덱스)';
+    }
+    if (phase === 'declL') {
+      activeCodeLine = 'r';
+      phase = 'declR';
+      return `② R = ${arr.length - 1} 으로 초기화합니다. (배열의 맨 오른쪽 인덱스)`;
+    }
+    if (phase === 'declR') {
+      if (L >= R) {
+        activeCodeLine = 'noans';
+        phase = 'notfound';
+        return '③ L ≥ R 이므로 반복문 조건이 거짓입니다. 정답이 존재하지 않습니다.';
+      }
+      activeCodeLine = 'while';
+      phase = 'checkWhile';
+      return `③ 반복 조건 확인: L(${L}) < R(${R}) → 참. 반복문 진입.`;
+    }
+
+    // Normal loop phases
+    if (phase === 'checkWhile') {
+      if (L >= R) {
+        activeCodeLine = 'noans';
+        phase = 'notfound';
+        return `반복 조건: L(${L}) ≥ R(${R}) → 거짓. 반복 종료. 해당 합을 만드는 쌍이 없습니다.`;
+      }
+      // compute sum
+      currentSum = arr[L] + arr[R];
+      cmps++;
+      activeCodeLine = 'sum';
+      phase = 'calcSum';
+      return `arr[L]=${arr[L]}, arr[R]=${arr[R]} → 합 = ${currentSum} 계산.`;
+    }
+
+    if (phase === 'calcSum') {
+      activeCodeLine = 'if';
+      phase = 'checkIf';
+      const rel = currentSum === target ? '==' : (currentSum > target ? '>' : '<');
+      return `합(${currentSum}) ${rel} target(${target}) 비교.`;
+    }
+
+    if (phase === 'checkIf') {
+      if (currentSum === target) {
+        activeCodeLine = 'ret';
+        phase = 'found';
+        return `✅ 합 ${currentSum} === target ${target}! 인덱스 [${L+1}, ${R+1}] (1-indexed) 반환.`;
+      } else if (currentSum > target) {
+        activeCodeLine = 'elif';
+        phase = 'doDecr';
+        return `합(${currentSum}) > target(${target}): R을 왼쪽으로 이동해 합을 줄입니다.`;
+      } else {
+        activeCodeLine = 'else';
+        phase = 'doIncr';
+        return `합(${currentSum}) < target(${target}): L을 오른쪽으로 이동해 합을 늘립니다.`;
+      }
+    }
+
+    if (phase === 'doDecr') {
+      const old = R;
+      R--;
+      steps++;
+      activeCodeLine = 'decr';
+      phase = 'afterMove';
+      return `R: ${old} → ${R} (arr[R] = ${arr[R]}).  합이 너무 컸기 때문에 더 작은 값으로 교체합니다.`;
+    }
+
+    if (phase === 'doIncr') {
+      const old = L;
+      L++;
+      steps++;
+      activeCodeLine = 'incr';
+      phase = 'afterMove';
+      return `L: ${old} → ${L} (arr[L] = ${arr[L]}).  합이 너무 작았기 때문에 더 큰 값으로 교체합니다.`;
+    }
+
+    if (phase === 'afterMove') {
+      activeCodeLine = 'while';
+      phase = 'checkWhile';
+      if (L >= R) {
+        return `L(${L}) ≥ R(${R}): 반복 조건 확인 → 거짓. 다음 스텝에서 종료됩니다.`;
+      }
+      return `반복 조건 재확인: L(${L}) < R(${R}) → 참. 다음 반복으로 진입.`;
+    }
+
+    return '';
+  }
+
+  function nextStep() {
+    if (phase === 'found' || phase === 'notfound') return;
+    const explanation = advanceStep();
+    renderAll(explanation);
+  }
+
+  function toggleAuto() {
+    if (autoTimer) {
+      clearInterval(autoTimer);
+      autoTimer = null;
+      document.getElementById('btnAuto').textContent = '자동 실행';
+    } else {
+      if (phase === 'found' || phase === 'notfound') return;
+      document.getElementById('btnAuto').textContent = '정지';
+      autoTimer = setInterval(() => {
+        if (phase === 'found' || phase === 'notfound') {
+          clearInterval(autoTimer);
+          autoTimer = null;
+          document.getElementById('btnAuto').textContent = '자동 실행';
+          return;
+        }
+        nextStep();
+      }, 900);
+    }
+  }
+
+  // ─── Render ───────────────────────────────────────────────────────────────
+  function renderAll(explanation) {
+    renderArray();
+    renderSumBar();
+    renderCode();
+    renderStats();
+    renderBanners();
+    if (explanation !== undefined) renderExplanation(explanation);
+    // Disable next button when done
+    const done = (phase === 'found' || phase === 'notfound');
+    document.getElementById('btnNext').disabled = done;
+    document.getElementById('btnAuto').disabled = done && !autoTimer;
+  }
+
+  function renderArray() {
+    const pointerRow = document.getElementById('pointerRow');
+    const cellsRow   = document.getElementById('cellsRow');
+    const indexRow   = document.getElementById('indexRow');
+
+    pointerRow.innerHTML = '';
+    cellsRow.innerHTML   = '';
+    indexRow.innerHTML   = '';
+
+    arr.forEach((val, i) => {
+      // pointer cell
+      const pc = document.createElement('div');
+      pc.className = 'pointer-cell';
+      const isL = (i === L);
+      const isR = (i === R);
+      if (isL && isR) pc.classList.add('both-active');
+      else if (isL)   pc.classList.add('left-active');
+      else if (isR)   pc.classList.add('right-active');
+
+      const arrowEl = document.createElement('div');
+      arrowEl.className = 'arrow';
+      arrowEl.textContent = '▼';
+
+      const labelEl = document.createElement('div');
+      labelEl.className = 'label';
+      if (isL && isR) labelEl.textContent = 'L=R';
+      else if (isL)   labelEl.textContent = 'L';
+      else if (isR)   labelEl.textContent = 'R';
+
+      pc.appendChild(arrowEl);
+      pc.appendChild(labelEl);
+      pointerRow.appendChild(pc);
+
+      // value cell
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.textContent = val;
+
+      if (phase === 'found' && i === L && i === R) {
+        cell.classList.add('highlight-found');
+      } else if (phase === 'found' && (i === L || i === R)) {
+        cell.classList.add('highlight-found');
+      } else if (isL && isR) {
+        cell.classList.add('highlight-both');
+      } else if (isL) {
+        cell.classList.add('highlight-left');
+      } else if (isR) {
+        cell.classList.add('highlight-right');
+      }
+
+      cellsRow.appendChild(cell);
+
+      // index label
+      const il = document.createElement('div');
+      il.className = 'index-label';
+      il.textContent = i;
+      indexRow.appendChild(il);
+    });
+  }
+
+  function renderSumBar() {
+    const valLeft   = document.getElementById('valLeft');
+    const valRight  = document.getElementById('valRight');
+    const valSum    = document.getElementById('valSum');
+    const valTarget = document.getElementById('valTarget');
+    const cmpArrow  = document.getElementById('cmpArrow');
+
+    valLeft.textContent   = (phase !== 'init') ? arr[L] : '–';
+    valRight.textContent  = (phase !== 'init') ? arr[R] : '–';
+    valTarget.textContent = target;
+
+    if (currentSum !== null && phase !== 'init') {
+      valSum.textContent = currentSum;
+      if (currentSum > target) {
+        cmpArrow.textContent = '>';
+        cmpArrow.className   = 'verdict-arrow gt';
+      } else if (currentSum < target) {
+        cmpArrow.textContent = '<';
+        cmpArrow.className   = 'verdict-arrow lt';
+      } else {
+        cmpArrow.textContent = '=';
+        cmpArrow.className   = 'verdict-arrow eq';
+      }
+    } else {
+      valSum.textContent = '–';
+      cmpArrow.textContent = 'vs';
+      cmpArrow.className   = 'verdict-arrow';
+    }
+  }
+
+  function renderCode() {
+    const block = document.getElementById('codeBlock');
+    block.innerHTML = CODE_LINES.map((line, idx) => {
+      const active = (line.id === activeCodeLine) ? ' active' : '';
+      return `<div class="code-line${active}"><span class="ln">${idx + 1}</span>${line.html}</div>`;
+    }).join('\n');
+  }
+
+  function renderStats() {
+    document.getElementById('stepCount').textContent = steps;
+    document.getElementById('cmpCount').textContent  = cmps;
+
+    const labels = {
+      init:       '대기',
+      declL:      'L 초기화',
+      declR:      'R 초기화',
+      checkWhile: '조건 확인',
+      calcSum:    '합 계산',
+      checkIf:    '비교 중',
+      doDecr:     'R 이동',
+      doIncr:     'L 이동',
+      afterMove:  '이동 완료',
+      found:      '정답 발견!',
+      notfound:   '정답 없음',
+    };
+    document.getElementById('stateLabel').textContent = labels[phase] || phase;
+  }
+
+  function renderExplanation(text) {
+    const box = document.getElementById('stepBox');
+    box.textContent = text;
+    box.className = 'step-box';
+    if (phase === 'found')    box.classList.add('found');
+    if (phase === 'notfound') box.classList.add('not-found');
+  }
+
+  function renderBanners() {
+    document.getElementById('foundBanner').classList.toggle(
+      'visible', phase === 'found'
+    );
+    document.getElementById('notFoundBanner').classList.toggle(
+      'visible', phase === 'notfound'
+    );
+    if (phase === 'found') {
+      document.getElementById('foundBanner').textContent =
+        `✅ 정답을 찾았습니다!  인덱스 [${L+1}, ${R+1}] (1-indexed)  →  nums[${L}]=${arr[L]}, nums[${R}]=${arr[R]}, 합=${arr[L]+arr[R]}`;
+    }
+  }
+
+  // ─── Bootstrap ───────────────────────────────────────────────────────────
+  init();
+</script>
+</body>
+</html>

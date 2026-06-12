@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>그리디 알고리즘 시각화</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f1117;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 24px 80px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    header h1 {
+      font-size: 2.2rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: #ffffff;
+      margin-bottom: 8px;
+    }
+
+    header p {
+      color: #888;
+      font-size: 0.95rem;
+    }
+
+    .tab-bar {
+      display: flex;
+      gap: 4px;
+      background: #1a1d27;
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 36px;
+      border: 1px solid #2a2d3a;
+    }
+
+    .tab-btn {
+      padding: 10px 28px;
+      border-radius: 9px;
+      border: none;
+      background: transparent;
+      color: #888;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .tab-btn.active {
+      background: #2d5be3;
+      color: #fff;
+      box-shadow: 0 2px 12px rgba(45, 91, 227, 0.4);
+    }
+
+    .tab-btn:not(.active):hover {
+      background: #22263a;
+      color: #ccc;
+    }
+
+    .tab-panel {
+      display: none;
+      width: 100%;
+      max-width: 860px;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    .card {
+      background: #1a1d27;
+      border: 1px solid #2a2d3a;
+      border-radius: 16px;
+      padding: 28px 32px;
+      margin-bottom: 20px;
+    }
+
+    .card-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #aab;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-size: 0.8rem;
+    }
+
+    .btn {
+      padding: 10px 22px;
+      border-radius: 8px;
+      border: none;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      background: #2d5be3;
+      color: #fff;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #3d6bf5;
+      box-shadow: 0 2px 12px rgba(45, 91, 227, 0.4);
+    }
+
+    .btn-secondary {
+      background: #22263a;
+      color: #ccc;
+      border: 1px solid #2a2d3a;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: #2a2d45;
+      color: #fff;
+    }
+
+    .btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    /* ── Activity Selection ─────────────────────────────── */
+
+    .gantt-wrap {
+      position: relative;
+      margin-bottom: 16px;
+    }
+
+    .gantt-chart {
+      position: relative;
+      width: 100%;
+      background: #0f1117;
+      border-radius: 10px;
+      border: 1px solid #2a2d3a;
+      padding: 16px 16px 40px 52px;
+      overflow: hidden;
+    }
+
+    .gantt-row {
+      display: flex;
+      align-items: center;
+      height: 38px;
+      margin-bottom: 6px;
+      position: relative;
+    }
+
+    .gantt-label {
+      position: absolute;
+      left: -40px;
+      width: 34px;
+      text-align: right;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #888;
+      transition: color 0.3s;
+    }
+
+    .gantt-track {
+      position: relative;
+      width: 100%;
+      height: 28px;
+      background: #1a1d27;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .gantt-bar {
+      position: absolute;
+      height: 100%;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #fff;
+      transition: background 0.4s, box-shadow 0.4s, transform 0.2s;
+      cursor: default;
+      background: #3a4060;
+    }
+
+    .gantt-bar.state-idle      { background: #3a4060; }
+    .gantt-bar.state-current   { background: #e0a030; box-shadow: 0 0 12px rgba(224,160,48,0.5); transform: scaleY(1.08); }
+    .gantt-bar.state-selected  { background: #27ae60; box-shadow: 0 0 12px rgba(39,174,96,0.4); }
+    .gantt-bar.state-rejected  { background: #c0392b; opacity: 0.55; }
+
+    .gantt-axis {
+      position: absolute;
+      bottom: 6px;
+      left: 52px;
+      right: 16px;
+      height: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+
+    .gantt-axis-tick {
+      font-size: 0.7rem;
+      color: #555;
+      position: relative;
+    }
+
+    .gantt-axis-tick::before {
+      content: '';
+      position: absolute;
+      top: -6px;
+      left: 50%;
+      width: 1px;
+      height: 4px;
+      background: #555;
+    }
+
+    .gantt-axis-line {
+      position: absolute;
+      bottom: 26px;
+      left: 52px;
+      right: 16px;
+      height: 1px;
+      background: #2a2d3a;
+    }
+
+    .stats-row {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .stat-chip {
+      background: #22263a;
+      border: 1px solid #2a2d3a;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 0.85rem;
+    }
+
+    .stat-chip span {
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .log-box {
+      background: #0f1117;
+      border: 1px solid #2a2d3a;
+      border-radius: 10px;
+      padding: 14px 18px;
+      min-height: 72px;
+      font-size: 0.85rem;
+      line-height: 1.7;
+      color: #aab;
+    }
+
+    .log-line {
+      margin-bottom: 2px;
+      transition: opacity 0.3s;
+    }
+
+    .log-line.highlight { color: #f0e68c; }
+    .log-line.selected  { color: #5de890; }
+    .log-line.rejected  { color: #e05050; }
+    .log-line.info      { color: #7ab4f5; }
+
+    /* ── Coin Change ───────────────────────────────────── */
+
+    .coin-input-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .coin-input-row label {
+      font-size: 0.9rem;
+      color: #aab;
+      white-space: nowrap;
+    }
+
+    .amount-input {
+      background: #0f1117;
+      border: 1px solid #2a2d3a;
+      border-radius: 8px;
+      padding: 9px 14px;
+      color: #fff;
+      font-size: 1rem;
+      font-family: inherit;
+      width: 140px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .amount-input:focus { border-color: #2d5be3; }
+
+    .coin-denominations {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+      align-items: flex-end;
+    }
+
+    .coin-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      transition: transform 0.2s;
+    }
+
+    .coin-circle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      font-weight: 700;
+      color: #fff;
+      transition: box-shadow 0.35s, transform 0.35s, background 0.35s;
+      border: 3px solid transparent;
+      cursor: default;
+      user-select: none;
+    }
+
+    .coin-circle.denom-500 { width: 68px; height: 68px; font-size: 0.85rem; background: #7c5c10; border-color: #c49a30; }
+    .coin-circle.denom-100 { width: 60px; height: 60px; font-size: 0.8rem;  background: #5a5a5a; border-color: #999; }
+    .coin-circle.denom-50  { width: 52px; height: 52px; font-size: 0.75rem; background: #4a3a10; border-color: #b08030; }
+    .coin-circle.denom-10  { width: 46px; height: 46px; font-size: 0.72rem; background: #5a3a18; border-color: #a06030; }
+    .coin-circle.denom-5   { width: 42px; height: 42px; font-size: 0.7rem;  background: #3a2a10; border-color: #905020; }
+    .coin-circle.denom-1   { width: 38px; height: 38px; font-size: 0.68rem; background: #3a2510; border-color: #804018; }
+
+    .coin-circle.state-current {
+      box-shadow: 0 0 18px rgba(240, 200, 60, 0.8);
+      transform: scale(1.18) translateY(-6px);
+    }
+
+    .coin-circle.state-used {
+      box-shadow: 0 0 14px rgba(39, 174, 96, 0.7);
+      border-color: #27ae60;
+    }
+
+    .coin-circle.state-skipped {
+      opacity: 0.35;
+    }
+
+    .coin-count-badge {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #27ae60;
+      min-height: 18px;
+      transition: opacity 0.3s;
+    }
+
+    .coin-count-badge.zero { opacity: 0; }
+
+    .coin-label {
+      font-size: 0.75rem;
+      color: #666;
+    }
+
+    .coin-tray {
+      background: #0f1117;
+      border: 1px solid #2a2d3a;
+      border-radius: 10px;
+      padding: 16px 18px;
+      margin-bottom: 16px;
+      min-height: 60px;
+    }
+
+    .coin-tray-title {
+      font-size: 0.78rem;
+      color: #666;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .coin-tray-coins {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .tray-coin {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.55rem;
+      font-weight: 700;
+      color: #fff;
+      animation: popIn 0.25s ease-out;
+    }
+
+    @keyframes popIn {
+      from { transform: scale(0); opacity: 0; }
+      to   { transform: scale(1); opacity: 1; }
+    }
+
+    .tray-coin.c500 { background: #9a7020; border: 2px solid #c49a30; }
+    .tray-coin.c100 { background: #6a6a6a; border: 2px solid #999; }
+    .tray-coin.c50  { background: #6a5820; border: 2px solid #b08030; }
+    .tray-coin.c10  { background: #6a4a28; border: 2px solid #a06030; }
+    .tray-coin.c5   { background: #4a3a18; border: 2px solid #905020; }
+    .tray-coin.c1   { background: #4a3518; border: 2px solid #804018; }
+
+    .running-total {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+
+    .total-display {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #fff;
+      transition: color 0.3s;
+    }
+
+    .total-display.complete { color: #27ae60; }
+
+    .remainder-display {
+      font-size: 0.9rem;
+      color: #888;
+    }
+
+    .remainder-display span {
+      color: #f0a030;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>그리디 알고리즘</h1>
+  <p>Greedy Algorithm — 매 단계에서 가장 좋아 보이는 선택을 하는 전략</p>
+</header>
+
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('activity')">활동 선택</button>
+  <button class="tab-btn" onclick="switchTab('coin')">동전 거스름돈</button>
+</div>
+
+<!-- ═══════════════════ ACTIVITY SELECTION ═══════════════════ -->
+<div id="tab-activity" class="tab-panel active">
+
+  <div class="card">
+    <div class="card-title">활동 선택 문제 (Activity Selection Problem)</div>
+
+    <div class="stats-row" id="act-stats">
+      <div class="stat-chip">전체 활동: <span id="act-total">0</span>개</div>
+      <div class="stat-chip">선택된 활동: <span id="act-selected">0</span>개</div>
+      <div class="stat-chip">거부된 활동: <span id="act-rejected">0</span>개</div>
+    </div>
+
+    <div class="gantt-wrap">
+      <div class="gantt-chart" id="gantt-chart">
+        <div class="gantt-axis-line"></div>
+        <div id="gantt-rows"></div>
+        <div class="gantt-axis" id="gantt-axis"></div>
+      </div>
+    </div>
+
+    <div class="btn-row" style="margin-bottom:16px;">
+      <button class="btn btn-primary" id="act-run-btn" onclick="runActivityGreedy()">그리디 실행</button>
+      <button class="btn btn-secondary" onclick="generateActivities()">랜덤 생성</button>
+      <button class="btn btn-secondary" onclick="resetActivity()">초기화</button>
+    </div>
+
+    <div class="log-box" id="act-log">
+      <div class="log-line info">▶ 그리디 실행 버튼을 눌러 단계별 시각화를 시작하세요.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">알고리즘 설명</div>
+    <div style="font-size:0.88rem; color:#99a; line-height:1.8;">
+      <p style="margin-bottom:8px;">활동 선택 문제는 서로 겹치지 않는 최대 활동 집합을 구하는 문제입니다.</p>
+      <p style="margin-bottom:8px;"><strong style="color:#f0e68c;">그리디 전략:</strong> 끝 시간(종료 시각)이 가장 빠른 활동을 먼저 선택합니다.</p>
+      <ol style="margin-left:20px; color:#88a;">
+        <li>모든 활동을 종료 시각 기준으로 오름차순 정렬</li>
+        <li>첫 번째 활동 선택</li>
+        <li>다음 활동의 시작 시각 ≥ 마지막 선택 활동의 종료 시각이면 선택</li>
+        <li>그렇지 않으면 거부</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ COIN CHANGE ═══════════════════ -->
+<div id="tab-coin" class="tab-panel">
+
+  <div class="card">
+    <div class="card-title">동전 거스름돈 문제 (Coin Change — Greedy)</div>
+
+    <div class="coin-input-row">
+      <label for="amount-input">거슬러 줄 금액 (원)</label>
+      <input
+        type="number"
+        id="amount-input"
+        class="amount-input"
+        value="1276"
+        min="1"
+        max="9999"
+        placeholder="금액 입력"
+      />
+      <button class="btn btn-primary" id="coin-run-btn" onclick="runCoinGreedy()">계산하기</button>
+      <button class="btn btn-secondary" onclick="resetCoin()">초기화</button>
+    </div>
+
+    <div class="coin-denominations" id="coin-denominations">
+      <!-- rendered by JS -->
+    </div>
+
+    <div class="running-total">
+      <div>
+        <div style="font-size:0.75rem;color:#666;margin-bottom:2px;">사용한 금액</div>
+        <div class="total-display" id="coin-used-display">0원</div>
+      </div>
+      <div>
+        <div class="remainder-display">남은 금액: <span id="coin-remainder">-</span>원</div>
+      </div>
+      <div style="margin-left:auto;">
+        <div style="font-size:0.75rem;color:#666;margin-bottom:2px;">총 동전 수</div>
+        <div style="font-size:1.4rem; font-weight:700; color:#7ab4f5;" id="coin-count-total">0개</div>
+      </div>
+    </div>
+
+    <div class="coin-tray" id="coin-tray">
+      <div class="coin-tray-title">선택된 동전 트레이</div>
+      <div class="coin-tray-coins" id="coin-tray-coins">
+        <span style="color:#444;font-size:0.82rem;">아직 동전이 없습니다</span>
+      </div>
+    </div>
+
+    <div class="log-box" id="coin-log">
+      <div class="log-line info">▶ 금액을 입력하고 계산하기 버튼을 눌러주세요.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">알고리즘 설명</div>
+    <div style="font-size:0.88rem; color:#99a; line-height:1.8;">
+      <p style="margin-bottom:8px;">동전 거스름돈 문제에서 그리디는 가장 큰 동전부터 최대한 사용하는 전략입니다.</p>
+      <p style="margin-bottom:8px;"><strong style="color:#f0e68c;">주의:</strong> 그리디가 항상 최적해를 보장하지는 않습니다. 한국 동전(500·100·50·10·5·1)처럼 각 단위가 이전 단위의 배수일 때 최적해를 보장합니다.</p>
+      <ol style="margin-left:20px; color:#88a;">
+        <li>가장 큰 동전 단위부터 시작</li>
+        <li>현재 금액 ÷ 동전 단위 = 사용 개수 (몫)</li>
+        <li>나머지 금액으로 다음 단위 처리</li>
+        <li>나머지가 0이 될 때까지 반복</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ════════════════════════════════════════════════════════
+     UTILITY
+  ════════════════════════════════════════════════════════ */
+  function randInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /* ════════════════════════════════════════════════════════
+     TAB SWITCH
+  ════════════════════════════════════════════════════════ */
+  function switchTab(name) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    event.currentTarget.classList.add('active');
+  }
+
+  /* ════════════════════════════════════════════════════════
+     ACTIVITY SELECTION
+  ════════════════════════════════════════════════════════ */
+  const TIME_MAX = 12;
+  let activities = [];
+  let actAnimating = false;
+
+  const ACTIVITY_PRESETS = [
+    { s: 0, e: 3 }, { s: 1, e: 4 }, { s: 3, e: 5 }, { s: 3, e: 8 },
+    { s: 4, e: 7 }, { s: 5, e: 9 }, { s: 6, e: 10 }, { s: 8, e: 11 },
+    { s: 8, e: 12 }, { s: 2, e: 6 }
+  ];
+
+  function generateActivities() {
+    if (actAnimating) return;
+    const n = randInt(5, 9);
+    activities = [];
+    for (let i = 0; i < n; i++) {
+      let s, e;
+      do {
+        s = randInt(0, TIME_MAX - 1);
+        e = randInt(s + 1, Math.min(s + 5, TIME_MAX));
+      } while (activities.some(a => a.s === s && a.e === e));
+      activities.push({ s, e, label: String.fromCharCode(65 + i), state: 'idle' });
+    }
+    renderGantt();
+    resetActivityStats();
+    setActLog([{ text: '새 활동이 생성되었습니다. 그리디 실행 버튼을 눌러보세요.', cls: 'info' }]);
+  }
+
+  function initDefaultActivities() {
+    activities = ACTIVITY_PRESETS.slice(0, 8).map((a, i) => ({
+      s: a.s, e: a.e,
+      label: String.fromCharCode(65 + i),
+      state: 'idle'
+    }));
+    renderGantt();
+    resetActivityStats();
+  }
+
+  function resetActivityStats() {
+    document.getElementById('act-total').textContent = activities.length;
+    document.getElementById('act-selected').textContent = 0;
+    document.getElementById('act-rejected').textContent = 0;
+  }
+
+  function renderGantt() {
+    const container = document.getElementById('gantt-rows');
+    container.innerHTML = '';
+
+    activities.forEach((act, idx) => {
+      const row = document.createElement('div');
+      row.className = 'gantt-row';
+      row.id = 'gantt-row-' + idx;
+
+      const label = document.createElement('div');
+      label.className = 'gantt-label';
+      label.id = 'gantt-label-' + idx;
+      label.textContent = act.label;
+
+      const track = document.createElement('div');
+      track.className = 'gantt-track';
+
+      const leftPct = (act.s / TIME_MAX) * 100;
+      const widthPct = ((act.e - act.s) / TIME_MAX) * 100;
+
+      const bar = document.createElement('div');
+      bar.className = 'gantt-bar state-idle';
+      bar.id = 'gantt-bar-' + idx;
+      bar.style.left = leftPct + '%';
+      bar.style.width = widthPct + '%';
+      bar.title = `${act.label}: ${act.s}~${act.e}`;
+      bar.textContent = `${act.s}–${act.e}`;
+
+      track.appendChild(bar);
+      row.appendChild(label);
+      row.appendChild(track);
+      container.appendChild(row);
+    });
+
+    // axis ticks
+    const axis = document.getElementById('gantt-axis');
+    axis.innerHTML = '';
+    for (let t = 0; t <= TIME_MAX; t++) {
+      const tick = document.createElement('div');
+      tick.className = 'gantt-axis-tick';
+      tick.textContent = t;
+      axis.appendChild(tick);
+    }
+  }
+
+  function setBarState(idx, state) {
+    const bar = document.getElementById('gantt-bar-' + idx);
+    const label = document.getElementById('gantt-label-' + idx);
+    if (!bar) return;
+    bar.className = 'gantt-bar state-' + state;
+    if (state === 'selected') label.style.color = '#5de890';
+    else if (state === 'rejected') label.style.color = '#e05050';
+    else if (state === 'current') label.style.color = '#f0e68c';
+    else label.style.color = '';
+  }
+
+  function setActLog(lines) {
+    const box = document.getElementById('act-log');
+    box.innerHTML = lines.map(l =>
+      `<div class="log-line ${l.cls || ''}">${l.text}</div>`
+    ).join('');
+  }
+
+  function appendActLog(line) {
+    const box = document.getElementById('act-log');
+    const div = document.createElement('div');
+    div.className = 'log-line ' + (line.cls || '');
+    div.textContent = line.text;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  async function runActivityGreedy() {
+    if (actAnimating) return;
+    actAnimating = true;
+    const runBtn = document.getElementById('act-run-btn');
+    runBtn.disabled = true;
+
+    // reset states
+    activities.forEach((a, i) => { a.state = 'idle'; setBarState(i, 'idle'); });
+    resetActivityStats();
+
+    const logs = [];
+    logs.push({ text: '1단계: 종료 시각 기준으로 오름차순 정렬합니다.', cls: 'info' });
+    setActLog(logs);
+    await sleep(900);
+
+    // sort by end time, keep original indices
+    const sorted = activities
+      .map((a, i) => ({ ...a, origIdx: i }))
+      .sort((a, b) => a.e - b.e || a.s - b.s);
+
+    const sortedNames = sorted.map(a => a.label).join(' → ');
+    logs.push({ text: `   정렬 순서: ${sortedNames}`, cls: 'highlight' });
+    setActLog(logs);
+    await sleep(900);
+
+    logs.push({ text: '2단계: 그리디 선택 시작 — 끝 시간이 빠른 활동부터 고려합니다.', cls: 'info' });
+    setActLog(logs);
+    await sleep(700);
+
+    let lastEnd = -1;
+    let selectedCount = 0;
+    let rejectedCount = 0;
+
+    for (let i = 0; i < sorted.length; i++) {
+      const act = sorted[i];
+      const oi = act.origIdx;
+
+      setBarState(oi, 'current');
+      logs.push({ text: `▸ 활동 ${act.label} (${act.s}~${act.e}) 검토 중...`, cls: 'highlight' });
+      setActLog(logs);
+      await sleep(700);
+
+      if (act.s >= lastEnd) {
+        setBarState(oi, 'selected');
+        lastEnd = act.e;
+        selectedCount++;
+        document.getElementById('act-selected').textContent = selectedCount;
+        logs.push({ text: `  ✓ 선택됨 — 시작(${act.s}) ≥ 이전 종료(${lastEnd === act.e ? '없음' : lastEnd - (act.e - act.s)}) ▸ 새 종료: ${act.e}`, cls: 'selected' });
+      } else {
+        setBarState(oi, 'rejected');
+        rejectedCount++;
+        document.getElementById('act-rejected').textContent = rejectedCount;
+        logs.push({ text: `  ✗ 거부됨 — 시작(${act.s}) < 이전 종료(${lastEnd}), 겹침 발생`, cls: 'rejected' });
+      }
+      setActLog(logs);
+      await sleep(600);
+    }
+
+    logs.push({ text: `완료! 총 ${activities.length}개 중 ${selectedCount}개 활동 선택 (최대 비겹침 집합)`, cls: 'info' });
+    setActLog(logs);
+
+    actAnimating = false;
+    runBtn.disabled = false;
+  }
+
+  function resetActivity() {
+    if (actAnimating) return;
+    activities.forEach((a, i) => { a.state = 'idle'; setBarState(i, 'idle'); });
+    resetActivityStats();
+    setActLog([{ text: '초기화되었습니다. 그리디 실행 버튼을 눌러보세요.', cls: 'info' }]);
+  }
+
+  /* ════════════════════════════════════════════════════════
+     COIN CHANGE
+  ════════════════════════════════════════════════════════ */
+  const DENOMS = [500, 100, 50, 10, 5, 1];
+  const DENOM_CLASS = { 500: 'c500', 100: 'c100', 50: 'c50', 10: 'c10', 5: 'c5', 1: 'c1' };
+  let coinAnimating = false;
+  let coinResult = {}; // denom -> count
+
+  function initCoinDenominations() {
+    const container = document.getElementById('coin-denominations');
+    container.innerHTML = '';
+    DENOMS.forEach(d => {
+      const item = document.createElement('div');
+      item.className = 'coin-item';
+      item.id = 'coin-item-' + d;
+
+      const circle = document.createElement('div');
+      circle.className = `coin-circle denom-${d}`;
+      circle.id = 'coin-circle-' + d;
+      circle.textContent = d >= 1000 ? (d / 1000) + 'K' : d;
+
+      const badge = document.createElement('div');
+      badge.className = 'coin-count-badge zero';
+      badge.id = 'coin-badge-' + d;
+      badge.textContent = '×0';
+
+      const label = document.createElement('div');
+      label.className = 'coin-label';
+      label.textContent = d + '원';
+
+      item.appendChild(circle);
+      item.appendChild(badge);
+      item.appendChild(label);
+      container.appendChild(item);
+    });
+  }
+
+  function setCoinState(denom, state) {
+    const circle = document.getElementById('coin-circle-' + denom);
+    if (!circle) return;
+    circle.className = `coin-circle denom-${denom}`;
+    if (state) circle.classList.add('state-' + state);
+  }
+
+  function setCoinBadge(denom, count) {
+    const badge = document.getElementById('coin-badge-' + denom);
+    if (!badge) return;
+    if (count === 0) {
+      badge.textContent = '×0';
+      badge.classList.add('zero');
+    } else {
+      badge.textContent = '×' + count;
+      badge.classList.remove('zero');
+    }
+  }
+
+  function resetCoinUI() {
+    DENOMS.forEach(d => {
+      setCoinState(d, null);
+      setCoinBadge(d, 0);
+    });
+    document.getElementById('coin-used-display').textContent = '0원';
+    document.getElementById('coin-used-display').classList.remove('complete');
+    document.getElementById('coin-remainder').textContent = '-';
+    document.getElementById('coin-count-total').textContent = '0개';
+    document.getElementById('coin-tray-coins').innerHTML = '<span style="color:#444;font-size:0.82rem;">아직 동전이 없습니다</span>';
+    setCoinLog([{ text: '초기화되었습니다.', cls: 'info' }]);
+    coinResult = {};
+  }
+
+  function setCoinLog(lines) {
+    const box = document.getElementById('coin-log');
+    box.innerHTML = lines.map(l =>
+      `<div class="log-line ${l.cls || ''}">${l.text}</div>`
+    ).join('');
+  }
+
+  function appendCoinLog(line) {
+    const box = document.getElementById('coin-log');
+    const div = document.createElement('div');
+    div.className = 'log-line ' + (line.cls || '');
+    div.textContent = line.text;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function addTrayCoins(denom, count) {
+    const tray = document.getElementById('coin-tray-coins');
+    // remove placeholder
+    const placeholder = tray.querySelector('span');
+    if (placeholder) placeholder.remove();
+
+    for (let i = 0; i < count; i++) {
+      const coin = document.createElement('div');
+      coin.className = 'tray-coin ' + DENOM_CLASS[denom];
+      coin.title = denom + '원';
+      const txt = denom >= 1000 ? (denom / 1000) + 'K' : denom;
+      coin.textContent = txt;
+      tray.appendChild(coin);
+    }
+  }
+
+  async function runCoinGreedy() {
+    if (coinAnimating) return;
+
+    const inputEl = document.getElementById('amount-input');
+    let amount = parseInt(inputEl.value, 10);
+    if (!amount || amount <= 0 || amount > 99999) {
+      setCoinLog([{ text: '올바른 금액을 입력해주세요 (1 ~ 99,999원)', cls: 'rejected' }]);
+      return;
+    }
+
+    coinAnimating = true;
+    const runBtn = document.getElementById('coin-run-btn');
+    runBtn.disabled = true;
+
+    // reset
+    DENOMS.forEach(d => { setCoinState(d, null); setCoinBadge(d, 0); });
+    document.getElementById('coin-used-display').textContent = '0원';
+    document.getElementById('coin-used-display').classList.remove('complete');
+    document.getElementById('coin-remainder').textContent = amount;
+    document.getElementById('coin-count-total').textContent = '0개';
+    document.getElementById('coin-tray-coins').innerHTML = '';
+    coinResult = {};
+    const logs = [];
+
+    logs.push({ text: `거슬러 줄 금액: ${amount.toLocaleString()}원`, cls: 'info' });
+    logs.push({ text: '가장 큰 동전 단위부터 탐욕적으로 선택합니다.', cls: 'info' });
+    setCoinLog(logs);
+    await sleep(700);
+
+    let remaining = amount;
+    let usedTotal = 0;
+    let countTotal = 0;
+
+    for (let i = 0; i < DENOMS.length; i++) {
+      const d = DENOMS[i];
+      setCoinState(d, 'current');
+      logs.push({ text: `▸ ${d}원 동전 검토 중... (남은 금액: ${remaining}원)`, cls: 'highlight' });
+      setCoinLog(logs);
+      await sleep(600);
+
+      const cnt = Math.floor(remaining / d);
+
+      if (cnt > 0) {
+        remaining -= cnt * d;
+        usedTotal += cnt * d;
+        countTotal += cnt;
+        coinResult[d] = cnt;
+        setCoinState(d, 'used');
+        setCoinBadge(d, cnt);
+        addTrayCoins(d, Math.min(cnt, 12)); // cap visual coins at 12 per denom
+        document.getElementById('coin-used-display').textContent = usedTotal.toLocaleString() + '원';
+        document.getElementById('coin-remainder').textContent = remaining;
+        document.getElementById('coin-count-total').textContent = countTotal + '개';
+        logs.push({ text: `  ✓ ${d}원 × ${cnt}개 = ${(cnt * d).toLocaleString()}원 사용 (남은: ${remaining}원)`, cls: 'selected' });
+        if (cnt > 12) {
+          logs.push({ text: `    (트레이에는 최대 12개까지 표시)`, cls: '' });
+        }
+      } else {
+        setCoinState(d, 'skipped');
+        logs.push({ text: `  — ${d}원 사용 불가 (${remaining} < ${d})`, cls: 'rejected' });
+      }
+      setCoinLog(logs);
+      await sleep(500);
+
+      if (remaining === 0) break;
+    }
+
+    if (remaining === 0) {
+      document.getElementById('coin-used-display').classList.add('complete');
+      logs.push({ text: `완료! 총 ${countTotal}개의 동전으로 ${amount.toLocaleString()}원을 거슬러 드렸습니다.`, cls: 'selected' });
+    } else {
+      logs.push({ text: `오류: ${remaining}원을 거슬러 줄 수 없습니다.`, cls: 'rejected' });
+    }
+    setCoinLog(logs);
+
+    coinAnimating = false;
+    runBtn.disabled = false;
+  }
+
+  function resetCoin() {
+    if (coinAnimating) return;
+    resetCoinUI();
+  }
+
+  /* ════════════════════════════════════════════════════════
+     INIT
+  ════════════════════════════════════════════════════════ */
+  initDefaultActivities();
+  initCoinDenominations();
+  resetCoinUI();
+</script>
+</body>
+</html>

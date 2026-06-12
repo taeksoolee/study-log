@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dynamic Programming 시각화</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f1117;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', 'Noto Sans KR', sans-serif;
+      min-height: 100vh;
+      padding: 24px 16px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #90caf9;
+      margin-bottom: 8px;
+      letter-spacing: 1px;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #7b8ea0;
+      font-size: 0.9rem;
+      margin-bottom: 28px;
+    }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 2px solid #2a2d3e;
+      margin-bottom: 28px;
+      max-width: 900px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      color: #7b8ea0;
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 12px 28px;
+      cursor: pointer;
+      position: relative;
+      transition: color 0.2s;
+      letter-spacing: 0.5px;
+    }
+
+    .tab-btn:hover { color: #90caf9; }
+
+    .tab-btn.active {
+      color: #90caf9;
+    }
+
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #42a5f5, #26c6da);
+      border-radius: 3px 3px 0 0;
+    }
+
+    .tab-panel { display: none; max-width: 900px; margin: 0 auto; }
+    .tab-panel.active { display: block; }
+
+    /* ── Card ── */
+    .card {
+      background: #1a1d2e;
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 20px;
+      border: 1px solid #2a2d3e;
+    }
+
+    .card-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #90caf9;
+      margin-bottom: 12px;
+    }
+
+    .info-text {
+      font-size: 0.85rem;
+      color: #90a4ae;
+      line-height: 1.7;
+      background: #12151f;
+      border-left: 3px solid #42a5f5;
+      padding: 10px 14px;
+      border-radius: 0 6px 6px 0;
+      margin-bottom: 16px;
+    }
+
+    /* ── Controls ── */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    label { font-size: 0.88rem; color: #b0bec5; }
+
+    input[type="range"] {
+      appearance: none;
+      width: 140px;
+      height: 6px;
+      background: #2a2d3e;
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      width: 16px; height: 16px;
+      background: #42a5f5;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    input[type="text"], input[type="number"] {
+      background: #12151f;
+      border: 1px solid #2a2d3e;
+      border-radius: 6px;
+      color: #e0e0e0;
+      font-size: 0.9rem;
+      padding: 6px 10px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus, input[type="number"]:focus {
+      border-color: #42a5f5;
+    }
+
+    .value-badge {
+      background: #12151f;
+      border: 1px solid #2a2d3e;
+      border-radius: 20px;
+      padding: 3px 12px;
+      font-size: 0.88rem;
+      color: #90caf9;
+      font-weight: 600;
+      min-width: 40px;
+      text-align: center;
+    }
+
+    .btn {
+      background: linear-gradient(135deg, #1565c0, #0288d1);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 22px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      letter-spacing: 0.3px;
+    }
+
+    .btn:hover { opacity: 0.88; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn:disabled { opacity: 0.4; cursor: default; transform: none; }
+
+    /* ── Stats row ── */
+    .stats-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .stat-chip {
+      background: #12151f;
+      border: 1px solid #2a2d3e;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 0.85rem;
+    }
+
+    .stat-chip span { color: #ffd54f; font-weight: 700; }
+
+    /* ── Fib layout ── */
+    .fib-viz-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 600px) {
+      .fib-viz-row { grid-template-columns: 1fr; }
+    }
+
+    .panel-label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #78909c;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    canvas {
+      display: block;
+      background: #12151f;
+      border-radius: 8px;
+      width: 100%;
+    }
+
+    /* ── Memo table ── */
+    .memo-table-wrap {
+      overflow-x: auto;
+      background: #12151f;
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .memo-cells {
+      display: flex;
+      gap: 6px;
+      min-width: max-content;
+    }
+
+    .memo-cell {
+      width: 52px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    .memo-cell .idx {
+      font-size: 0.7rem;
+      color: #546e7a;
+      margin-bottom: 4px;
+    }
+
+    .memo-cell .val {
+      width: 52px;
+      height: 52px;
+      border-radius: 8px;
+      border: 2px solid #2a2d3e;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      font-weight: 700;
+      background: #1a1d2e;
+      color: #546e7a;
+      transition: background 0.3s, color 0.3s, border-color 0.3s;
+    }
+
+    .memo-cell .val.cached  { background: #1b5e20; border-color: #4caf50; color: #a5d6a7; }
+    .memo-cell .val.fresh   { background: #f57f17; border-color: #ffd54f; color: #fff8e1; }
+
+    /* ── LCS table ── */
+    .lcs-table-wrap {
+      overflow: auto;
+      max-height: 380px;
+      background: #12151f;
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    table.dp-table {
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+
+    table.dp-table th, table.dp-table td {
+      width: 36px;
+      height: 36px;
+      text-align: center;
+      vertical-align: middle;
+      border: 1px solid #2a2d3e;
+      transition: background 0.25s, color 0.25s;
+    }
+
+    table.dp-table th {
+      background: #1a1d2e;
+      color: #78909c;
+      font-weight: 600;
+      position: sticky;
+      top: 0; left: 0;
+      z-index: 2;
+    }
+
+    table.dp-table td { background: #12151f; color: #546e7a; }
+    table.dp-table td.filled { color: #e0e0e0; }
+    table.dp-table td.path   { background: #f57f17 !important; color: #fff !important; border-color: #ffd54f !important; }
+
+    .lcs-result {
+      margin-top: 14px;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #ffd54f;
+      text-align: center;
+      letter-spacing: 2px;
+    }
+
+    .lcs-label { color: #78909c; font-weight: 400; font-size: 0.85rem; margin-right: 8px; }
+
+    /* ── Coin ── */
+    .coin-array-wrap {
+      overflow-x: auto;
+      background: #12151f;
+      border-radius: 8px;
+      padding: 16px 12px;
+    }
+
+    .coin-cells {
+      display: flex;
+      gap: 4px;
+      min-width: max-content;
+    }
+
+    .coin-cell {
+      width: 48px;
+      flex-shrink: 0;
+      text-align: center;
+    }
+
+    .coin-cell .cidx {
+      font-size: 0.65rem;
+      color: #546e7a;
+      margin-bottom: 4px;
+    }
+
+    .coin-cell .cval {
+      width: 48px;
+      height: 40px;
+      border-radius: 6px;
+      border: 2px solid #2a2d3e;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+      background: #1a1d2e;
+      color: #546e7a;
+      transition: background 0.3s, color 0.3s, border-color 0.3s;
+    }
+
+    .coin-cell .cval.inf    { background: #b71c1c; border-color: #ef5350; color: #ef9a9a; }
+    .coin-cell .cval.zero   { background: #1b5e20; border-color: #4caf50; color: #a5d6a7; }
+    .coin-cell .cval.filled { background: #01579b; border-color: #4fc3f7; color: #e1f5fe; }
+    .coin-cell .cval.current{ background: #e65100; border-color: #ff9800; color: #fff3e0; }
+
+    .coin-cell .coin-used {
+      font-size: 0.6rem;
+      color: #90a4ae;
+      margin-top: 3px;
+      min-height: 14px;
+    }
+
+    .coin-result {
+      margin-top: 16px;
+      padding: 14px 18px;
+      background: #12151f;
+      border-radius: 8px;
+      border-left: 4px solid #4fc3f7;
+    }
+
+    .coin-result p { font-size: 0.9rem; margin-bottom: 6px; }
+    .coin-result p:last-child { margin-bottom: 0; }
+    .coin-result .hl { color: #ffd54f; font-weight: 700; }
+
+    /* legend */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      color: #90a4ae;
+    }
+
+    .legend-dot {
+      width: 12px; height: 12px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Dynamic Programming 시각화</h1>
+<p class="subtitle">동적 프로그래밍 핵심 패턴을 단계별로 시각화합니다</p>
+
+<!-- Tabs -->
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('fib', this)">피보나치</button>
+  <button class="tab-btn" onclick="switchTab('lcs', this)">LCS</button>
+  <button class="tab-btn" onclick="switchTab('coin', this)">동전 거스름돈</button>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     TAB 1: FIBONACCI
+     ══════════════════════════════════════════════ -->
+<div class="tab-panel active" id="tab-fib">
+
+  <div class="card">
+    <div class="info-text">
+      피보나치 수열은 DP의 교과서적 예제입니다. 순수 재귀는 같은 부분 문제를 지수 번 재계산하지만,
+      <strong>메모이제이션</strong>을 사용하면 각 부분 문제를 단 한 번만 계산합니다.
+      중복 계산이 빨간색으로 강조됩니다.
+    </div>
+
+    <div class="controls">
+      <label>n 값:</label>
+      <input type="range" id="fib-n" min="1" max="15" value="8"
+             oninput="document.getElementById('fib-n-val').textContent=this.value" />
+      <span class="value-badge" id="fib-n-val">8</span>
+
+      <label>속도:</label>
+      <input type="range" id="fib-speed" min="1" max="10" value="5"
+             oninput="document.getElementById('fib-speed-val').textContent=this.value" />
+      <span class="value-badge" id="fib-speed-val">5</span>
+
+      <button class="btn" id="fib-btn" onclick="startFib()">계산하기</button>
+    </div>
+
+    <div class="stats-row" id="fib-stats" style="display:none">
+      <div class="stat-chip">순수 재귀 호출 횟수: <span id="fib-naive-count">-</span></div>
+      <div class="stat-chip">메모이제이션 호출 횟수: <span id="fib-memo-count">-</span></div>
+    </div>
+
+    <div class="fib-viz-row">
+      <div>
+        <div class="panel-label">재귀 트리 (중복 = 빨간색)</div>
+        <canvas id="fib-canvas" height="320"></canvas>
+        <div class="legend" style="margin-top:8px">
+          <div class="legend-item"><div class="legend-dot" style="background:#1565c0"></div> 첫 계산</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#b71c1c"></div> 중복 재계산</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#4caf50"></div> 현재 노드</div>
+        </div>
+      </div>
+      <div>
+        <div class="panel-label">메모이제이션 테이블</div>
+        <div class="memo-table-wrap">
+          <div class="memo-cells" id="memo-cells"></div>
+        </div>
+        <div class="legend" style="margin-top:8px">
+          <div class="legend-item"><div class="legend-dot" style="background:#1b5e20"></div> 캐시 히트</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#f57f17"></div> 새로 계산</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     TAB 2: LCS
+     ══════════════════════════════════════════════ -->
+<div class="tab-panel" id="tab-lcs">
+
+  <div class="card">
+    <div class="info-text">
+      <strong>최장 공통 부분 수열(LCS)</strong>은 두 문자열에서 순서를 유지하면서 공통으로 나타나는
+      가장 긴 부분 수열을 찾습니다. DP 테이블을 채운 뒤 역추적(backtrack)으로 실제 수열을 복원합니다.
+      황금색 경로가 역추적 경로입니다.
+    </div>
+
+    <div class="controls">
+      <label>문자열 1:</label>
+      <input type="text" id="lcs-s1" value="ABCBDAB" maxlength="14" style="width:130px" />
+      <label>문자열 2:</label>
+      <input type="text" id="lcs-s2" value="BDCAB" maxlength="14" style="width:130px" />
+      <button class="btn" id="lcs-btn" onclick="startLcs()">계산하기</button>
+    </div>
+
+    <div class="lcs-table-wrap">
+      <table class="dp-table" id="lcs-table"></table>
+    </div>
+
+    <div class="lcs-result" id="lcs-result" style="display:none">
+      <span class="lcs-label">LCS:</span><span id="lcs-string">-</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     TAB 3: COIN CHANGE
+     ══════════════════════════════════════════════ -->
+<div class="tab-panel" id="tab-coin">
+
+  <div class="card">
+    <div class="info-text">
+      <strong>동전 거스름돈 문제</strong>는 주어진 동전으로 목표 금액을 만드는 최소 동전 수를 구합니다.
+      dp[i] = 금액 i를 만드는 데 필요한 최소 동전 수. dp[0] = 0 에서 시작해 순서대로 채웁니다.
+      진한 빨강은 도달 불가, 파란색 계열은 채워진 값입니다.
+    </div>
+
+    <div class="controls">
+      <label>목표 금액:</label>
+      <input type="number" id="coin-amount" value="11" min="1" max="50" style="width:70px" />
+
+      <label>동전 종류 (쉼표 구분):</label>
+      <input type="text" id="coin-denoms" value="1,5,10" style="width:130px" />
+
+      <label>속도:</label>
+      <input type="range" id="coin-speed" min="1" max="10" value="5"
+             oninput="document.getElementById('coin-speed-val').textContent=this.value" />
+      <span class="value-badge" id="coin-speed-val">5</span>
+
+      <button class="btn" id="coin-btn" onclick="startCoin()">계산하기</button>
+    </div>
+
+    <div class="coin-array-wrap">
+      <div class="coin-cells" id="coin-cells"></div>
+    </div>
+
+    <div class="coin-result" id="coin-result" style="display:none">
+      <p>최소 동전 수: <span class="hl" id="coin-min-count">-</span></p>
+      <p>사용한 동전: <span class="hl" id="coin-used-list">-</span></p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════
+   UTILITY
+   ═══════════════════════════════════════════════ */
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+let animRunning = false;
+let animTimers = [];
+
+function clearAnim() {
+  animTimers.forEach(clearTimeout);
+  animTimers = [];
+  animRunning = false;
+}
+
+function delay(ms) {
+  return new Promise(res => {
+    const t = setTimeout(res, ms);
+    animTimers.push(t);
+  });
+}
+
+function speedToMs(speed) {
+  // speed 1 (slow) → 800ms, speed 10 (fast) → 50ms
+  return Math.round(800 - (speed - 1) * (750 / 9));
+}
+
+/* ═══════════════════════════════════════════════
+   FIBONACCI
+   ═══════════════════════════════════════════════ */
+const FIB_COLORS = {
+  first:   { fill: '#1565c0', stroke: '#42a5f5', text: '#e3f2fd' },
+  repeat:  { fill: '#b71c1c', stroke: '#ef5350', text: '#ffcdd2' },
+  current: { fill: '#1b5e20', stroke: '#4caf50', text: '#c8e6c9' },
+  empty:   { fill: '#1a1d2e', stroke: '#37474f', text: '#546e7a' }
+};
+
+// Pre-compute the full call tree structure
+function buildFibTree(n) {
+  const seen = new Map(); // key → count
+  const nodes = [];       // {id, n, x, y, parentId, isRepeat}
+  let idCtr = 0;
+
+  function recurse(n, depth, parentId) {
+    const id = idCtr++;
+    const key = n;
+    const cnt = (seen.get(key) || 0);
+    seen.set(key, cnt + 1);
+    nodes.push({ id, n, depth, parentId, isRepeat: cnt > 0 });
+    if (n > 1) {
+      recurse(n - 1, depth + 1, id);
+      recurse(n - 2, depth + 1, id);
+    }
+    return id;
+  }
+
+  recurse(n, 0, null);
+  return nodes;
+}
+
+// Layout: assign x position with DFS
+function layoutTree(nodes) {
+  // Build children map
+  const children = new Map();
+  nodes.forEach(nd => {
+    if (nd.parentId !== null) {
+      if (!children.has(nd.parentId)) children.set(nd.parentId, []);
+      children.get(nd.parentId).push(nd.id);
+    }
+  });
+  const byId = new Map(nodes.map(n => [n.id, n]));
+  const xs = new Map();
+  let counter = 0;
+
+  function assignX(id) {
+    const ch = children.get(id) || [];
+    if (ch.length === 0) {
+      xs.set(id, counter++);
+    } else {
+      ch.forEach(cid => assignX(cid));
+      const first = xs.get(ch[0]);
+      const last  = xs.get(ch[ch.length - 1]);
+      xs.set(id, (first + last) / 2);
+    }
+  }
+  assignX(nodes[0].id);
+
+  const maxX = counter - 1;
+  nodes.forEach(nd => {
+    nd.normX = maxX > 0 ? xs.get(nd.id) / maxX : 0.5;
+  });
+  return { nodes, leafCount: counter };
+}
+
+function drawFibTree(nodes, leafCount, activeId, canvasEl) {
+  const W = canvasEl.offsetWidth || 400;
+  const H = 320;
+  canvasEl.width  = W;
+  canvasEl.height = H;
+  const ctx = canvasEl.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  const maxDepth = Math.max(...nodes.map(n => n.depth));
+  const R = Math.max(10, Math.min(18, W / (leafCount * 2.2 + 1)));
+  const pad = R * 1.5;
+  const byId = new Map(nodes.map(n => [n.id, n]));
+
+  function nodePos(nd) {
+    const x = pad + nd.normX * (W - 2 * pad);
+    const y = pad + nd.depth * ((H - 2 * pad) / (maxDepth || 1));
+    return { x, y };
+  }
+
+  // Draw edges first
+  ctx.strokeStyle = '#2a3040';
+  ctx.lineWidth = 1.2;
+  nodes.forEach(nd => {
+    if (nd.parentId === null) return;
+    const parent = byId.get(nd.parentId);
+    const p0 = nodePos(parent);
+    const p1 = nodePos(nd);
+    ctx.beginPath();
+    ctx.moveTo(p0.x, p0.y);
+    ctx.lineTo(p1.x, p1.y);
+    ctx.stroke();
+  });
+
+  // Draw nodes
+  nodes.forEach(nd => {
+    const { x, y } = nodePos(nd);
+    let colors;
+    if (nd.id === activeId) colors = FIB_COLORS.current;
+    else if (nd.isRepeat)   colors = FIB_COLORS.repeat;
+    else                    colors = FIB_COLORS.first;
+
+    ctx.beginPath();
+    ctx.arc(x, y, R, 0, 2 * Math.PI);
+    ctx.fillStyle = colors.fill;
+    ctx.fill();
+    ctx.strokeStyle = colors.stroke;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = colors.text;
+    ctx.font = `bold ${Math.max(8, R * 0.72)}px Segoe UI`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(nd.n, x, y);
+  });
+}
+
+async function startFib() {
+  clearAnim();
+  const n     = parseInt(document.getElementById('fib-n').value);
+  const speed = parseInt(document.getElementById('fib-speed').value);
+  const ms    = speedToMs(speed);
+  const btn   = document.getElementById('fib-btn');
+  btn.disabled = true;
+
+  // Build tree
+  const rawNodes = buildFibTree(n);
+  const { nodes, leafCount } = layoutTree(rawNodes);
+
+  // Count naive calls
+  const naiveCount = rawNodes.length;
+
+  // Build memo cells
+  const memoCont = document.getElementById('memo-cells');
+  memoCont.innerHTML = '';
+  const memoCells = [];
+  for (let i = 0; i <= n; i++) {
+    const wrap = document.createElement('div');
+    wrap.className = 'memo-cell';
+    wrap.innerHTML = `<div class="idx">${i}</div><div class="val" id="mc-${i}">?</div>`;
+    memoCont.appendChild(wrap);
+    memoCells.push(document.getElementById('mc-' + i));
+  }
+
+  // Show stats panel
+  document.getElementById('fib-stats').style.display = 'flex';
+  document.getElementById('fib-naive-count').textContent = naiveCount;
+
+  // Draw initial tree (no highlight)
+  const canvas = document.getElementById('fib-canvas');
+  canvas.style.height = '320px';
+  drawFibTree(nodes, leafCount, null, canvas);
+
+  // Memo animation: simulate with DFS order
+  const memo = {};
+  let memoCalls = 0;
+  const visitOrder = []; // {id, n, isHit}
+
+  function collectVisit(id) {
+    const nd = nodes.find(x => x.id === id);
+    if (!nd) return;
+    const hit = memo.hasOwnProperty(nd.n);
+    memoCalls++;
+    visitOrder.push({ id, n: nd.n, isHit: hit });
+    if (!hit) {
+      memo[nd.n] = true;
+      // children: find children of this id
+      const ch = nodes.filter(x => x.parentId === id);
+      ch.forEach(c => collectVisit(c.id));
+    }
+  }
+  collectVisit(0);
+
+  document.getElementById('fib-memo-count').textContent = memoCalls;
+
+  animRunning = true;
+
+  // Compute fib values
+  const fibVal = [0, 1];
+  for (let i = 2; i <= n; i++) fibVal[i] = fibVal[i - 1] + fibVal[i - 2];
+
+  for (let step = 0; step < visitOrder.length; step++) {
+    if (!animRunning) break;
+    const { id, n: fn, isHit } = visitOrder[step];
+    drawFibTree(nodes, leafCount, id, canvas);
+    const cell = document.getElementById('mc-' + fn);
+    if (cell) {
+      if (isHit) {
+        cell.classList.add('cached');
+      } else {
+        cell.classList.remove('cached');
+        cell.classList.add('fresh');
+        cell.textContent = fibVal[fn];
+        await delay(ms);
+        cell.classList.remove('fresh');
+        cell.classList.add('cached');
+      }
+    }
+    await delay(ms / 2);
+  }
+
+  drawFibTree(nodes, leafCount, null, canvas);
+  btn.disabled = false;
+}
+
+/* ═══════════════════════════════════════════════
+   LCS
+   ═══════════════════════════════════════════════ */
+function initLcsTable(s1, s2) {
+  const table = document.getElementById('lcs-table');
+  table.innerHTML = '';
+  const m = s1.length, k = s2.length;
+
+  // Header row
+  const hr = document.createElement('tr');
+  hr.innerHTML = '<th></th><th></th>';
+  for (let j = 0; j < m; j++) {
+    const th = document.createElement('th');
+    th.textContent = s1[j];
+    hr.appendChild(th);
+  }
+  table.appendChild(hr);
+
+  // Data rows
+  for (let i = 0; i <= k; i++) {
+    const tr = document.createElement('tr');
+    // Row header
+    const rh = document.createElement('th');
+    rh.textContent = i === 0 ? '' : s2[i - 1];
+    tr.appendChild(rh);
+    for (let j = 0; j <= m; j++) {
+      const td = document.createElement('td');
+      td.id = `lcs-${i}-${j}`;
+      td.textContent = '';
+      tr.appendChild(td);
+    }
+    table.appendChild(tr);
+  }
+}
+
+function lcsColorForVal(val, maxVal) {
+  if (val === 0) return '#12151f';
+  const t = maxVal > 0 ? val / maxVal : 0;
+  // blend from #1a2a3a to #4fc3f7
+  const r = Math.round(26  + t * (79  - 26));
+  const g = Math.round(42  + t * (195 - 42));
+  const b = Math.round(58  + t * (247 - 58));
+  return `rgb(${r},${g},${b})`;
+}
+
+async function startLcs() {
+  clearAnim();
+  const s1  = document.getElementById('lcs-s1').value.toUpperCase();
+  const s2  = document.getElementById('lcs-s2').value.toUpperCase();
+  const btn = document.getElementById('lcs-btn');
+  btn.disabled = true;
+
+  const m = s1.length, k = s2.length;
+  initLcsTable(s1, s2);
+  document.getElementById('lcs-result').style.display = 'none';
+
+  // Build dp
+  const dp = Array.from({ length: k + 1 }, () => new Array(m + 1).fill(0));
+
+  // Compute max
+  for (let i = 1; i <= k; i++)
+    for (let j = 1; j <= m; j++)
+      dp[i][j] = s1[j - 1] === s2[i - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+
+  const maxVal = dp[k][m];
+
+  // Animate filling
+  animRunning = true;
+  const BASE_MS = 60;
+
+  for (let i = 0; i <= k; i++) {
+    for (let j = 0; j <= m; j++) {
+      if (!animRunning) break;
+      const td = document.getElementById(`lcs-${i}-${j}`);
+      if (!td) continue;
+      td.textContent = dp[i][j];
+      td.className = 'filled';
+      td.style.background = lcsColorForVal(dp[i][j], maxVal);
+      td.style.color = dp[i][j] > maxVal * 0.5 ? '#fff' : '#90a4ae';
+      await delay(BASE_MS);
+    }
+  }
+
+  // Backtrack path
+  await delay(200);
+  let bi = k, bj = m;
+  const path = [];
+  let lcsStr = '';
+  while (bi > 0 && bj > 0) {
+    if (s1[bj - 1] === s2[bi - 1]) {
+      path.push(`lcs-${bi}-${bj}`);
+      lcsStr = s1[bj - 1] + lcsStr;
+      bi--; bj--;
+    } else if (dp[bi - 1][bj] > dp[bi][bj - 1]) {
+      bi--;
+    } else {
+      bj--;
+    }
+  }
+
+  for (const pid of path) {
+    const td = document.getElementById(pid);
+    if (td) {
+      td.className = 'path';
+      td.style.background = '';
+      td.style.color = '';
+    }
+    await delay(80);
+  }
+
+  document.getElementById('lcs-string').textContent = lcsStr || '(없음)';
+  document.getElementById('lcs-result').style.display = 'block';
+  btn.disabled = false;
+}
+
+/* ═══════════════════════════════════════════════
+   COIN CHANGE
+   ═══════════════════════════════════════════════ */
+function buildCoinCells(amount) {
+  const cont = document.getElementById('coin-cells');
+  cont.innerHTML = '';
+  for (let i = 0; i <= amount; i++) {
+    const wrap = document.createElement('div');
+    wrap.className = 'coin-cell';
+    wrap.innerHTML = `
+      <div class="cidx">${i}</div>
+      <div class="cval" id="cc-${i}">∞</div>
+      <div class="coin-used" id="cu-${i}"></div>`;
+    cont.appendChild(wrap);
+  }
+}
+
+async function startCoin() {
+  clearAnim();
+  const amount = parseInt(document.getElementById('coin-amount').value) || 11;
+  const rawDenoms = document.getElementById('coin-denoms').value;
+  const coins = rawDenoms.split(',').map(x => parseInt(x.trim())).filter(x => !isNaN(x) && x > 0);
+  const speed = parseInt(document.getElementById('coin-speed').value);
+  const ms    = speedToMs(speed);
+  const btn   = document.getElementById('coin-btn');
+  btn.disabled = true;
+
+  if (coins.length === 0) { btn.disabled = false; return; }
+
+  buildCoinCells(amount);
+  document.getElementById('coin-result').style.display = 'none';
+
+  const INF = Infinity;
+  const dp   = new Array(amount + 1).fill(INF);
+  const from = new Array(amount + 1).fill(-1);
+  dp[0] = 0;
+
+  animRunning = true;
+
+  // Show dp[0] immediately
+  const cell0 = document.getElementById('cc-0');
+  if (cell0) { cell0.textContent = '0'; cell0.className = 'cval zero'; }
+
+  for (let i = 1; i <= amount; i++) {
+    if (!animRunning) break;
+    const cell = document.getElementById('cc-' + i);
+    if (cell) { cell.className = 'cval current'; }
+
+    for (const c of coins) {
+      if (i >= c && dp[i - c] !== INF) {
+        if (dp[i - c] + 1 < dp[i]) {
+          dp[i] = dp[i - c] + 1;
+          from[i] = c;
+        }
+      }
+    }
+
+    await delay(ms);
+
+    if (cell) {
+      if (dp[i] === INF) {
+        cell.textContent = '∞';
+        cell.className = 'cval inf';
+      } else {
+        cell.textContent = dp[i];
+        cell.className = 'cval filled';
+        const cu = document.getElementById('cu-' + i);
+        if (cu && from[i] !== -1) cu.textContent = '+' + from[i];
+      }
+    }
+  }
+
+  // Reconstruct solution
+  if (dp[amount] !== INF) {
+    let cur = amount;
+    const used = [];
+    while (cur > 0) {
+      used.push(from[cur]);
+      cur -= from[cur];
+    }
+    // Highlight path
+    let rem = amount;
+    while (rem > 0) {
+      const cell = document.getElementById('cc-' + rem);
+      if (cell) {
+        cell.style.borderColor = '#ffd54f';
+        cell.style.boxShadow   = '0 0 6px #ffd54f88';
+      }
+      rem -= from[rem];
+    }
+
+    document.getElementById('coin-min-count').textContent = dp[amount] + '개';
+    document.getElementById('coin-used-list').textContent = '[' + used.join(', ') + ']';
+  } else {
+    document.getElementById('coin-min-count').textContent = '불가능';
+    document.getElementById('coin-used-list').textContent = '-';
+  }
+
+  document.getElementById('coin-result').style.display = 'block';
+  btn.disabled = false;
+}
+
+/* ═══════════════════════════════════════════════
+   INIT
+   ═══════════════════════════════════════════════ */
+window.addEventListener('load', () => {
+  // Draw empty fib canvas
+  const canvas = document.getElementById('fib-canvas');
+  const n = parseInt(document.getElementById('fib-n').value);
+  const rawNodes = buildFibTree(n);
+  const { nodes, leafCount } = layoutTree(rawNodes);
+  requestAnimationFrame(() => drawFibTree(nodes, leafCount, null, canvas));
+
+  // Redraw on resize
+  window.addEventListener('resize', () => {
+    const nv = parseInt(document.getElementById('fib-n').value);
+    const rn = buildFibTree(nv);
+    const { nodes: ns, leafCount: lc } = layoutTree(rn);
+    drawFibTree(ns, lc, null, canvas);
+  });
+});
+</script>
+</body>
+</html>
