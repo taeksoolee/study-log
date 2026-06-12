@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>자료구조 인터랙티브 시각화</title>
+  <style>
+    /* ─────────────────────────────────────────────
+       CSS Reset & Custom Properties
+    ───────────────────────────────────────────── */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-base:        #0d0f1a;
+      --bg-surface:     #141622;
+      --bg-card:        #1a1d2e;
+      --bg-card-hover:  #1f2338;
+      --border:         #2a2d45;
+      --border-hover:   #3a3d5c;
+      --text-primary:   #e8eaf6;
+      --text-secondary: #9fa8c7;
+      --text-muted:     #5c6080;
+
+      --accent-array:     #4fc3f7;
+      --accent-linked:    #81c784;
+      --accent-stack:     #ffb74d;
+      --accent-tree:      #ce93d8;
+      --accent-graph:     #ef9a9a;
+      --accent-hash:      #80cbc4;
+
+      --glow-array:       rgba(79, 195, 247, 0.15);
+      --glow-linked:      rgba(129, 199, 132, 0.15);
+      --glow-stack:       rgba(255, 183, 77, 0.15);
+      --glow-tree:        rgba(206, 147, 216, 0.15);
+      --glow-graph:       rgba(239, 154, 154, 0.15);
+      --glow-hash:        rgba(128, 203, 196, 0.15);
+
+      --radius-sm:  6px;
+      --radius-md:  12px;
+      --radius-lg:  20px;
+
+      --transition-fast:   150ms ease;
+      --transition-medium: 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
+      --transition-slow:   400ms ease;
+
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR',
+                   sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }
+
+    /* ─────────────────────────────────────────────
+       Base
+    ───────────────────────────────────────────── */
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* ─────────────────────────────────────────────
+       Animated background grid
+    ───────────────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background-image:
+        linear-gradient(rgba(79, 195, 247, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(79, 195, 247, 0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      top: -40%;
+      left: -20%;
+      width: 70%;
+      height: 70%;
+      background: radial-gradient(ellipse at center, rgba(79, 195, 247, 0.06) 0%, transparent 65%);
+      pointer-events: none;
+      z-index: 0;
+      animation: drift 18s ease-in-out infinite alternate;
+    }
+
+    @keyframes drift {
+      from { transform: translate(0, 0) scale(1); }
+      to   { transform: translate(5%, 8%) scale(1.08); }
+    }
+
+    /* ─────────────────────────────────────────────
+       Layout wrapper
+    ───────────────────────────────────────────── */
+    .page-wrapper {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ─────────────────────────────────────────────
+       Header
+    ───────────────────────────────────────────── */
+    .site-header {
+      padding: 56px 0 48px;
+      text-align: center;
+      position: relative;
+    }
+
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(79, 195, 247, 0.08);
+      border: 1px solid rgba(79, 195, 247, 0.2);
+      border-radius: 100px;
+      padding: 6px 18px;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      color: var(--accent-array);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+      animation: fadeSlideDown 0.6s ease both;
+    }
+
+    .header-badge::before {
+      content: '';
+      display: block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-array);
+      box-shadow: 0 0 8px var(--accent-array);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    .site-title {
+      font-size: clamp(1.8rem, 5vw, 3rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #e8eaf6 30%, #9fa8c7 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: fadeSlideDown 0.6s 0.1s ease both;
+    }
+
+    .site-subtitle {
+      font-size: clamp(0.9rem, 2.5vw, 1.1rem);
+      color: var(--text-secondary);
+      max-width: 520px;
+      margin: 0 auto 32px;
+      line-height: 1.6;
+      animation: fadeSlideDown 0.6s 0.2s ease both;
+    }
+
+    .header-stats {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      animation: fadeSlideDown 0.6s 0.3s ease both;
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .stat-number {
+      font-size: 1.5rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .stat-divider {
+      width: 1px;
+      height: 40px;
+      background: var(--border);
+      align-self: center;
+    }
+
+    @keyframes fadeSlideDown {
+      from { opacity: 0; transform: translateY(-16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ─────────────────────────────────────────────
+       Section divider
+    ───────────────────────────────────────────── */
+    .section-divider {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .section-divider-line {
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+    }
+
+    .section-divider-text {
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      white-space: nowrap;
+    }
+
+    /* ─────────────────────────────────────────────
+       Cards grid
+    ───────────────────────────────────────────── */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      flex: 1;
+      padding-bottom: 48px;
+    }
+
+    @media (max-width: 900px) {
+      .cards-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 560px) {
+      .cards-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ─────────────────────────────────────────────
+       Individual card
+    ───────────────────────────────────────────── */
+    .card {
+      position: relative;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px 24px 24px;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow: hidden;
+      transition:
+        transform var(--transition-medium),
+        border-color var(--transition-fast),
+        box-shadow var(--transition-fast),
+        background-color var(--transition-fast);
+      cursor: pointer;
+      animation: cardAppear 0.5s ease both;
+    }
+
+    .card:nth-child(1) { animation-delay: 0.05s; }
+    .card:nth-child(2) { animation-delay: 0.10s; }
+    .card:nth-child(3) { animation-delay: 0.15s; }
+    .card:nth-child(4) { animation-delay: 0.20s; }
+    .card:nth-child(5) { animation-delay: 0.25s; }
+    .card:nth-child(6) { animation-delay: 0.30s; }
+
+    @keyframes cardAppear {
+      from { opacity: 0; transform: translateY(24px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* Accent glow strip at the top */
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--card-accent);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      opacity: 0.8;
+      transition: opacity var(--transition-fast), height var(--transition-fast);
+    }
+
+    /* Glow behind card on hover */
+    .card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: var(--radius-lg);
+      opacity: 0;
+      transition: opacity var(--transition-slow);
+      background: var(--card-glow);
+      pointer-events: none;
+    }
+
+    .card:hover {
+      transform: translateY(-6px) scale(1.02);
+      border-color: var(--card-accent-dim);
+      background-color: var(--bg-card-hover);
+      box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.4),
+        0 0 0 1px var(--card-accent-dim),
+        0 0 40px var(--card-glow-color);
+    }
+
+    .card:hover::before {
+      height: 4px;
+      opacity: 1;
+    }
+
+    .card:hover::after {
+      opacity: 1;
+    }
+
+    /* Per-card color theming via CSS custom properties */
+    .card-array  { --card-accent: var(--accent-array);  --card-accent-dim: rgba(79,195,247,0.35);  --card-glow: var(--glow-array);  --card-glow-color: rgba(79,195,247,0.12);  }
+    .card-linked { --card-accent: var(--accent-linked); --card-accent-dim: rgba(129,199,132,0.35); --card-glow: var(--glow-linked); --card-glow-color: rgba(129,199,132,0.12); }
+    .card-stack  { --card-accent: var(--accent-stack);  --card-accent-dim: rgba(255,183,77,0.35);  --card-glow: var(--glow-stack);  --card-glow-color: rgba(255,183,77,0.12);  }
+    .card-tree   { --card-accent: var(--accent-tree);   --card-accent-dim: rgba(206,147,216,0.35); --card-glow: var(--glow-tree);   --card-glow-color: rgba(206,147,216,0.12); }
+    .card-graph  { --card-accent: var(--accent-graph);  --card-accent-dim: rgba(239,154,154,0.35); --card-glow: var(--glow-graph);  --card-glow-color: rgba(239,154,154,0.12); }
+    .card-hash   { --card-accent: var(--accent-hash);   --card-accent-dim: rgba(128,203,196,0.35); --card-glow: var(--glow-hash);   --card-glow-color: rgba(128,203,196,0.12); }
+
+    /* ─────────────────────────────────────────────
+       Card inner elements
+    ───────────────────────────────────────────── */
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .card-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      flex-shrink: 0;
+      transition: transform var(--transition-medium);
+      position: relative;
+      z-index: 1;
+    }
+
+    .card:hover .card-icon {
+      transform: scale(1.1) rotate(-4deg);
+    }
+
+    .card-number {
+      font-size: 0.7rem;
+      font-family: var(--font-mono);
+      color: var(--card-accent);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--card-accent-dim);
+      border-radius: var(--radius-sm);
+      padding: 3px 8px;
+      letter-spacing: 0.06em;
+      align-self: flex-start;
+    }
+
+    .card-titles {
+      position: relative;
+      z-index: 1;
+    }
+
+    .card-title-ko {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1.3;
+      margin-bottom: 2px;
+    }
+
+    .card-title-en {
+      font-size: 0.78rem;
+      font-family: var(--font-mono);
+      color: var(--card-accent);
+      letter-spacing: 0.04em;
+    }
+
+    .card-desc {
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      position: relative;
+      z-index: 1;
+      flex: 1;
+    }
+
+    /* Complexity tags */
+    .card-complexity {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .complexity-tag {
+      font-size: 0.7rem;
+      font-family: var(--font-mono);
+      padding: 3px 10px;
+      border-radius: 100px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-secondary);
+      transition: background var(--transition-fast), color var(--transition-fast);
+      white-space: nowrap;
+    }
+
+    .card:hover .complexity-tag {
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text-primary);
+    }
+
+    .complexity-tag.highlight {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: var(--card-accent-dim);
+      color: var(--card-accent);
+    }
+
+    /* CTA arrow */
+    .card-cta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--card-accent);
+      opacity: 0;
+      transform: translateX(-8px);
+      transition:
+        opacity var(--transition-fast),
+        transform var(--transition-medium);
+      position: relative;
+      z-index: 1;
+    }
+
+    .card:hover .card-cta {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .cta-arrow {
+      display: inline-block;
+      transition: transform var(--transition-medium);
+    }
+
+    .card:hover .cta-arrow {
+      transform: translateX(4px);
+    }
+
+    /* ─────────────────────────────────────────────
+       Mini visual diagram area per card
+    ───────────────────────────────────────────── */
+    .card-visual {
+      position: relative;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      overflow: hidden;
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      z-index: 1;
+      padding: 0 12px;
+    }
+
+    /* Array visual */
+    .vis-array {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .vis-cell {
+      width: 30px;
+      height: 30px;
+      border: 1px solid rgba(79, 195, 247, 0.3);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+      font-family: var(--font-mono);
+      color: rgba(79, 195, 247, 0.7);
+      background: rgba(79, 195, 247, 0.05);
+      transition: background var(--transition-fast), border-color var(--transition-fast);
+    }
+
+    .vis-cell.active {
+      background: rgba(79, 195, 247, 0.15);
+      border-color: rgba(79, 195, 247, 0.6);
+      color: var(--accent-array);
+    }
+
+    .card-array:hover .vis-cell.active {
+      box-shadow: 0 0 10px rgba(79, 195, 247, 0.3);
+    }
+
+    /* Linked list visual */
+    .vis-linked {
+      display: flex;
+      align-items: center;
+    }
+
+    .vis-node {
+      width: 34px;
+      height: 26px;
+      border: 1px solid rgba(129, 199, 132, 0.3);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.6rem;
+      font-family: var(--font-mono);
+      color: rgba(129, 199, 132, 0.7);
+      background: rgba(129, 199, 132, 0.05);
+    }
+
+    .vis-arrow {
+      width: 16px;
+      height: 2px;
+      background: rgba(129, 199, 132, 0.4);
+      position: relative;
+    }
+
+    .vis-arrow::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: -3px;
+      width: 0;
+      height: 0;
+      border-left: 5px solid rgba(129, 199, 132, 0.4);
+      border-top: 4px solid transparent;
+      border-bottom: 4px solid transparent;
+    }
+
+    /* Stack visual */
+    .vis-stack {
+      display: flex;
+      flex-direction: column-reverse;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .vis-stack-item {
+      width: 70px;
+      height: 14px;
+      border-radius: 3px;
+      border: 1px solid rgba(255, 183, 77, 0.25);
+      background: rgba(255, 183, 77, 0.06);
+    }
+
+    .vis-stack-item.top {
+      background: rgba(255, 183, 77, 0.15);
+      border-color: rgba(255, 183, 77, 0.5);
+    }
+
+    /* Tree visual */
+    .vis-tree {
+      position: relative;
+      width: 120px;
+      height: 44px;
+    }
+
+    .vis-tnode {
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 1px solid rgba(206, 147, 216, 0.4);
+      background: rgba(206, 147, 216, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.55rem;
+      font-family: var(--font-mono);
+      color: rgba(206, 147, 216, 0.8);
+    }
+
+    .vis-tnode.root {
+      top: 2px;
+      left: 49px;
+      background: rgba(206, 147, 216, 0.15);
+      border-color: rgba(206, 147, 216, 0.6);
+    }
+
+    .vis-tnode.l1-left  { top: 24px; left: 22px; }
+    .vis-tnode.l1-right { top: 24px; left: 76px; }
+
+    .vis-tedge {
+      position: absolute;
+      background: rgba(206, 147, 216, 0.25);
+      transform-origin: 0 50%;
+    }
+
+    /* Graph visual */
+    .vis-graph {
+      position: relative;
+      width: 110px;
+      height: 44px;
+    }
+
+    .vis-gnode {
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1px solid rgba(239, 154, 154, 0.4);
+      background: rgba(239, 154, 154, 0.08);
+    }
+
+    .vis-gnode.active {
+      background: rgba(239, 154, 154, 0.2);
+      border-color: rgba(239, 154, 154, 0.7);
+    }
+
+    .vis-gedge {
+      position: absolute;
+      height: 1px;
+      background: rgba(239, 154, 154, 0.25);
+      transform-origin: 0 50%;
+    }
+
+    /* Hash visual */
+    .vis-hash {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .vis-bucket {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .vis-bucket-slot {
+      width: 22px;
+      height: 10px;
+      border-radius: 2px;
+      border: 1px solid rgba(128, 203, 196, 0.2);
+      background: rgba(128, 203, 196, 0.04);
+    }
+
+    .vis-bucket-slot.filled {
+      background: rgba(128, 203, 196, 0.15);
+      border-color: rgba(128, 203, 196, 0.45);
+    }
+
+    /* ─────────────────────────────────────────────
+       Footer
+    ───────────────────────────────────────────── */
+    .site-footer {
+      border-top: 1px solid var(--border);
+      padding: 32px 0;
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      text-align: center;
+    }
+
+    .footer-tagline {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .footer-meta {
+      font-size: 0.73rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      letter-spacing: 0.04em;
+    }
+
+    .footer-dots {
+      display: flex;
+      gap: 8px;
+    }
+
+    .footer-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    /* ─────────────────────────────────────────────
+       Scrollbar
+    ───────────────────────────────────────────── */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg-base);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--border-hover);
+    }
+
+    /* ─────────────────────────────────────────────
+       Focus styles for accessibility
+    ───────────────────────────────────────────── */
+    .card:focus-visible {
+      outline: 2px solid var(--card-accent);
+      outline-offset: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page-wrapper">
+
+    <!-- ════════════════════════════════
+         HEADER
+    ════════════════════════════════ -->
+    <header class="site-header">
+      <div class="header-badge">인터랙티브 시각화 허브</div>
+      <h1 class="site-title">자료구조 인터랙티브 시각화</h1>
+      <p class="site-subtitle">
+        핵심 자료구조를 시각적으로 탐색하고, 알고리즘의 동작 원리를
+        직접 실행하며 깊이 있게 이해하세요.
+      </p>
+      <div class="header-stats">
+        <div class="stat-item">
+          <span class="stat-number">6</span>
+          <span class="stat-label">자료구조</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-number">∞</span>
+          <span class="stat-label">인터랙션</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-number">한국어</span>
+          <span class="stat-label">UI 언어</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- ════════════════════════════════
+         DIVIDER
+    ════════════════════════════════ -->
+    <div class="section-divider">
+      <div class="section-divider-line"></div>
+      <span class="section-divider-text">시각화 목록 // 6 modules</span>
+      <div class="section-divider-line"></div>
+    </div>
+
+    <!-- ════════════════════════════════
+         CARDS GRID
+    ════════════════════════════════ -->
+    <main class="cards-grid" id="cardGrid">
+
+      <!-- 01 · Array -->
+      <a class="card card-array" href="01-array.html" tabindex="0">
+        <div class="card-header">
+          <div class="card-icon">🗂️</div>
+          <span class="card-number">01 / 06</span>
+        </div>
+        <div class="card-titles">
+          <div class="card-title-ko">배열</div>
+          <div class="card-title-en">Array</div>
+        </div>
+        <p class="card-desc">
+          연속된 메모리 공간에 동일한 타입의 데이터를 순서대로 저장합니다.
+          인덱스를 통한 임의 접근이 O(1)로 가장 빠르며,
+          중간 삽입·삭제는 데이터 이동이 필요합니다.
+        </p>
+
+        <!-- Mini array diagram -->
+        <div class="card-visual">
+          <div class="vis-array">
+            <div class="vis-cell">A</div>
+            <div class="vis-cell active">B</div>
+            <div class="vis-cell">C</div>
+            <div class="vis-cell">D</div>
+            <div class="vis-cell">E</div>
+          </div>
+        </div>
+
+        <div class="card-complexity">
+          <span class="complexity-tag highlight">접근 O(1)</span>
+          <span class="complexity-tag">탐색 O(n)</span>
+          <span class="complexity-tag">삽입 O(n)</span>
+          <span class="complexity-tag">삭제 O(n)</span>
+        </div>
+        <div class="card-cta">
+          시각화 열기 <span class="cta-arrow">→</span>
+        </div>
+      </a>
+
+      <!-- 02 · Linked List -->
+      <a class="card card-linked" href="02-linked-list.html" tabindex="0">
+        <div class="card-header">
+          <div class="card-icon">🔗</div>
+          <span class="card-number">02 / 06</span>
+        </div>
+        <div class="card-titles">
+          <div class="card-title-ko">연결 리스트</div>
+          <div class="card-title-en">Linked List</div>
+        </div>
+        <p class="card-desc">
+          각 노드가 데이터와 다음 노드를 가리키는 포인터를 포함합니다.
+          메모리가 연속적이지 않아도 되며, 헤드에서의 삽입·삭제가
+          O(1)로 효율적입니다.
+        </p>
+
+        <!-- Mini linked list diagram -->
+        <div class="card-visual">
+          <div class="vis-linked">
+            <div class="vis-node">1</div>
+            <div class="vis-arrow"></div>
+            <div class="vis-node">2</div>
+            <div class="vis-arrow"></div>
+            <div class="vis-node">3</div>
+            <div class="vis-arrow"></div>
+            <div class="vis-node">∅</div>
+          </div>
+        </div>
+
+        <div class="card-complexity">
+          <span class="complexity-tag highlight">삽입 O(1)</span>
+          <span class="complexity-tag highlight">삭제 O(1)</span>
+          <span class="complexity-tag">탐색 O(n)</span>
+          <span class="complexity-tag">접근 O(n)</span>
+        </div>
+        <div class="card-cta">
+          시각화 열기 <span class="cta-arrow">→</span>
+        </div>
+      </a>
+
+      <!-- 03 · Stack & Queue -->
+      <a class="card card-stack" href="03-stack-queue.html" tabindex="0">
+        <div class="card-header">
+          <div class="card-icon">📦</div>
+          <span class="card-number">03 / 06</span>
+        </div>
+        <div class="card-titles">
+          <div class="card-title-ko">스택 &amp; 큐</div>
+          <div class="card-title-en">Stack &amp; Queue</div>
+        </div>
+        <p class="card-desc">
+          스택은 LIFO(후입선출), 큐는 FIFO(선입선출) 원칙을 따릅니다.
+          함수 호출 스택, 너비 우선 탐색 등 다양한 알고리즘의
+          핵심 기반 구조입니다.
+        </p>
+
+        <!-- Mini stack diagram -->
+        <div class="card-visual">
+          <div class="vis-stack">
+            <div class="vis-stack-item"></div>
+            <div class="vis-stack-item"></div>
+            <div class="vis-stack-item top"></div>
+          </div>
+          <div style="width: 32px;"></div>
+          <!-- Queue row -->
+          <div style="display:flex;flex-direction:column;gap:2px;">
+            <div style="width:70px;height:14px;border-radius:3px;border:1px solid rgba(255,183,77,0.5);background:rgba(255,183,77,0.12);"></div>
+            <div style="display:flex;gap:2px;">
+              <div style="flex:1;height:14px;border-radius:3px;border:1px solid rgba(255,183,77,0.2);background:rgba(255,183,77,0.04);"></div>
+              <div style="flex:1;height:14px;border-radius:3px;border:1px solid rgba(255,183,77,0.2);background:rgba(255,183,77,0.04);"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-complexity">
+          <span class="complexity-tag highlight">Push O(1)</span>
+          <span class="complexity-tag highlight">Pop O(1)</span>
+          <span class="complexity-tag highlight">Enqueue O(1)</span>
+          <span class="complexity-tag highlight">Dequeue O(1)</span>
+        </div>
+        <div class="card-cta">
+          시각화 열기 <span class="cta-arrow">→</span>
+        </div>
+      </a>
+
+      <!-- 04 · BST -->
+      <a class="card card-tree" href="04-tree.html" tabindex="0">
+        <div class="card-header">
+          <div class="card-icon">🌳</div>
+          <span class="card-number">04 / 06</span>
+        </div>
+        <div class="card-titles">
+          <div class="card-title-ko">이진 탐색 트리</div>
+          <div class="card-title-en">Binary Search Tree</div>
+        </div>
+        <p class="card-desc">
+          왼쪽 서브트리는 루트보다 작고 오른쪽은 크다는 규칙으로
+          계층적 구조를 형성합니다. 균형 잡힌 트리에서는
+          탐색·삽입·삭제 모두 O(log n)을 보장합니다.
+        </p>
+
+        <!-- Mini tree diagram -->
+        <div class="card-visual">
+          <div class="vis-tree">
+            <!-- edges (drawn via absolutely positioned divs) -->
+            <svg width="120" height="44" style="position:absolute;top:0;left:0;" overflow="visible">
+              <line x1="60" y1="13" x2="33" y2="35" stroke="rgba(206,147,216,0.3)" stroke-width="1.5"/>
+              <line x1="60" y1="13" x2="87" y2="35" stroke="rgba(206,147,216,0.3)" stroke-width="1.5"/>
+            </svg>
+            <div class="vis-tnode root">5</div>
+            <div class="vis-tnode l1-left">2</div>
+            <div class="vis-tnode l1-right">8</div>
+          </div>
+        </div>
+
+        <div class="card-complexity">
+          <span class="complexity-tag highlight">탐색 O(log n)</span>
+          <span class="complexity-tag highlight">삽입 O(log n)</span>
+          <span class="complexity-tag highlight">삭제 O(log n)</span>
+          <span class="complexity-tag">최악 O(n)</span>
+        </div>
+        <div class="card-cta">
+          시각화 열기 <span class="cta-arrow">→</span>
+        </div>
+      </a>
+
+      <!-- 05 · Graph -->
+      <a class="card card-graph" href="05-graph.html" tabindex="0">
+        <div class="card-header">
+          <div class="card-icon">🕸️</div>
+          <span class="card-number">05 / 06</span>
+        </div>
+        <div class="card-titles">
+          <div class="card-title-ko">그래프</div>
+          <div class="card-title-en">Graph</div>
+        </div>
+        <p class="card-desc">
+          정점(Vertex)과 간선(Edge)으로 이루어진 비선형 자료구조입니다.
+          BFS로 최단 경로를, DFS로 연결 여부를 탐색하며
+          소셜 네트워크·지도·의존성 분석에 활용됩니다.
+        </p>
+
+        <!-- Mini graph diagram -->
+        <div class="card-visual">
+          <div class="vis-graph">
+            <svg width="110" height="44" style="position:absolute;top:0;left:0;" overflow="visible">
+              <line x1="20" y1="22" x2="55" y2="10" stroke="rgba(239,154,154,0.3)" stroke-width="1.5"/>
+              <line x1="20" y1="22" x2="55" y2="34" stroke="rgba(239,154,154,0.3)" stroke-width="1.5"/>
+              <line x1="55" y1="10" x2="90" y2="22" stroke="rgba(239,154,154,0.3)" stroke-width="1.5"/>
+              <line x1="55" y1="34" x2="90" y2="22" stroke="rgba(239,154,154,0.3)" stroke-width="1.5"/>
+              <line x1="55" y1="10" x2="55" y2="34" stroke="rgba(239,154,154,0.15)" stroke-width="1.5" stroke-dasharray="3,3"/>
+            </svg>
+            <div class="vis-gnode active" style="top:13px;left:11px;"></div>
+            <div class="vis-gnode"        style="top:1px; left:46px;"></div>
+            <div class="vis-gnode active" style="top:25px;left:46px;"></div>
+            <div class="vis-gnode"        style="top:13px;left:81px;"></div>
+          </div>
+        </div>
+
+        <div class="card-complexity">
+          <span class="complexity-tag highlight">BFS O(V+E)</span>
+          <span class="complexity-tag highlight">DFS O(V+E)</span>
+          <span class="complexity-tag">인접행렬 O(V²)</span>
+          <span class="complexity-tag">인접리스트 O(V+E)</span>
+        </div>
+        <div class="card-cta">
+          시각화 열기 <span class="cta-arrow">→</span>
+        </div>
+      </a>
+
+      <!-- 06 · Hash Table -->
+      <a class="card card-hash" href="06-hash.html" tabindex="0">
+        <div class="card-header">
+          <div class="card-icon">🔐</div>
+          <span class="card-number">06 / 06</span>
+        </div>
+        <div class="card-titles">
+          <div class="card-title-ko">해시 테이블</div>
+          <div class="card-title-en">Hash Table</div>
+        </div>
+        <p class="card-desc">
+          해시 함수로 키를 버킷 인덱스로 변환해 데이터를 저장합니다.
+          평균 O(1)의 접근·삽입·삭제가 가능하며,
+          충돌 해결에는 체이닝·오픈 어드레싱 기법이 사용됩니다.
+        </p>
+
+        <!-- Mini hash diagram -->
+        <div class="card-visual">
+          <div class="vis-hash">
+            <div class="vis-bucket">
+              <div class="vis-bucket-slot filled"></div>
+              <div class="vis-bucket-slot"></div>
+              <div class="vis-bucket-slot filled"></div>
+            </div>
+            <div class="vis-bucket">
+              <div class="vis-bucket-slot"></div>
+              <div class="vis-bucket-slot filled"></div>
+              <div class="vis-bucket-slot"></div>
+            </div>
+            <div class="vis-bucket">
+              <div class="vis-bucket-slot filled"></div>
+              <div class="vis-bucket-slot filled"></div>
+              <div class="vis-bucket-slot"></div>
+            </div>
+            <div class="vis-bucket">
+              <div class="vis-bucket-slot"></div>
+              <div class="vis-bucket-slot"></div>
+              <div class="vis-bucket-slot filled"></div>
+            </div>
+            <div class="vis-bucket">
+              <div class="vis-bucket-slot filled"></div>
+              <div class="vis-bucket-slot"></div>
+              <div class="vis-bucket-slot"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-complexity">
+          <span class="complexity-tag highlight">접근 O(1) avg</span>
+          <span class="complexity-tag highlight">삽입 O(1) avg</span>
+          <span class="complexity-tag highlight">삭제 O(1) avg</span>
+          <span class="complexity-tag">최악 O(n)</span>
+        </div>
+        <div class="card-cta">
+          시각화 열기 <span class="cta-arrow">→</span>
+        </div>
+      </a>
+
+    </main><!-- /.cards-grid -->
+
+    <!-- ════════════════════════════════
+         FOOTER
+    ════════════════════════════════ -->
+    <footer class="site-footer">
+      <div class="footer-dots">
+        <div class="footer-dot" style="background:var(--accent-array);"></div>
+        <div class="footer-dot" style="background:var(--accent-linked);"></div>
+        <div class="footer-dot" style="background:var(--accent-stack);"></div>
+        <div class="footer-dot" style="background:var(--accent-tree);"></div>
+        <div class="footer-dot" style="background:var(--accent-graph);"></div>
+        <div class="footer-dot" style="background:var(--accent-hash);"></div>
+      </div>
+      <p class="footer-tagline">프론트엔드 개발자를 위한 학습 도구</p>
+      <p class="footer-meta">자료구조 인터랙티브 시각화 · study-log</p>
+    </footer>
+
+  </div><!-- /.page-wrapper -->
+
+  <script>
+    /**
+     * ────────────────────────────────────────────────
+     * Interaction & animation scripts
+     * ────────────────────────────────────────────────
+     */
+
+    // ── Stagger card entrance on load ───────────────
+    (function staggerCards() {
+      const cards = document.querySelectorAll('.card');
+      // Cards already have CSS animation-delay via :nth-child,
+      // but we also observe when they enter the viewport.
+      const io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.style.opacity = '';
+              io.unobserve(entry.target);
+            }
+          });
+        },
+        { threshold: 0.1 }
+      );
+      cards.forEach((card) => io.observe(card));
+    })();
+
+    // ── Array cell highlight cycle ───────────────────
+    (function animateArray() {
+      const arrayCard = document.querySelector('.card-array');
+      if (!arrayCard) return;
+      const cells = arrayCard.querySelectorAll('.vis-cell');
+      let current = 1;  // index of initially active cell
+
+      arrayCard.addEventListener('mouseenter', () => {
+        const interval = setInterval(() => {
+          cells.forEach((c, i) => c.classList.toggle('active', i === current));
+          current = (current + 1) % cells.length;
+        }, 300);
+        arrayCard._cellInterval = interval;
+      });
+
+      arrayCard.addEventListener('mouseleave', () => {
+        clearInterval(arrayCard._cellInterval);
+        cells.forEach((c, i) => c.classList.toggle('active', i === 1));
+        current = 2;
+      });
+    })();
+
+    // ── Stack push/pop animation on hover ───────────
+    (function animateStack() {
+      const stackCard = document.querySelector('.card-stack');
+      if (!stackCard) return;
+      const topItem = stackCard.querySelector('.vis-stack-item.top');
+      if (!topItem) return;
+
+      let poppingInterval;
+
+      stackCard.addEventListener('mouseenter', () => {
+        let direction = -1; // -1 = up (pop), 1 = down (push)
+        let offset = 0;
+        poppingInterval = setInterval(() => {
+          offset += direction * 3;
+          topItem.style.transform = `translateY(${offset}px)`;
+          topItem.style.opacity = String(1 - Math.abs(offset) / 20);
+          if (Math.abs(offset) >= 12) direction *= -1;
+          if (offset >= 0) { offset = 0; direction = -1; }
+        }, 30);
+      });
+
+      stackCard.addEventListener('mouseleave', () => {
+        clearInterval(poppingInterval);
+        topItem.style.transform = '';
+        topItem.style.opacity = '';
+      });
+    })();
+
+    // ── Graph node pulse on hover ────────────────────
+    (function animateGraph() {
+      const graphCard = document.querySelector('.card-graph');
+      if (!graphCard) return;
+      const gnodes = graphCard.querySelectorAll('.vis-gnode');
+      let pulseInterval;
+      let step = 0;
+
+      graphCard.addEventListener('mouseenter', () => {
+        pulseInterval = setInterval(() => {
+          gnodes.forEach((n, i) => {
+            n.classList.toggle('active', i === (step % gnodes.length));
+          });
+          step++;
+        }, 250);
+      });
+
+      graphCard.addEventListener('mouseleave', () => {
+        clearInterval(pulseInterval);
+        gnodes.forEach((n, i) => n.classList.toggle('active', i === 0 || i === 2));
+        step = 0;
+      });
+    })();
+
+    // ── Hash bucket fill animation on hover ──────────
+    (function animateHash() {
+      const hashCard = document.querySelector('.card-hash');
+      if (!hashCard) return;
+      const slots = Array.from(hashCard.querySelectorAll('.vis-bucket-slot'));
+      const origFilled = slots.map(s => s.classList.contains('filled'));
+      let fillInterval;
+
+      hashCard.addEventListener('mouseenter', () => {
+        let i = 0;
+        fillInterval = setInterval(() => {
+          if (i < slots.length) {
+            slots[i].classList.toggle('filled');
+            i++;
+          } else {
+            clearInterval(fillInterval);
+          }
+        }, 60);
+      });
+
+      hashCard.addEventListener('mouseleave', () => {
+        clearInterval(fillInterval);
+        slots.forEach((s, idx) => {
+          s.classList.toggle('filled', origFilled[idx]);
+        });
+      });
+    })();
+
+    // ── Keyboard navigation (Enter/Space opens link) ──
+    document.querySelectorAll('.card').forEach((card) => {
+      card.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          card.click();
+        }
+      });
+    });
+
+    // ── Subtle tilt effect on mousemove ─────────────
+    (function tiltCards() {
+      const cards = document.querySelectorAll('.card');
+      const MAX_TILT = 6; // degrees
+
+      cards.forEach((card) => {
+        card.addEventListener('mousemove', (e) => {
+          const rect = card.getBoundingClientRect();
+          const cx = rect.left + rect.width / 2;
+          const cy = rect.top + rect.height / 2;
+          const dx = (e.clientX - cx) / (rect.width / 2);
+          const dy = (e.clientY - cy) / (rect.height / 2);
+          const rotateX = -dy * MAX_TILT;
+          const rotateY = dx * MAX_TILT;
+          card.style.transform =
+            `translateY(-6px) scale(1.02) perspective(600px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+        });
+
+        card.addEventListener('mouseleave', () => {
+          card.style.transform = '';
+        });
+      });
+    })();
+
+    // ── Page load progress indicator ────────────────
+    (function pageLoadBar() {
+      const bar = document.createElement('div');
+      Object.assign(bar.style, {
+        position: 'fixed',
+        top: '0',
+        left: '0',
+        height: '2px',
+        width: '0%',
+        background: 'linear-gradient(90deg, #4fc3f7, #81c784, #ffb74d)',
+        zIndex: '9999',
+        transition: 'width 0.3s ease',
+        borderRadius: '0 2px 2px 0',
+      });
+      document.body.appendChild(bar);
+
+      let pct = 0;
+      const tick = setInterval(() => {
+        pct += Math.random() * 15;
+        if (pct >= 90) { clearInterval(tick); pct = 90; }
+        bar.style.width = pct + '%';
+      }, 100);
+
+      window.addEventListener('load', () => {
+        clearInterval(tick);
+        bar.style.width = '100%';
+        setTimeout(() => { bar.style.opacity = '0'; }, 400);
+        setTimeout(() => bar.remove(), 800);
+      });
+    })();
+  </script>
+</body>
+</html>

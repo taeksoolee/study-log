@@ -563,3 +563,343 @@ ISR(Incremental Static Regeneration)은 SSG처럼 빌드 타임에 정적 페이
 ### Q5. Pages Router와 App Router 중 어떤 것을 선택하겠습니까?
 
 신규 프로젝트라면 **App Router**를 선택합니다. React Server Components, Streaming, 중첩 레이아웃, Server Actions 등 최신 기능을 활용할 수 있고, Next.js 공식 권장 방향이기 때문입니다. 다만 레거시 프로젝트나 Pages Router에 익숙한 팀이라면 마이그레이션 비용을 고려해 점진적으로 전환합니다. 두 라우터는 Next.js 내에서 공존 가능합니다.
+
+---
+
+## 11. API Routes / Route Handlers
+
+### 11.1 Route Handler 기본 (App Router)
+
+```ts
+// app/api/users/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+
+// GET /api/users
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const page = Number(searchParams.get('page') ?? '1');
+
+  const users = await db.user.findMany({
+    skip: (page - 1) * 10,
+    take: 10,
+  });
+
+  return NextResponse.json({ users, page });
+}
+
+// POST /api/users
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+  const { name, email } = body;
+
+  if (!name || !email) {
+    return NextResponse.json({ error: '필수 필드 누락' }, { status: 400 });
+  }
+
+  const user = await db.user.create({ data: { name, email } });
+  return NextResponse.json(user, { status: 201 });
+}
+```
+
+### 11.2 동적 라우트 핸들러
+
+```ts
+// app/api/users/[id]/route.ts
+interface Params {
+  params: { id: string };
+}
+
+export async function GET(request: NextRequest, { params }: Params) {
+  const user = await db.user.findUnique({ where: { id: params.id } });
+  if (!user) return NextResponse.json({ error: 'Not Found' }, { status: 404 });
+  return NextResponse.json(user);
+}
+
+export async function PATCH(request: NextRequest, { params }: Params) {
+  const body = await request.json();
+  const updated = await db.user.update({
+    where: { id: params.id },
+    data: body,
+  });
+  return NextResponse.json(updated);
+}
+
+export async function DELETE(_: NextRequest, { params }: Params) {
+  await db.user.delete({ where: { id: params.id } });
+  return new NextResponse(null, { status: 204 });
+}
+```
+
+### 11.3 미들웨어처럼 활용하는 패턴
+
+```ts
+// lib/withAuth.ts — Route Handler 래퍼
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+
+type Handler = (req: NextRequest, context: any, session: Session) => Promise<NextResponse>;
+
+export function withAuth(handler: Handler) {
+  return async (req: NextRequest, context: any) => {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    return handler(req, context, session);
+  };
+}
+
+// 사용
+export const GET = withAuth(async (req, { params }, session) => {
+  const data = await fetchUserData(session.user.id);
+  return NextResponse.json(data);
+});
+```
+
+---
+
+## 12. 인증 패턴 — NextAuth.js v5
+
+### 12.1 기본 설정
+
+```ts
+// auth.ts (루트)
+import NextAuth from 'next-auth';
+import GitHub from 'next-auth/providers/github';
+import Credentials from 'next-auth/providers/credentials';
+
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  providers: [
+    GitHub,
+    Credentials({
+      credentials: {
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' },
+      },
+      async authorize(credentials) {
+        const user = await verifyCredentials(credentials);
+        return user ?? null; // null이면 로그인 실패
+      },
+    }),
+  ],
+  callbacks: {
+    jwt({ token, user }) {
+      if (user) token.role = user.role; // JWT에 커스텀 필드 추가
+      return token;
+    },
+    session({ session, token }) {
+      session.user.role = token.role; // 세션에 노출
+      return session;
+    },
+  },
+});
+```
+
+```ts
+// app/api/auth/[...nextauth]/route.ts
+import { handlers } from '@/auth';
+export const { GET, POST } = handlers;
+```
+
+### 12.2 서버 컴포넌트에서 세션 조회
+
+```tsx
+// app/dashboard/page.tsx
+import { auth } from '@/auth';
+import { redirect } from 'next/navigation';
+
+export default async function DashboardPage() {
+  const session = await auth();
+
+  if (!session) {
+    redirect('/login');
+  }
+
+  return <div>안녕하세요, {session.user.name}님</div>;
+}
+```
+
+### 12.3 클라이언트 컴포넌트에서 세션
+
+```tsx
+'use client';
+import { useSession, signOut } from 'next-auth/react';
+
+export default function UserMenu() {
+  const { data: session, status } = useSession();
+
+  if (status === 'loading') return <Spinner />;
+  if (!session) return <a href="/login">로그인</a>;
+
+  return (
+    <div>
+      <span>{session.user.name}</span>
+      <button onClick={() => signOut()}>로그아웃</button>
+    </div>
+  );
+}
+```
+
+### 12.4 세션 vs JWT 방식 비교
+
+| 항목 | Database Session | JWT |
+|------|-----------------|-----|
+| 세션 저장 | DB | 클라이언트 쿠키 |
+| 서버 부하 | DB 조회 필요 | 없음 |
+| 즉시 무효화 | 가능 | 어려움 (만료까지 유효) |
+| 수평 확장 | DB 공유 필요 | 쉬움 |
+| 권장 사용 | 보안 중요 서비스 | 빠른 구현, 확장성 필요 시 |
+
+---
+
+## 13. Middleware
+
+### 13.1 기본 설정
+
+```ts
+// middleware.ts (루트)
+import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/auth';
+
+export default auth(function middleware(request) {
+  const { pathname } = request.nextUrl;
+  const session = request.auth;
+
+  // 인증 필요 경로 보호
+  if (pathname.startsWith('/dashboard') && !session) {
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('callbackUrl', pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  // 이미 로그인한 사용자가 로그인 페이지 접근 시 리다이렉트
+  if (pathname === '/login' && session) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+  return NextResponse.next();
+});
+
+// 미들웨어가 실행될 경로 패턴
+export const config = {
+  matcher: [
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+  ],
+};
+```
+
+### 13.2 헤더 수정 및 지역화
+
+```ts
+export function middleware(request: NextRequest) {
+  const response = NextResponse.next();
+
+  // 요청 헤더 추가 (Server Component에서 읽기 가능)
+  response.headers.set('x-pathname', request.nextUrl.pathname);
+
+  // 보안 헤더
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+
+  // 지역화: Accept-Language 기반 리다이렉트
+  const lang = request.headers.get('accept-language')?.split(',')[0].split('-')[0];
+  if (lang === 'en' && !request.nextUrl.pathname.startsWith('/en')) {
+    return NextResponse.redirect(new URL(`/en${request.nextUrl.pathname}`, request.url));
+  }
+
+  return response;
+}
+```
+
+### 13.3 matcher 패턴
+
+```ts
+export const config = {
+  matcher: [
+    '/dashboard/:path*',        // /dashboard 하위 모든 경로
+    '/api/:path*',              // API 경로
+    '/((?!_next|favicon).+)',   // _next, favicon 제외 모든 경로
+  ],
+};
+```
+
+---
+
+## 14. Deployment
+
+### 14.1 Vercel 배포
+
+Next.js 공식 플랫폼. 설정 없이 push만으로 배포 가능하다.
+
+```bash
+npm install -g vercel
+vercel login
+vercel  # 첫 배포
+vercel --prod  # 프로덕션 배포
+```
+
+- Edge Network 자동 적용, ISR/On-Demand Revalidation 지원
+- `vercel.json`으로 리다이렉트, 헤더, 리전 설정
+
+```json
+// vercel.json
+{
+  "regions": ["icn1"],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "no-store" }]
+    }
+  ]
+}
+```
+
+### 14.2 Docker 배포
+
+```dockerfile
+# Dockerfile
+FROM node:20-alpine AS base
+
+# 의존성 설치
+FROM base AS deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# 빌드
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+ENV NEXT_TELEMETRY_DISABLED 1
+RUN npm run build
+
+# 실행 (standalone 모드)
+FROM base AS runner
+WORKDIR /app
+ENV NODE_ENV production
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+
+EXPOSE 3000
+CMD ["node", "server.js"]
+```
+
+```js
+// next.config.js — standalone 출력 활성화
+module.exports = {
+  output: 'standalone',
+};
+```
+
+### 14.3 배포 방식 비교
+
+| 항목 | Vercel | Docker (Self-hosted) | Standalone |
+|------|--------|---------------------|-----------|
+| 설정 복잡도 | 매우 낮음 | 높음 | 중간 |
+| ISR/Edge 지원 | 완전 지원 | 제한적 | 제한적 |
+| 비용 | 트래픽 기반 | 서버 비용 | 서버 비용 |
+| 커스텀 인프라 | 불가 | 가능 | 가능 |
+| 이미지 크기 | 해당 없음 | 크다 | 작음 (~50MB) |
+| 권장 | 빠른 배포 | 기업 내부망 | 컨테이너 최적화 |

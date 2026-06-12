@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Promise 체인 시각화 | Promise Chain Visualizer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #0f1117;
+      --surface:      #1a1d27;
+      --surface2:     #22263a;
+      --border:       #2e3250;
+      --text:         #e2e8f0;
+      --muted:        #7c85a2;
+      --pending:      #6b7280;
+      --pending-dim:  #374151;
+      --fulfilled:    #10b981;
+      --fulfilled-dim:#064e3b;
+      --rejected:     #ef4444;
+      --rejected-dim: #7f1d1d;
+      --yellow:       #facc15;
+      --yellow-dim:   #713f12;
+      --blue:         #3b82f6;
+      --blue-dim:     #1d3a6e;
+      --purple:       #a855f7;
+      --purple-dim:   #3b1f6e;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 { font-size: 1.1rem; font-weight: 700; color: var(--text); }
+    header span { font-size: 0.8rem; color: var(--muted); }
+
+    /* Scenario bar */
+    .scenario-bar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .scenario-label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-right: 4px;
+      white-space: nowrap;
+    }
+    .scenario-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.78rem;
+      transition: background 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+    .scenario-btn:hover { background: var(--blue-dim); border-color: var(--blue); }
+    .scenario-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Main layout */
+    .main {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* Left panel */
+    .left-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-right: 1px solid var(--border);
+    }
+
+    .panel-header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 16px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Controls */
+    .controls {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 16px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .ctrl-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+      font-weight: 500;
+    }
+    .ctrl-btn:hover:not(:disabled) { background: var(--blue-dim); border-color: var(--blue); }
+    .ctrl-btn:active:not(:disabled) { transform: scale(0.96); }
+    .ctrl-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .ctrl-btn.danger { border-color: var(--rejected); }
+    .ctrl-btn.danger:hover:not(:disabled) { background: var(--rejected-dim); }
+    .ctrl-btn.success { border-color: var(--fulfilled); }
+    .ctrl-btn.success:hover:not(:disabled) { background: var(--fulfilled-dim); }
+
+    /* Chain diagram area */
+    .chain-area {
+      flex: 1;
+      overflow: auto;
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0;
+    }
+
+    /* Promise.all special container */
+    .parallel-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 12px;
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      background: rgba(59,130,246,0.04);
+      position: relative;
+    }
+    .parallel-label {
+      position: absolute;
+      top: -10px;
+      left: 12px;
+      background: var(--bg);
+      padding: 0 6px;
+      font-size: 0.7rem;
+      color: var(--blue);
+      font-weight: 600;
+    }
+    .parallel-row {
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+
+    /* Empty state */
+    .empty-state {
+      color: var(--muted);
+      font-size: 0.9rem;
+      text-align: center;
+      margin: auto;
+      line-height: 2;
+    }
+
+    /* Chain row — the horizontal chain */
+    .chain-row {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      flex-wrap: nowrap;
+      min-height: 100px;
+    }
+
+    /* Promise / handler box */
+    .promise-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 110px;
+      max-width: 140px;
+      min-height: 80px;
+      padding: 10px 10px;
+      border-radius: 10px;
+      border: 2px solid var(--pending);
+      background: var(--pending-dim);
+      position: relative;
+      transition: border-color 0.35s, background 0.35s, opacity 0.35s;
+      flex-shrink: 0;
+    }
+    .promise-box .box-type {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+    .promise-box .box-state {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--pending);
+      margin-bottom: 4px;
+      transition: color 0.35s;
+    }
+    .promise-box .box-value {
+      font-size: 0.72rem;
+      color: var(--text);
+      word-break: break-all;
+      text-align: center;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 0.35s;
+    }
+
+    /* State variants */
+    .promise-box.fulfilled {
+      border-color: var(--fulfilled);
+      background: var(--fulfilled-dim);
+    }
+    .promise-box.fulfilled .box-state { color: var(--fulfilled); }
+
+    .promise-box.rejected {
+      border-color: var(--rejected);
+      background: var(--rejected-dim);
+    }
+    .promise-box.rejected .box-state { color: var(--rejected); }
+
+    .promise-box.processing {
+      border-color: var(--yellow);
+      background: var(--yellow-dim);
+      animation: pulse-box 0.6s ease-in-out infinite alternate;
+    }
+    .promise-box.processing .box-state { color: var(--yellow); }
+
+    .promise-box.skipped {
+      opacity: 0.35;
+    }
+    .promise-box.skipped .box-type {
+      text-decoration: line-through;
+    }
+
+    .promise-box.settled .box-value { opacity: 1; }
+
+    /* Handler type colors */
+    .promise-box.then-box  { border-color: var(--blue);   background: var(--blue-dim); }
+    .promise-box.catch-box { border-color: var(--rejected); background: var(--rejected-dim); }
+    .promise-box.finally-box { border-color: var(--purple); background: var(--purple-dim); }
+    .promise-box.then-box  .box-type { color: var(--blue); }
+    .promise-box.catch-box .box-type { color: var(--rejected); }
+    .promise-box.finally-box .box-type { color: var(--purple); }
+    .promise-box.then-box  .box-state { color: var(--muted); }
+    .promise-box.catch-box .box-state { color: var(--muted); }
+    .promise-box.finally-box .box-state { color: var(--muted); }
+
+    /* Fulfilled/rejected overrides handler base colors */
+    .promise-box.then-box.fulfilled,
+    .promise-box.catch-box.fulfilled,
+    .promise-box.finally-box.fulfilled {
+      border-color: var(--fulfilled);
+      background: var(--fulfilled-dim);
+    }
+    .promise-box.then-box.fulfilled .box-state,
+    .promise-box.catch-box.fulfilled .box-state,
+    .promise-box.finally-box.fulfilled .box-state { color: var(--fulfilled); }
+
+    .promise-box.then-box.rejected,
+    .promise-box.catch-box.rejected,
+    .promise-box.finally-box.rejected {
+      border-color: var(--rejected);
+      background: var(--rejected-dim);
+    }
+
+    /* "현재 실행 중" badge */
+    .active-badge {
+      position: absolute;
+      top: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--yellow);
+      color: #000;
+      font-size: 0.6rem;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    /* Arrow between boxes */
+    .chain-arrow {
+      display: flex;
+      align-items: center;
+      padding: 0 4px;
+      color: var(--muted);
+      font-size: 1.1rem;
+      transition: color 0.35s;
+      flex-shrink: 0;
+    }
+    .chain-arrow.active {
+      color: var(--yellow);
+      animation: arrow-pulse 0.5s ease-in-out infinite alternate;
+    }
+    .chain-arrow svg {
+      width: 28px;
+      height: 18px;
+    }
+
+    @keyframes pulse-box {
+      from { box-shadow: 0 0 0 0 rgba(250,204,21,0.4); }
+      to   { box-shadow: 0 0 0 8px rgba(250,204,21,0); }
+    }
+    @keyframes arrow-pulse {
+      from { opacity: 1; }
+      to   { opacity: 0.3; }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .promise-box { animation: fadeIn 0.3s ease; }
+
+    /* Status bar */
+    .status-bar {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 7px 16px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      min-height: 32px;
+    }
+    .status-bar span { color: var(--text); }
+
+    /* Right panel — code display */
+    .right-panel {
+      width: 360px;
+      min-width: 260px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .code-area {
+      flex: 1;
+      overflow: auto;
+      padding: 16px;
+      background: var(--bg);
+    }
+
+    pre {
+      font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 0.78rem;
+      line-height: 1.7;
+      white-space: pre;
+    }
+
+    /* Syntax highlight classes */
+    .kw  { color: #c084fc; } /* keyword: const, new, return */
+    .fn  { color: #60a5fa; } /* function name */
+    .str { color: #34d399; } /* string */
+    .num { color: #fb923c; } /* number */
+    .cmt { color: #4b5563; font-style: italic; } /* comment */
+    .op  { color: #94a3b8; } /* operator */
+    .nm  { color: #e2e8f0; } /* name */
+    .cb  { color: #fbbf24; } /* callback params */
+
+    /* Active line highlight */
+    .code-line {
+      display: block;
+      padding: 0 6px;
+      border-radius: 3px;
+      transition: background 0.3s;
+      margin: 0 -6px;
+    }
+    .code-line.active {
+      background: rgba(250,204,21,0.15);
+      border-left: 2px solid var(--yellow);
+      padding-left: 4px;
+    }
+
+    /* async/await comparison */
+    .async-panel {
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      padding: 12px 16px;
+    }
+    .async-panel .async-title {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Responsive */
+    @media (max-width: 700px) {
+      .main { flex-direction: column; }
+      .right-panel { width: 100%; height: 220px; border-top: 1px solid var(--border); }
+      .chain-row { flex-wrap: wrap; }
+    }
+
+    /* Legend */
+    .legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    /* Promise.all result box */
+    .all-result {
+      margin-top: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🔗 Promise 체인 시각화</h1>
+  <span>Promise Chain Visualizer — 한국어 프론트엔드 개발자를 위한 학습 도구</span>
+</header>
+
+<!-- Scenario buttons -->
+<div class="scenario-bar">
+  <span class="scenario-label">시나리오:</span>
+  <button class="scenario-btn" id="btn-success-chain">✅ 성공 체인 시나리오</button>
+  <button class="scenario-btn" id="btn-error-chain">❌ 에러 전파 시나리오</button>
+  <button class="scenario-btn" id="btn-promise-all">⚡ Promise.all 시나리오</button>
+  <button class="scenario-btn" id="btn-async-await">🔄 async/await 비교</button>
+</div>
+
+<div class="main">
+
+  <!-- Left: diagram + controls -->
+  <div class="left-panel">
+    <div class="panel-header">
+      📊 Promise 체인 다이어그램
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+      <div class="legend-item">
+        <div class="legend-dot" style="background:var(--pending)"></div> pending (대기)
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:var(--fulfilled)"></div> fulfilled (이행)
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:var(--rejected)"></div> rejected (거부)
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:var(--yellow)"></div> 실행 중
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:var(--blue); opacity:0.5"></div> 건너뜀
+      </div>
+    </div>
+
+    <!-- Manual controls -->
+    <div class="controls">
+      <button class="ctrl-btn" id="ctrl-create">Promise 생성</button>
+      <button class="ctrl-btn success" id="ctrl-resolve" disabled>resolve(값)</button>
+      <button class="ctrl-btn danger" id="ctrl-reject" disabled>reject(에러)</button>
+      <button class="ctrl-btn" id="ctrl-then" disabled>.then 추가</button>
+      <button class="ctrl-btn" id="ctrl-catch" disabled>.catch 추가</button>
+      <button class="ctrl-btn" id="ctrl-finally" disabled>.finally 추가</button>
+      <button class="ctrl-btn danger" id="ctrl-reset">초기화</button>
+    </div>
+
+    <!-- Chain diagram -->
+    <div class="chain-area" id="chain-area">
+      <div class="empty-state" id="empty-state">
+        Promise를 생성하거나<br>시나리오 버튼을 눌러 시작하세요.<br>
+        <span style="font-size:0.75rem;color:var(--muted)">(위의 "Promise 생성" 버튼 클릭)</span>
+      </div>
+    </div>
+
+    <!-- Status bar -->
+    <div class="status-bar" id="status-bar">대기 중…</div>
+  </div>
+
+  <!-- Right: code panel -->
+  <div class="right-panel">
+    <div class="panel-header">
+      💻 생성된 코드 (실시간 업데이트)
+    </div>
+    <div class="code-area" id="code-area">
+      <pre id="code-pre"><span class="code-line"><span class="cmt">// Promise 체인을 만들어보세요</span></span></pre>
+    </div>
+    <div class="async-panel" id="async-panel" style="display:none">
+      <div class="async-title">⚡ async/await 동등 코드</div>
+      <pre id="async-pre" style="font-size:0.75rem;line-height:1.6"></pre>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ─── State ─────────────────────────────────────────── */
+  var state = {
+    nodes: [],          // { id, type, state, value, el, arrowEl }
+    running: false,
+    settled: false,
+    settledAs: null,    // 'fulfilled' | 'rejected'
+    settledValue: null,
+    mode: 'manual',     // 'manual' | 'scenario'
+    activeNodeId: null
+  };
+
+  var idCounter = 0;
+  function nextId() { return ++idCounter; }
+
+  /* ─── DOM refs ──────────────────────────────────────── */
+  var chainArea   = document.getElementById('chain-area');
+  var emptyState  = document.getElementById('empty-state');
+  var statusBar   = document.getElementById('status-bar');
+  var codePre     = document.getElementById('code-pre');
+  var asyncPanel  = document.getElementById('async-panel');
+  var asyncPre    = document.getElementById('async-pre');
+
+  var btnCreate   = document.getElementById('ctrl-create');
+  var btnResolve  = document.getElementById('ctrl-resolve');
+  var btnReject   = document.getElementById('ctrl-reject');
+  var btnThen     = document.getElementById('ctrl-then');
+  var btnCatch    = document.getElementById('ctrl-catch');
+  var btnFinally  = document.getElementById('ctrl-finally');
+  var btnReset    = document.getElementById('ctrl-reset');
+
+  /* Scenario buttons */
+  document.getElementById('btn-success-chain').addEventListener('click', function() { runSuccessChain(); });
+  document.getElementById('btn-error-chain').addEventListener('click', function() { runErrorChain(); });
+  document.getElementById('btn-promise-all').addEventListener('click', function() { runPromiseAll(); });
+  document.getElementById('btn-async-await').addEventListener('click', function() { runAsyncAwait(); });
+
+  /* ─── Utility ───────────────────────────────────────── */
+  function sleep(ms) {
+    return new Promise(function(res) { setTimeout(res, ms); });
+  }
+
+  function setStatus(msg) {
+    statusBar.innerHTML = msg;
+  }
+
+  function disableAllScenario(flag) {
+    var btns = document.querySelectorAll('.scenario-btn');
+    btns.forEach(function(b) { b.disabled = flag; });
+  }
+
+  /* ─── Control buttons wiring ────────────────────────── */
+  btnCreate.addEventListener('click',  function() { doCreate(); });
+  btnResolve.addEventListener('click', function() { doResolve(); });
+  btnReject.addEventListener('click',  function() { doReject(); });
+  btnThen.addEventListener('click',    function() { doAddHandler('then'); });
+  btnCatch.addEventListener('click',   function() { doAddHandler('catch'); });
+  btnFinally.addEventListener('click', function() { doAddHandler('finally'); });
+  btnReset.addEventListener('click',   function() { doReset(); });
+
+  function updateButtons() {
+    var hasNodes  = state.nodes.length > 0;
+    var settled   = state.settled;
+    btnCreate.disabled  = hasNodes || state.running;
+    btnResolve.disabled = !hasNodes || settled || state.running;
+    btnReject.disabled  = !hasNodes || settled || state.running;
+    btnThen.disabled    = !hasNodes || state.running;
+    btnCatch.disabled   = !hasNodes || state.running;
+    btnFinally.disabled = !hasNodes || state.running;
+    btnReset.disabled   = state.running;
+  }
+
+  /* ─── Rendering helpers ─────────────────────────────── */
+  function getChainRow() {
+    var row = chainArea.querySelector('.chain-row.main-row');
+    if (!row) {
+      row = document.createElement('div');
+      row.className = 'chain-row main-row';
+      chainArea.appendChild(row);
+    }
+    return row;
+  }
+
+  function makeArrow(active) {
+    var el = document.createElement('div');
+    el.className = 'chain-arrow' + (active ? ' active' : '');
+    el.innerHTML = '<svg viewBox="0 0 28 18" fill="none" xmlns="http://www.w3.org/2000/svg">'
+      + '<line x1="2" y1="9" x2="20" y2="9" stroke="currentColor" stroke-width="2"/>'
+      + '<polyline points="15,4 22,9 15,14" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/>'
+      + '</svg>';
+    return el;
+  }
+
+  function makeBox(node) {
+    var el = document.createElement('div');
+    el.className = 'promise-box ' + (node.handlerType ? node.handlerType + '-box' : '');
+    el.id = 'box-' + node.id;
+
+    var typeEl = document.createElement('div');
+    typeEl.className = 'box-type';
+    typeEl.textContent = node.type === 'root'
+      ? 'Promise'
+      : '.' + node.handlerType + '()';
+
+    var stateEl = document.createElement('div');
+    stateEl.className = 'box-state';
+    stateEl.textContent = 'pending';
+
+    var valueEl = document.createElement('div');
+    valueEl.className = 'box-value';
+    valueEl.textContent = '';
+
+    el.appendChild(typeEl);
+    el.appendChild(stateEl);
+    el.appendChild(valueEl);
+
+    node.el        = el;
+    node.stateEl   = stateEl;
+    node.valueEl   = valueEl;
+    return el;
+  }
+
+  function updateBoxState(node, newState, value) {
+    node.state = newState;
+    node.value = value;
+
+    var el = node.el;
+    // Remove all state classes
+    el.classList.remove('pending', 'fulfilled', 'rejected', 'processing', 'skipped', 'settled');
+
+    if (newState === 'processing') {
+      el.classList.add('processing');
+      node.stateEl.textContent = '실행 중…';
+      // show active badge
+      var existing = el.querySelector('.active-badge');
+      if (!existing) {
+        var badge = document.createElement('div');
+        badge.className = 'active-badge';
+        badge.textContent = '현재 실행 중';
+        el.appendChild(badge);
+      }
+    } else {
+      // remove badge
+      var badge = el.querySelector('.active-badge');
+      if (badge) el.removeChild(badge);
+
+      if (newState === 'fulfilled') {
+        el.classList.add('fulfilled', 'settled');
+        node.stateEl.textContent = 'fulfilled ✓';
+        if (value !== undefined && value !== null) {
+          node.valueEl.textContent = '→ ' + JSON.stringify(value);
+          node.valueEl.style.opacity = '1';
+        }
+      } else if (newState === 'rejected') {
+        el.classList.add('rejected', 'settled');
+        node.stateEl.textContent = 'rejected ✗';
+        if (value !== undefined && value !== null) {
+          node.valueEl.textContent = '✗ ' + String(value);
+          node.valueEl.style.opacity = '1';
+        }
+      } else if (newState === 'skipped') {
+        el.classList.add('skipped');
+        node.stateEl.textContent = '건너뜀';
+      } else {
+        el.classList.add('pending');
+        node.stateEl.textContent = 'pending';
+      }
+    }
+  }
+
+  /* ─── Code generation ───────────────────────────────── */
+  function renderCode(activeLineIndex) {
+    var lines = buildCodeLines();
+    var html = lines.map(function(line, i) {
+      var isActive = (i === activeLineIndex);
+      return '<span class="code-line' + (isActive ? ' active' : '') + '">'
+        + line + '</span>';
+    }).join('\n');
+    codePre.innerHTML = html;
+  }
+
+  function buildCodeLines() {
+    var nodes = state.nodes;
+    if (nodes.length === 0) {
+      return ['<span class="cmt">// Promise 체인을 만들어보세요</span>'];
+    }
+
+    var lines = [];
+    lines.push('<span class="kw">const</span> <span class="nm">p</span> <span class="op">=</span> <span class="kw">new</span> <span class="fn">Promise</span><span class="op">((</span><span class="cb">resolve</span><span class="op">,</span> <span class="cb">reject</span><span class="op">) =></span> <span class="op">{</span>');
+
+    var root = nodes[0];
+    if (root.state === 'fulfilled') {
+      lines.push('  <span class="fn">resolve</span><span class="op">(</span><span class="str">' + JSON.stringify(root.value) + '</span><span class="op">);</span>');
+    } else if (root.state === 'rejected') {
+      lines.push('  <span class="fn">reject</span><span class="op">(</span><span class="str">"' + root.value + '"</span><span class="op">);</span>');
+    } else {
+      lines.push('  <span class="cmt">// 아직 settled 되지 않음</span>');
+    }
+    lines.push('<span class="op">})</span>');
+
+    for (var i = 1; i < nodes.length; i++) {
+      var n = nodes[i];
+      var ht = n.handlerType;
+      if (ht === 'then') {
+        lines.push('<span class="op">.</span><span class="fn">then</span><span class="op">((</span><span class="cb">value</span><span class="op">) =></span> <span class="op">{</span>');
+        lines.push('  <span class="cmt">// value: ' + (n.value !== undefined && n.value !== null ? JSON.stringify(n.value) : '?') + '</span>');
+        lines.push('  <span class="kw">return</span> <span class="cb">value</span><span class="op">;</span>');
+        lines.push('<span class="op">})</span>');
+      } else if (ht === 'catch') {
+        lines.push('<span class="op">.</span><span class="fn">catch</span><span class="op">((</span><span class="cb">error</span><span class="op">) =></span> <span class="op">{</span>');
+        lines.push('  <span class="cmt">// error: ' + (n.value !== undefined && n.value !== null ? String(n.value) : '?') + '</span>');
+        lines.push('  <span class="kw">return</span> <span class="str">"복구됨"</span><span class="op">;</span>');
+        lines.push('<span class="op">})</span>');
+      } else if (ht === 'finally') {
+        lines.push('<span class="op">.</span><span class="fn">finally</span><span class="op">(() =></span> <span class="op">{</span>');
+        lines.push('  <span class="cmt">// 항상 실행됨</span>');
+        lines.push('<span class="op">})</span>');
+      }
+    }
+    lines.push('<span class="op">;</span>');
+    return lines;
+  }
+
+  /* ─── Core actions ──────────────────────────────────── */
+  function doReset() {
+    state.nodes      = [];
+    state.settled    = false;
+    state.settledAs  = null;
+    state.settledValue = null;
+    state.running    = false;
+    state.activeNodeId = null;
+
+    // Remove chain row
+    var row = chainArea.querySelector('.chain-row.main-row');
+    if (row) chainArea.removeChild(row);
+
+    // Remove any parallel containers
+    var pcs = chainArea.querySelectorAll('.parallel-container, .all-result');
+    pcs.forEach(function(el) { chainArea.removeChild(el); });
+
+    emptyState.style.display = '';
+    asyncPanel.style.display = 'none';
+
+    setStatus('초기화 완료. Promise를 생성하거나 시나리오를 선택하세요.');
+    renderCode(-1);
+    updateButtons();
+  }
+
+  function doCreate() {
+    if (state.nodes.length > 0) return;
+    emptyState.style.display = 'none';
+
+    var node = { id: nextId(), type: 'root', handlerType: null, state: 'pending', value: null };
+    state.nodes.push(node);
+
+    var row = getChainRow();
+    var box = makeBox(node);
+    row.appendChild(box);
+
+    setStatus('Promise 생성됨. <span>pending</span> 상태입니다. resolve 또는 reject를 호출하세요.');
+    renderCode(-1);
+    updateButtons();
+  }
+
+  function doResolve(value) {
+    if (!state.nodes.length || state.settled) return;
+    var resolveValue = (value !== undefined) ? value : '성공값';
+    state.settled    = true;
+    state.settledAs  = 'fulfilled';
+    state.settledValue = resolveValue;
+    state.running    = true;
+    updateButtons();
+    propagateChain(0, 'fulfilled', resolveValue);
+  }
+
+  function doReject(reason) {
+    if (!state.nodes.length || state.settled) return;
+    var rejectReason = (reason !== undefined) ? reason : 'Error: 오류 발생';
+    state.settled    = true;
+    state.settledAs  = 'rejected';
+    state.settledValue = rejectReason;
+    state.running    = true;
+    updateButtons();
+    propagateChain(0, 'rejected', rejectReason);
+  }
+
+  function doAddHandler(type) {
+    if (!state.nodes.length) return;
+    var node = { id: nextId(), type: 'handler', handlerType: type, state: 'pending', value: null };
+    state.nodes.push(node);
+
+    var row = getChainRow();
+    var arrow = makeArrow(false);
+    node.arrowEl = arrow;
+    row.appendChild(arrow);
+    var box = makeBox(node);
+    row.appendChild(box);
+
+    setStatus('.' + type + '() 핸들러가 체인에 추가되었습니다.');
+    renderCode(-1);
+    updateButtons();
+  }
+
+  /* ─── Propagation logic ─────────────────────────────── */
+  function propagateChain(startIndex, promiseState, promiseValue) {
+    // Animate the root if startIndex === 0
+    var root = state.nodes[0];
+    if (startIndex === 0) {
+      updateBoxState(root, 'processing', null);
+      renderCode(1);
+      setStatus('Promise가 <span>' + promiseState + '</span> 상태로 전환됩니다…');
+    }
+
+    setTimeout(function() {
+      updateBoxState(root, promiseState, promiseValue);
+      renderCode(promiseState === 'fulfilled' ? 1 : 2);
+      setStatus('Promise: <span>' + promiseState + '</span> — 값: <span>' + String(promiseValue) + '</span>');
+
+      if (state.nodes.length > 1) {
+        runHandlers(1, promiseState, promiseValue);
+      } else {
+        finishPropagation();
+      }
+    }, 700);
+  }
+
+  function runHandlers(index, currentState, currentValue) {
+    if (index >= state.nodes.length) {
+      finishPropagation();
+      return;
+    }
+    var node = state.nodes[index];
+    var ht   = node.handlerType;
+
+    // Activate arrow
+    if (node.arrowEl) node.arrowEl.classList.add('active');
+
+    setTimeout(function() {
+      // Determine if this handler is invoked or skipped
+      var invoked = false;
+      if (ht === 'then'    && currentState === 'fulfilled') invoked = true;
+      if (ht === 'catch'   && currentState === 'rejected')  invoked = true;
+      if (ht === 'finally')                                  invoked = true;
+
+      if (!invoked) {
+        // skipped
+        if (node.arrowEl) node.arrowEl.classList.remove('active');
+        updateBoxState(node, 'skipped', null);
+        setStatus('.' + ht + '() 건너뜀 — 현재 상태: <span>' + currentState + '</span>');
+        highlightHandlerLine(index, 0);
+        setTimeout(function() {
+          runHandlers(index + 1, currentState, currentValue);
+        }, 500);
+        return;
+      }
+
+      // Processing
+      updateBoxState(node, 'processing', null);
+      highlightHandlerLine(index, 0);
+      setStatus('.' + ht + '() 실행 중…');
+
+      setTimeout(function() {
+        if (node.arrowEl) node.arrowEl.classList.remove('active');
+
+        var nextState, nextValue;
+        if (ht === 'then') {
+          nextState = 'fulfilled';
+          nextValue = currentValue; // pass-through for visualization
+        } else if (ht === 'catch') {
+          // catch recovers: new fulfilled promise
+          nextState = 'fulfilled';
+          nextValue = '복구됨';
+        } else if (ht === 'finally') {
+          // finally passes through original state
+          nextState = currentState;
+          nextValue = currentValue;
+        }
+
+        updateBoxState(node, nextState, nextValue);
+        highlightHandlerLine(index, 2);
+        setStatus('.' + ht + '() <span>' + nextState + '</span> 완료 → ' + String(nextValue));
+
+        runHandlers(index + 1, nextState, nextValue);
+      }, 700);
+    }, 400);
+  }
+
+  function highlightHandlerLine(nodeIndex, offset) {
+    // Each handler occupies 4 lines: .then(()=>{ // comment return value; })
+    // root occupies lines 0-3 (const p = new Promise, resolve/reject, })
+    // Code line index: root = 0..2, then each handler = 4 lines
+    var base = 3; // after root block (lines 0,1,2 = 3 lines)
+    for (var i = 1; i < nodeIndex; i++) {
+      base += 4;
+    }
+    renderCode(base + offset);
+  }
+
+  function finishPropagation() {
+    state.running = false;
+    setStatus('체인 실행 완료 ✓');
+    renderCode(-1);
+    updateButtons();
+    disableAllScenario(false);
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     SCENARIOS
+  ═══════════════════════════════════════════════════════ */
+
+  async function runSuccessChain() {
+    if (state.running) return;
+    disableAllScenario(true);
+    doReset();
+    await sleep(300);
+
+    setStatus('🎬 시나리오: 성공 체인 시작…');
+    doCreate();
+    await sleep(600);
+
+    doAddHandler('then');
+    setStatus('.then() 추가됨 (1/3)');
+    await sleep(600);
+
+    doAddHandler('then');
+    setStatus('.then() 추가됨 (2/3)');
+    await sleep(600);
+
+    doAddHandler('then');
+    setStatus('.then() 추가됨 (3/3)');
+    await sleep(800);
+
+    setStatus('✅ resolve("안녕하세요!") 호출 중…');
+    doResolve('안녕하세요!');
+    // finishPropagation will re-enable scenario btns
+  }
+
+  async function runErrorChain() {
+    if (state.running) return;
+    disableAllScenario(true);
+    doReset();
+    await sleep(300);
+
+    setStatus('🎬 시나리오: 에러 전파 시작…');
+    doCreate();
+    await sleep(600);
+
+    doAddHandler('then');
+    await sleep(600);
+
+    doAddHandler('catch');
+    await sleep(600);
+
+    doAddHandler('then');
+    await sleep(800);
+
+    setStatus('❌ reject("네트워크 오류") 호출 중…');
+    doReject('네트워크 오류');
+  }
+
+  async function runPromiseAll() {
+    if (state.running) return;
+    disableAllScenario(true);
+    doReset();
+    await sleep(200);
+
+    emptyState.style.display = 'none';
+    setStatus('🎬 시나리오: Promise.all — 3개의 병렬 Promise');
+
+    // Build parallel container
+    var pc = document.createElement('div');
+    pc.className = 'parallel-container';
+    var label = document.createElement('div');
+    label.className = 'parallel-label';
+    label.textContent = 'Promise.all([p1, p2, p3])';
+    pc.appendChild(label);
+    chainArea.appendChild(pc);
+
+    // Show Promise.all code
+    codePre.innerHTML = [
+      '<span class="code-line"><span class="kw">const</span> <span class="nm">p1</span> <span class="op">=</span> <span class="fn">fetchUser</span><span class="op">();</span></span>',
+      '<span class="code-line"><span class="kw">const</span> <span class="nm">p2</span> <span class="op">=</span> <span class="fn">fetchPosts</span><span class="op">();</span></span>',
+      '<span class="code-line"><span class="kw">const</span> <span class="nm">p3</span> <span class="op">=</span> <span class="fn">fetchSettings</span><span class="op">();</span></span>',
+      '<span class="code-line"></span>',
+      '<span class="code-line"><span class="fn">Promise</span><span class="op">.</span><span class="fn">all</span><span class="op">([</span><span class="nm">p1</span><span class="op">,</span> <span class="nm">p2</span><span class="op">,</span> <span class="nm">p3</span><span class="op">])</span></span>',
+      '<span class="code-line"><span class="op">.</span><span class="fn">then</span><span class="op">((</span><span class="cb">[user, posts, settings]</span><span class="op">) =></span> <span class="op">{</span></span>',
+      '<span class="code-line">  <span class="cmt">// 모두 완료 후 실행</span></span>',
+      '<span class="code-line"><span class="op">})</span></span>',
+      '<span class="code-line"><span class="op">.</span><span class="fn">catch</span><span class="op">((</span><span class="cb">error</span><span class="op">) =></span> <span class="op">{</span></span>',
+      '<span class="code-line">  <span class="cmt">// 하나라도 실패하면 실행</span></span>',
+      '<span class="code-line"><span class="op">});</span></span>'
+    ].join('\n');
+
+    var promiseDefs = [
+      { label: 'p1', name: 'fetchUser()', resolveMs: 600, value: '{ id: 1, name: "김개발" }' },
+      { label: 'p2', name: 'fetchPosts()', resolveMs: 1000, value: '[{ id: 1 }, …]' },
+      { label: 'p3', name: 'fetchSettings()', resolveMs: 800, value: '{ theme: "dark" }' }
+    ];
+
+    var pNodes = [];
+
+    promiseDefs.forEach(function(def) {
+      var row = document.createElement('div');
+      row.className = 'parallel-row';
+
+      var node = { id: nextId(), type: 'root', handlerType: null, state: 'pending', value: null, label: def.label };
+      pNodes.push({ node: node, def: def });
+
+      var box = makeBox(node);
+      // Override the type label
+      node.el.querySelector('.box-type').textContent = def.label + ': ' + def.name;
+      row.appendChild(box);
+      pc.appendChild(row);
+    });
+
+    // Animate each promise resolving at different times
+    await sleep(800);
+    setStatus('3개의 Promise가 병렬로 실행 중…');
+
+    var resolvePromises = pNodes.map(function(item) {
+      return sleep(item.def.resolveMs).then(function() {
+        updateBoxState(item.node, 'processing', null);
+        return sleep(400).then(function() {
+          updateBoxState(item.node, 'fulfilled', item.def.value);
+          setStatus('<span>' + item.def.label + '</span> 완료: ' + item.def.value);
+        });
+      });
+    });
+
+    await Promise.all(resolvePromises);
+
+    // Show result box
+    var allResult = document.createElement('div');
+    allResult.className = 'all-result';
+    var arrow2 = makeArrow(false);
+    arrow2.style.transform = 'rotate(90deg)';
+    arrow2.style.margin = '4px 0 4px 40px';
+    allResult.appendChild(arrow2);
+
+    var resultNode = { id: nextId(), type: 'root', handlerType: null, state: 'pending', value: null };
+    var resultBox = makeBox(resultNode);
+    resultNode.el.querySelector('.box-type').textContent = 'Promise.all 결과';
+    resultBox.style.minWidth = '220px';
+    allResult.appendChild(resultBox);
+    pc.appendChild(allResult);
+
+    await sleep(400);
+    updateBoxState(resultNode, 'processing', null);
+    await sleep(600);
+    updateBoxState(resultNode, 'fulfilled', '[user, posts, settings]');
+    setStatus('✅ Promise.all 완료! 모든 Promise가 fulfilled 상태입니다.');
+
+    state.running = false;
+    disableAllScenario(false);
+  }
+
+  async function runAsyncAwait() {
+    if (state.running) return;
+    disableAllScenario(true);
+    doReset();
+    await sleep(200);
+
+    emptyState.style.display = 'none';
+    setStatus('🔄 async/await vs Promise 체인 비교');
+
+    // Build a simple visual chain
+    doCreate();
+    await sleep(400);
+    doAddHandler('then');
+    await sleep(400);
+    doAddHandler('catch');
+    await sleep(400);
+    doAddHandler('finally');
+    await sleep(400);
+
+    // Show Promise chain code on left
+    renderCode(-1);
+
+    // Show async/await equivalent
+    asyncPanel.style.display = '';
+    asyncPre.innerHTML = [
+      '<span class="cmt">// async/await 동등 코드</span>',
+      '<span class="kw">async function</span> <span class="fn">run</span><span class="op">() {</span>',
+      '  <span class="kw">try</span> <span class="op">{</span>',
+      '    <span class="kw">const</span> <span class="nm">result</span> <span class="op">=</span> <span class="kw">await</span> <span class="nm">p</span><span class="op">;</span>',
+      '    <span class="cmt">// .then() 로직</span>',
+      '    <span class="kw">const</span> <span class="nm">result2</span> <span class="op">=</span> <span class="nm">result</span><span class="op">;</span>',
+      '  <span class="op">}</span> <span class="kw">catch</span> <span class="op">(</span><span class="cb">error</span><span class="op">) {</span>',
+      '    <span class="cmt">// .catch() 로직</span>',
+      '    <span class="kw">return</span> <span class="str">"복구됨"</span><span class="op">;</span>',
+      '  <span class="op">}</span> <span class="kw">finally</span> <span class="op">{</span>',
+      '    <span class="cmt">// .finally() 로직</span>',
+      '  <span class="op">}</span>',
+      '<span class="op">}</span>'
+    ].join('\n');
+
+    await sleep(600);
+    setStatus('Promise 체인을 resolve하여 두 방식을 비교해보세요.');
+    doResolve('데이터');
+  }
+
+  /* ─── Init ──────────────────────────────────────────── */
+  updateButtons();
+  setStatus('준비 완료. "Promise 생성" 버튼 또는 시나리오 버튼을 클릭하세요.');
+
+})();
+</script>
+</body>
+</html>

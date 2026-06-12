@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>렌더링 파이프라인 시각화 | Rendering Pipeline Visualizer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #0f1117;
+      --surface:    #1a1d27;
+      --surface2:   #22263a;
+      --surface3:   #2a2f45;
+      --border:     #2e3250;
+      --text:       #e2e8f0;
+      --muted:      #7c85a2;
+      --blue:       #3b82f6;
+      --blue-dim:   #1d3a6e;
+      --purple:     #a855f7;
+      --purple-dim: #3b1f6e;
+      --green:      #22c55e;
+      --green-dim:  #14422a;
+      --orange:     #f97316;
+      --orange-dim: #5a2a0a;
+      --yellow:     #facc15;
+      --yellow-dim: #4a3a00;
+      --pink:       #ec4899;
+      --pink-dim:   #5a0a2a;
+      --cyan:       #06b6d4;
+      --cyan-dim:   #0a3a4a;
+      --red:        #ef4444;
+      --red-dim:    #4a0a0a;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 16px; font-weight: 700; color: var(--cyan); }
+    header p  { font-size: 12px; color: var(--muted); }
+
+    /* ── Progress Bar ── */
+    .progress-wrap {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .progress-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .progress-track {
+      flex: 1;
+      height: 6px;
+      background: var(--surface3);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--blue), var(--cyan));
+      border-radius: 99px;
+      transition: width 0.4s ease;
+    }
+    .stage-counter { font-size: 12px; color: var(--cyan); font-weight: 700; white-space: nowrap; }
+
+    /* ── Main Layout ── */
+    .layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 200px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 16px 0;
+      flex-shrink: 0;
+      overflow-y: auto;
+    }
+    .sidebar-title {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 0 16px 8px;
+    }
+    .stage-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 10px 16px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      text-align: left;
+      font-size: 13px;
+      transition: background 0.15s, color 0.15s;
+      border-left: 3px solid transparent;
+    }
+    .stage-btn:hover { background: var(--surface2); color: var(--text); }
+    .stage-btn.active {
+      background: var(--surface2);
+      color: var(--cyan);
+      border-left-color: var(--cyan);
+    }
+    .stage-num {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--surface3);
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .stage-btn.active .stage-num   { background: var(--cyan); color: #000; }
+    .stage-btn.done  .stage-num    { background: var(--green-dim); color: var(--green); }
+
+    /* ── Content Area ── */
+    .content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Stage Header ── */
+    .stage-header {
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .stage-title { font-size: 18px; font-weight: 700; }
+    .stage-subtitle { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Stage Body ── */
+    .stage-body {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      grid-template-rows: 1fr auto;
+      gap: 0;
+      overflow: hidden;
+    }
+
+    .viz-panel {
+      grid-row: 1;
+      grid-column: 1;
+      background: var(--bg);
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 340px;
+    }
+
+    .info-panel {
+      grid-row: 1;
+      grid-column: 2;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 20px;
+      overflow-y: auto;
+    }
+    .info-panel h3 { font-size: 13px; font-weight: 700; color: var(--cyan); margin-bottom: 12px; }
+    .info-panel ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .info-panel li {
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text);
+      padding-left: 14px;
+      position: relative;
+    }
+    .info-panel li::before { content: '▸'; position: absolute; left: 0; color: var(--cyan); }
+    .info-panel li em { color: var(--yellow); font-style: normal; }
+
+    .code-panel {
+      grid-row: 2;
+      grid-column: 1 / 3;
+      background: var(--surface2);
+      border-top: 1px solid var(--border);
+      padding: 14px 20px;
+      font-family: 'Fira Code', 'Consolas', monospace;
+      font-size: 12px;
+      overflow-x: auto;
+      white-space: pre;
+      color: var(--muted);
+      max-height: 120px;
+      line-height: 1.7;
+    }
+    .code-panel .tag   { color: var(--blue); }
+    .code-panel .attr  { color: var(--orange); }
+    .code-panel .val   { color: var(--green); }
+    .code-panel .sel   { color: var(--purple); }
+    .code-panel .prop  { color: var(--cyan); }
+    .code-panel .cmt   { color: var(--muted); opacity: 0.6; }
+
+    /* ── Nav Controls ── */
+    .nav-bar {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .btn {
+      padding: 8px 18px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.15s;
+    }
+    .btn-ghost { background: none; color: var(--muted); }
+    .btn-ghost:hover { background: var(--surface2); color: var(--text); }
+    .btn-primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-reset { background: none; border-color: var(--border); color: var(--muted); margin-left: auto; }
+    .btn-reset:hover { border-color: var(--red); color: var(--red); background: var(--red-dim); }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* ── Tree Visualization ── */
+    .tree { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 20px; }
+    .tree-node {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 10px;
+      border-radius: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      font-family: monospace;
+      font-size: 12px;
+      opacity: 0;
+      transform: translateX(-20px);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+      white-space: nowrap;
+    }
+    .tree-node.visible { opacity: 1; transform: translateX(0); }
+    .tree-node .tag-name  { color: var(--blue); }
+    .tree-node .tag-attr  { color: var(--orange); font-size: 11px; }
+    .tree-node .connector {
+      color: var(--muted);
+      font-size: 11px;
+      user-select: none;
+    }
+
+    /* ── HTML Source Highlight ── */
+    .source-wrap {
+      font-family: monospace;
+      font-size: 12px;
+      line-height: 1.8;
+      padding: 20px;
+      max-width: 500px;
+    }
+    .source-char {
+      display: inline;
+      transition: color 0.02s, background 0.02s;
+    }
+    .source-char.consumed { color: var(--green); }
+    .source-char.cursor   { background: var(--cyan); color: #000; border-radius: 2px; }
+
+    /* ── Box Layout (Stage 4) ── */
+    .page-canvas {
+      position: relative;
+      width: 420px;
+      height: 320px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: visible;
+    }
+    .layout-box {
+      position: absolute;
+      border: 2px solid transparent;
+      border-radius: 3px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 4px 6px;
+      font-size: 10px;
+      color: transparent;
+      transition: all 0.5s ease;
+    }
+    .layout-box.visible { color: var(--text); }
+    .layout-box .dim-label {
+      font-family: monospace;
+      font-size: 9px;
+      position: absolute;
+      bottom: -16px;
+      left: 0;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 0.3s 0.3s;
+      color: var(--yellow);
+    }
+    .layout-box.visible .dim-label { opacity: 1; }
+
+    /* ── Paint Animation ── */
+    .paint-box {
+      position: absolute;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .paint-fill {
+      position: absolute;
+      top: 0; left: 0; bottom: 0;
+      width: 0%;
+      transition: width 0.8s ease;
+    }
+    .paint-box .box-label {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      z-index: 1;
+      opacity: 0;
+      transition: opacity 0.4s 0.5s;
+    }
+
+    /* ── Composite Layers ── */
+    .layers-wrap {
+      position: relative;
+      width: 380px;
+      height: 300px;
+    }
+    .layer {
+      position: absolute;
+      border-radius: 6px;
+      border: 2px solid;
+      display: flex;
+      align-items: flex-end;
+      padding: 8px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      opacity: 0;
+      transition: opacity 0.5s ease, transform 0.7s ease;
+    }
+
+    /* ── CSSOM badges ── */
+    .style-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-family: monospace;
+      background: var(--purple-dim);
+      color: var(--purple);
+      border: 1px solid var(--purple);
+      margin: 2px;
+    }
+    .render-node {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 6px;
+      background: var(--surface);
+      border: 1px solid var(--green);
+      font-family: monospace;
+      font-size: 11px;
+      opacity: 0;
+      transform: translateX(-20px);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+      flex-wrap: wrap;
+    }
+    .render-node.visible { opacity: 1; transform: translateX(0); }
+    .render-node .tag-name { color: var(--green); }
+    .excluded-node {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 6px;
+      background: var(--surface);
+      border: 1px dashed var(--red);
+      font-family: monospace;
+      font-size: 11px;
+      opacity: 0;
+      transform: translateX(-20px);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+      flex-wrap: wrap;
+    }
+    .excluded-node.visible { opacity: 1; transform: translateX(0); }
+    .excluded-node .tag-name { color: var(--red); text-decoration: line-through; }
+    .excluded-label { font-size: 10px; color: var(--red); padding: 2px 6px; background: var(--red-dim); border-radius: 4px; }
+
+    /* Tooltip */
+    .tip {
+      font-size: 11px;
+      color: var(--muted);
+      padding: 6px 12px;
+      background: var(--surface3);
+      border-radius: 6px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>브라우저 렌더링 파이프라인</h1>
+    <p>Browser Rendering Pipeline — 단계별 인터랙티브 시각화</p>
+  </div>
+</header>
+
+<div class="progress-wrap">
+  <span class="progress-label">전체 진행도</span>
+  <div class="progress-track">
+    <div class="progress-fill" id="progressFill" style="width:16.6%"></div>
+  </div>
+  <span class="stage-counter" id="stageCounter">1 / 6</span>
+</div>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-title">파이프라인 단계</div>
+    <button class="stage-btn active" data-stage="0" onclick="goToStage(0)">
+      <span class="stage-num">1</span>HTML 파싱
+    </button>
+    <button class="stage-btn" data-stage="1" onclick="goToStage(1)">
+      <span class="stage-num">2</span>CSS 파싱
+    </button>
+    <button class="stage-btn" data-stage="2" onclick="goToStage(2)">
+      <span class="stage-num">3</span>Render Tree
+    </button>
+    <button class="stage-btn" data-stage="3" onclick="goToStage(3)">
+      <span class="stage-num">4</span>Layout
+    </button>
+    <button class="stage-btn" data-stage="4" onclick="goToStage(4)">
+      <span class="stage-num">5</span>Paint
+    </button>
+    <button class="stage-btn" data-stage="5" onclick="goToStage(5)">
+      <span class="stage-num">6</span>Composite
+    </button>
+  </nav>
+
+  <!-- Main content -->
+  <div class="content">
+    <div class="stage-header">
+      <div>
+        <div class="stage-title" id="stageTitle">1단계 — HTML 파싱</div>
+        <div class="stage-subtitle" id="stageSubtitle">HTML 바이트 스트림 → DOM 트리 구성</div>
+      </div>
+    </div>
+
+    <div class="stage-body">
+      <!-- Visualization -->
+      <div class="viz-panel" id="vizPanel"></div>
+
+      <!-- Info -->
+      <div class="info-panel" id="infoPanel">
+        <h3>이 단계에서 일어나는 일</h3>
+        <ul id="infoList"></ul>
+      </div>
+
+      <!-- Code -->
+      <div class="code-panel" id="codePanel"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Nav Bar -->
+<div class="nav-bar">
+  <button class="btn btn-ghost" id="btnPrev" onclick="prevStage()">◀ 이전 단계</button>
+  <button class="btn btn-primary" id="btnNext" onclick="nextStage()">다음 단계 ▶</button>
+  <button class="btn btn-reset" onclick="resetAll()">↺ 처음부터</button>
+</div>
+
+<script>
+  /* =====================================================
+   *  DATA — per-stage definitions
+   * ===================================================== */
+  var STAGES = [
+    /* ── 0: HTML 파싱 ── */
+    {
+      title:    '1단계 — HTML 파싱',
+      subtitle: 'HTML 바이트 스트림 → DOM 트리 구성',
+      info: [
+        '브라우저는 네트워크로부터 HTML 바이트를 수신합니다.',
+        '바이트는 <em>UTF-8/16</em> 등으로 문자(Character)로 변환됩니다.',
+        '문자는 토크나이저(Tokenizer)를 거쳐 토큰으로 변환됩니다.',
+        '토큰은 파서(Parser)를 통해 <em>DOM 노드</em>로 변환됩니다.',
+        '최종적으로 DOM 노드들이 트리 구조로 연결됩니다.'
+      ],
+      code: [
+        '<span class="tag">&lt;div</span> <span class="attr">class</span>=<span class="val">"container"</span><span class="tag">&gt;</span>',
+        '  <span class="tag">&lt;h1&gt;</span>제목<span class="tag">&lt;/h1&gt;</span>',
+        '  <span class="tag">&lt;p</span> <span class="attr">class</span>=<span class="val">"text"</span><span class="tag">&gt;</span>본문 텍스트<span class="tag">&lt;/p&gt;</span>',
+        '  <span class="tag">&lt;div</span> <span class="attr">style</span>=<span class="val">"display:none"</span><span class="tag">&gt;</span>숨겨진 요소<span class="tag">&lt;/div&gt;</span>',
+        '  <span class="tag">&lt;ul&gt;</span>',
+        '    <span class="tag">&lt;li&gt;</span>항목 1<span class="tag">&lt;/li&gt;</span>',
+        '    <span class="tag">&lt;li&gt;</span>항목 2<span class="tag">&lt;/li&gt;</span>',
+        '  <span class="tag">&lt;/ul&gt;</span>',
+        '<span class="tag">&lt;/div&gt;</span>'
+      ]
+    },
+    /* ── 1: CSS 파싱 ── */
+    {
+      title:    '2단계 — CSS 파싱',
+      subtitle: 'CSS 규칙 → CSSOM(CSS Object Model) 구성',
+      info: [
+        'HTML 파싱 중 <em>&lt;link&gt;</em> 태그를 만나면 CSS를 요청합니다.',
+        'CSS 파서는 선택자(Selector)와 선언 블록을 분리합니다.',
+        '파싱된 규칙들이 <em>CSSOM 트리</em>로 조립됩니다.',
+        'CSSOM이 완성될 때까지 렌더링이 <em>블로킹</em>됩니다.',
+        '상속(Inheritance)과 캐스케이딩 규칙이 이 단계에 적용됩니다.'
+      ],
+      code: [
+        '<span class="sel">.container</span> { <span class="prop">width</span>: 100%; <span class="prop">padding</span>: 20px; }',
+        '<span class="sel">h1</span>           { <span class="prop">font-size</span>: 24px; <span class="prop">color</span>: #333; }',
+        '<span class="sel">.text</span>        { <span class="prop">font-size</span>: 14px; <span class="prop">line-height</span>: 1.6; }',
+        '<span class="sel">ul</span>           { <span class="prop">list-style</span>: disc; <span class="prop">padding-left</span>: 20px; }',
+        '<span class="sel">li</span>           { <span class="prop">margin-bottom</span>: 4px; }',
+        '',
+        '<span class="cmt">/* display:none 인 요소는 CSSOM엔 있지만 Render Tree에서 제외됩니다 */</span>'
+      ]
+    },
+    /* ── 2: Render Tree ── */
+    {
+      title:    '3단계 — Render Tree 생성',
+      subtitle: 'DOM + CSSOM → Render Tree (화면에 그려질 요소만 포함)',
+      info: [
+        'DOM과 CSSOM을 합쳐 <em>Render Tree</em>를 구성합니다.',
+        '<em>display:none</em> 요소는 Render Tree에서 완전히 제외됩니다.',
+        'visibility:hidden은 공간은 차지하지만 투명하게 처리됩니다.',
+        '각 노드는 계산된 <em>Computed Style</em>을 가집니다.',
+        'Render Tree는 화면에 실제로 표시되는 요소만 포함합니다.'
+      ],
+      code: [
+        '<span class="cmt">// DOM + CSSOM 병합 과정 (의사 코드)</span>',
+        '<span class="sel">renderTree</span> = <span class="prop">[]</span>;',
+        '<span class="sel">domNodes</span>.forEach(<span class="attr">node</span> => {',
+        '  <span class="prop">const</span> style = <span class="sel">getComputedStyle</span>(node);',
+        '  <span class="tag">if</span> (style.display !== <span class="val">"none"</span>) {   <span class="cmt">// display:none 제외</span>',
+        '    renderTree.push({ node, style });',
+        '  }',
+        '});'
+      ]
+    },
+    /* ── 3: Layout ── */
+    {
+      title:    '4단계 — Layout (Reflow)',
+      subtitle: 'Render Tree → 각 요소의 크기/위치 계산',
+      info: [
+        'Render Tree를 순회하며 각 요소의 <em>x, y, width, height</em>를 계산합니다.',
+        '박스 모델(Box Model)에 따라 margin, padding, border가 적용됩니다.',
+        '부모 요소의 크기에 따라 자식 요소의 크기가 결정됩니다.',
+        '이 과정을 <em>Reflow</em>라고도 하며, 비용이 매우 큰 작업입니다.',
+        'JS로 width/height를 읽으면 강제 동기 Layout이 발생합니다.'
+      ],
+      code: [
+        '<span class="cmt">// Layout 결과 — 요소별 Box 정보</span>',
+        '<span class="sel">.container</span>: { x: <span class="val">0</span>,   y: <span class="val">0</span>,   w: <span class="val">420px</span>, h: <span class="val">260px</span> }',
+        '<span class="sel">h1</span>:           { x: <span class="val">20</span>,  y: <span class="val">16</span>,  w: <span class="val">380px</span>, h: <span class="val">36px</span>  }',
+        '<span class="sel">.text</span>:        { x: <span class="val">20</span>,  y: <span class="val">64</span>,  w: <span class="val">380px</span>, h: <span class="val">22px</span>  }',
+        '<span class="sel">ul</span>:           { x: <span class="val">20</span>,  y: <span class="val">98</span>,  w: <span class="val">380px</span>, h: <span class="val">56px</span>  }',
+        '<span class="sel">li</span> × 2:       { x: <span class="val">40</span>,  y: <span class="val">104</span>, w: <span class="val">360px</span>, h: <span class="val">20px</span>  }'
+      ]
+    },
+    /* ── 4: Paint ── */
+    {
+      title:    '5단계 — Paint',
+      subtitle: 'Layout 정보 → 픽셀 채우기 (색상, 테두리, 텍스트 등)',
+      info: [
+        'Layout에서 계산된 박스 위치에 <em>픽셀을 채웁니다</em>.',
+        'background-color, border, text, shadow 순으로 그려집니다.',
+        'Paint는 레이어(Layer) 단위로 수행됩니다.',
+        'z-index나 transform은 새로운 레이어를 생성할 수 있습니다.',
+        '<em>Repaint</em>: color 같은 기하학적 변경 없는 속성 변경 시 발생합니다.'
+      ],
+      code: [
+        '<span class="cmt">// Paint 순서 (Painter\'s Algorithm)</span>',
+        '<span class="prop">1.</span> background-color  → 배경색 채우기',
+        '<span class="prop">2.</span> border           → 테두리 그리기',
+        '<span class="prop">3.</span> outline          → 외곽선 그리기',
+        '<span class="prop">4.</span> text             → 텍스트 렌더링',
+        '<span class="prop">5.</span> box-shadow       → 그림자 효과',
+        '',
+        '<span class="cmt">// CSS will-change: transform 으로 레이어 분리 가능</span>'
+      ]
+    },
+    /* ── 5: Composite ── */
+    {
+      title:    '6단계 — Composite (합성)',
+      subtitle: '여러 레이어 → GPU에서 최종 화면으로 합성',
+      info: [
+        '각 레이어를 <em>GPU</em>에 업로드하여 합성(Compositing)합니다.',
+        'transform/opacity 변경은 Composite만 발생해 <em>가장 빠릅니다</em>.',
+        '스크롤, CSS 애니메이션, WebGL은 Composite 단계에서 처리됩니다.',
+        '레이어가 너무 많으면 GPU 메모리를 낭비해 성능이 저하됩니다.',
+        '<em>will-change</em> 속성으로 합성 레이어를 명시적으로 생성할 수 있습니다.'
+      ],
+      code: [
+        '<span class="cmt">/* GPU 레이어로 분리되는 요소 예시 */</span>',
+        '',
+        '<span class="sel">.animated</span> {',
+        '  <span class="prop">transform</span>: translateZ(0);   <span class="cmt">/* 레이어 강제 생성 */</span>',
+        '  <span class="prop">will-change</span>: transform;   <span class="cmt">/* 브라우저에 힌트 제공 */</span>',
+        '}',
+        '',
+        '<span class="cmt">/* transform/opacity만 변경 시 Layout+Paint 없이 Composite만 실행 */</span>'
+      ]
+    }
+  ];
+
+  /* =====================================================
+   *  STATE
+   * ===================================================== */
+  var currentStage = 0;
+  var animTimer    = null;
+
+  /* =====================================================
+   *  NAVIGATION
+   * ===================================================== */
+  function goToStage(n) {
+    if (n < 0 || n > 5) return;
+    if (animTimer) { clearTimeout(animTimer); animTimer = null; }
+    currentStage = n;
+    renderStage();
+  }
+  function nextStage() { goToStage(currentStage + 1); }
+  function prevStage() { goToStage(currentStage - 1); }
+  function resetAll()  { goToStage(0); }
+
+  /* =====================================================
+   *  RENDER STAGE — dispatcher
+   * ===================================================== */
+  function renderStage() {
+    var s = STAGES[currentStage];
+
+    // Header
+    document.getElementById('stageTitle').textContent    = s.title;
+    document.getElementById('stageSubtitle').textContent = s.subtitle;
+
+    // Progress
+    var pct = ((currentStage + 1) / 6 * 100).toFixed(1);
+    document.getElementById('progressFill').style.width  = pct + '%';
+    document.getElementById('stageCounter').textContent  = (currentStage + 1) + ' / 6';
+
+    // Sidebar
+    var btns = document.querySelectorAll('.stage-btn');
+    btns.forEach(function(btn, i) {
+      btn.classList.remove('active', 'done');
+      if (i === currentStage) btn.classList.add('active');
+      else if (i < currentStage) btn.classList.add('done');
+    });
+
+    // Nav buttons
+    document.getElementById('btnPrev').disabled = (currentStage === 0);
+    document.getElementById('btnNext').disabled = (currentStage === 5);
+
+    // Info panel
+    var ul = document.getElementById('infoList');
+    ul.innerHTML = '';
+    s.info.forEach(function(item) {
+      var li = document.createElement('li');
+      li.innerHTML = item;
+      ul.appendChild(li);
+    });
+
+    // Code panel
+    document.getElementById('codePanel').innerHTML = s.code.join('\n');
+
+    // Viz panel
+    var funcs = [buildStage0, buildStage1, buildStage2, buildStage3, buildStage4, buildStage5];
+    funcs[currentStage]();
+  }
+
+  /* =====================================================
+   *  STAGE 0 — HTML 파싱
+   * ===================================================== */
+  function buildStage0() {
+    var panel = document.getElementById('vizPanel');
+    panel.innerHTML = '';
+
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;gap:30px;align-items:flex-start;padding:20px;width:100%;';
+
+    // Source column
+    var srcCol = document.createElement('div');
+    srcCol.style.cssText = 'flex:1;min-width:0;';
+    var srcTitle = document.createElement('div');
+    srcTitle.style.cssText = 'font-size:11px;font-weight:700;color:#7c85a2;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;';
+    srcTitle.textContent = 'HTML 소스 (바이트 소비)';
+    srcCol.appendChild(srcTitle);
+
+    var htmlSrc = '<div class="container">\n  <h1>제목</h1>\n  <p class="text">본문</p>\n  <div style="display:none">숨김</div>\n  <ul>\n    <li>항목 1</li>\n    <li>항목 2</li>\n  </ul>\n</div>';
+    var sourceWrap = document.createElement('div');
+    sourceWrap.style.cssText = 'font-family:monospace;font-size:12px;line-height:1.8;padding:12px;background:#1a1d27;border-radius:6px;border:1px solid #2e3250;word-break:break-all;';
+    var chars = [];
+    for (var i = 0; i < htmlSrc.length; i++) {
+      var sp = document.createElement('span');
+      sp.className = 'source-char';
+      var ch = htmlSrc[i];
+      sp.textContent = ch === '\n' ? '\n' : ch;
+      if (ch === '\n') { sp.style.display = 'block'; sp.style.height = '0'; }
+      sourceWrap.appendChild(sp);
+      chars.push(sp);
+    }
+    srcCol.appendChild(sourceWrap);
+    wrap.appendChild(srcCol);
+
+    // Tree column
+    var treeCol = document.createElement('div');
+    treeCol.style.cssText = 'flex:1;min-width:0;';
+    var treeTitle = document.createElement('div');
+    treeTitle.style.cssText = 'font-size:11px;font-weight:700;color:#7c85a2;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;';
+    treeTitle.textContent = 'DOM 트리';
+    treeCol.appendChild(treeTitle);
+
+    var treeNodes = [
+      { indent: 0, label: 'html',                  color: '#3b82f6' },
+      { indent: 1, label: '├─ head',               color: '#3b82f6' },
+      { indent: 1, label: '└─ body',               color: '#3b82f6' },
+      { indent: 2, label: '   └─ div.container',   color: '#f97316' },
+      { indent: 3, label: '      ├─ h1',            color: '#a855f7' },
+      { indent: 3, label: '      ├─ p.text',        color: '#a855f7' },
+      { indent: 3, label: '      ├─ div[hidden]',   color: '#ef4444' },
+      { indent: 3, label: '      └─ ul',            color: '#a855f7' },
+      { indent: 4, label: '         ├─ li',         color: '#22c55e' },
+      { indent: 4, label: '         └─ li',         color: '#22c55e' }
+    ];
+
+    var nodeEls = [];
+    treeNodes.forEach(function(n) {
+      var el = document.createElement('div');
+      el.className = 'tree-node';
+      el.style.fontFamily = 'monospace';
+      el.style.color = n.color;
+      el.textContent = n.label;
+      treeCol.appendChild(el);
+      nodeEls.push(el);
+    });
+
+    wrap.appendChild(treeCol);
+    panel.appendChild(wrap);
+
+    // Animate: consume chars, then show nodes
+    var charIdx = 0;
+    var nodeIdx = 0;
+    var charsPerNode = Math.ceil(chars.length / treeNodes.length);
+
+    function tick() {
+      if (charIdx < chars.length) {
+        var end = Math.min(charIdx + 4, chars.length);
+        for (var i = charIdx; i < end; i++) {
+          chars[i].style.color = '#22c55e';
+        }
+        if (charIdx > 0) chars[charIdx - 1].style.color = '#22c55e';
+        charIdx = end;
+        var expectedNode = Math.floor(charIdx / charsPerNode);
+        while (nodeIdx <= expectedNode && nodeIdx < nodeEls.length) {
+          nodeEls[nodeIdx].classList.add('visible');
+          nodeIdx++;
+        }
+        animTimer = setTimeout(tick, 40);
+      } else {
+        nodeEls.forEach(function(el) { el.classList.add('visible'); });
+      }
+    }
+    animTimer = setTimeout(tick, 300);
+  }
+
+  /* =====================================================
+   *  STAGE 1 — CSS 파싱
+   * ===================================================== */
+  function buildStage1() {
+    var panel = document.getElementById('vizPanel');
+    panel.innerHTML = '';
+
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;gap:30px;align-items:flex-start;padding:20px;width:100%;';
+
+    // CSS source
+    var srcCol = document.createElement('div');
+    srcCol.style.cssText = 'flex:1;min-width:0;';
+    var srcTitle = document.createElement('div');
+    srcTitle.style.cssText = 'font-size:11px;font-weight:700;color:#7c85a2;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;';
+    srcTitle.textContent = 'CSS 규칙 파싱';
+    srcCol.appendChild(srcTitle);
+
+    var rules = [
+      { sel: '.container', props: ['width: 100%', 'padding: 20px'] },
+      { sel: 'h1',         props: ['font-size: 24px', 'color: #333'] },
+      { sel: '.text',      props: ['font-size: 14px', 'line-height: 1.6'] },
+      { sel: 'ul',         props: ['list-style: disc', 'padding-left: 20px'] },
+      { sel: 'li',         props: ['margin-bottom: 4px'] }
+    ];
+
+    var ruleEls = [];
+    rules.forEach(function(r) {
+      var el = document.createElement('div');
+      el.style.cssText = 'margin-bottom:8px;padding:8px 10px;background:#1a1d27;border:1px solid #2e3250;border-radius:6px;opacity:0;transform:translateY(10px);transition:opacity 0.4s,transform 0.4s;font-family:monospace;font-size:12px;';
+      var selSpan = document.createElement('span');
+      selSpan.style.color = '#a855f7';
+      selSpan.textContent = r.sel + ' ';
+      el.appendChild(selSpan);
+      var brace = document.createElement('span');
+      brace.style.color = '#7c85a2';
+      brace.textContent = '{';
+      el.appendChild(brace);
+      r.props.forEach(function(p) {
+        var pLine = document.createElement('div');
+        pLine.style.cssText = 'margin-left:12px;color:#7c85a2;';
+        var parts = p.split(':');
+        var propSpan = document.createElement('span');
+        propSpan.style.color = '#06b6d4';
+        propSpan.textContent = parts[0];
+        var colon = document.createElement('span');
+        colon.style.color = '#7c85a2';
+        colon.textContent = ':';
+        var valSpan = document.createElement('span');
+        valSpan.style.color = '#22c55e';
+        valSpan.textContent = parts.slice(1).join(':') + ';';
+        pLine.appendChild(propSpan);
+        pLine.appendChild(colon);
+        pLine.appendChild(valSpan);
+        el.appendChild(pLine);
+      });
+      var closeBrace = document.createElement('span');
+      closeBrace.style.color = '#7c85a2';
+      closeBrace.textContent = '}';
+      el.appendChild(closeBrace);
+      srcCol.appendChild(el);
+      ruleEls.push(el);
+    });
+    wrap.appendChild(srcCol);
+
+    // CSSOM tree
+    var treeCol = document.createElement('div');
+    treeCol.style.cssText = 'flex:1;min-width:0;';
+    var treeTitle = document.createElement('div');
+    treeTitle.style.cssText = 'font-size:11px;font-weight:700;color:#7c85a2;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;';
+    treeTitle.textContent = 'CSSOM 트리';
+    treeCol.appendChild(treeTitle);
+
+    var cssoNodes = [
+      { label: 'StyleSheet',      color: '#3b82f6' },
+      { label: '├─ .container',   color: '#a855f7' },
+      { label: '├─ h1',           color: '#a855f7' },
+      { label: '├─ .text',        color: '#a855f7' },
+      { label: '├─ ul',           color: '#a855f7' },
+      { label: '└─ li',           color: '#22c55e' }
+    ];
+    var cssoEls = [];
+    cssoNodes.forEach(function(n) {
+      var el = document.createElement('div');
+      el.className = 'tree-node';
+      el.style.color = n.color;
+      el.textContent = n.label;
+      treeCol.appendChild(el);
+      cssoEls.push(el);
+    });
+    wrap.appendChild(treeCol);
+    panel.appendChild(wrap);
+
+    // Animate
+    var idx = 0;
+    function showNext() {
+      if (idx < ruleEls.length) {
+        ruleEls[idx].style.opacity = '1';
+        ruleEls[idx].style.transform = 'translateY(0)';
+        if (cssoEls[idx + 1]) cssoEls[idx + 1].classList.add('visible');
+        if (idx === 0) cssoEls[0].classList.add('visible');
+        idx++;
+        animTimer = setTimeout(showNext, 450);
+      }
+    }
+    animTimer = setTimeout(showNext, 200);
+  }
+
+  /* =====================================================
+   *  STAGE 2 — Render Tree
+   * ===================================================== */
+  function buildStage2() {
+    var panel = document.getElementById('vizPanel');
+    panel.innerHTML = '';
+
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;gap:20px;align-items:flex-start;padding:16px;width:100%;';
+
+    // DOM column
+    var domCol = document.createElement('div');
+    domCol.style.cssText = 'flex:1;min-width:0;';
+    addColTitle(domCol, 'DOM 트리', '#3b82f6');
+    var domItems = [
+      { text: 'div.container', color: '#f97316' },
+      { text: '  h1',          color: '#a855f7' },
+      { text: '  p.text',      color: '#a855f7' },
+      { text: '  div[hidden]', color: '#ef4444', strike: true },
+      { text: '  ul',          color: '#a855f7' },
+      { text: '    li × 2',    color: '#22c55e' }
+    ];
+    var domEls = buildSimpleList(domCol, domItems);
+
+    // Arrow
+    var arrow = document.createElement('div');
+    arrow.style.cssText = 'font-size:28px;color:#06b6d4;align-self:center;opacity:0;transition:opacity 0.5s 0.5s;';
+    arrow.textContent = '+';
+    wrap.appendChild(domCol);
+    wrap.appendChild(arrow);
+
+    // CSSOM column
+    var cssCol = document.createElement('div');
+    cssCol.style.cssText = 'flex:0.8;min-width:0;';
+    addColTitle(cssCol, 'CSSOM', '#a855f7');
+    var cssItems = [
+      { text: '.container', color: '#a855f7' },
+      { text: 'h1',         color: '#a855f7' },
+      { text: '.text',      color: '#a855f7' },
+      { text: 'ul, li',     color: '#22c55e' }
+    ];
+    var cssEls = buildSimpleList(cssCol, cssItems);
+
+    var arrow2 = document.createElement('div');
+    arrow2.style.cssText = 'font-size:28px;color:#06b6d4;align-self:center;opacity:0;transition:opacity 0.5s 0.8s;';
+    arrow2.textContent = '=';
+    wrap.appendChild(cssCol);
+    wrap.appendChild(arrow2);
+
+    // Render Tree column
+    var rtCol = document.createElement('div');
+    rtCol.style.cssText = 'flex:1.2;min-width:0;';
+    addColTitle(rtCol, 'Render Tree', '#22c55e');
+
+    var rtItems = [
+      { tag: 'div.container', styles: ['width:100%', 'padding:20px'], excluded: false },
+      { tag: 'h1',            styles: ['font-size:24px', 'color:#333'], excluded: false },
+      { tag: 'p.text',        styles: ['font-size:14px'], excluded: false },
+      { tag: 'div[hidden]',   styles: ['display:none'], excluded: true },
+      { tag: 'ul',            styles: ['list-style:disc'], excluded: false },
+      { tag: 'li', styles: ['margin-bottom:4px'], excluded: false }
+    ];
+    var rtEls = [];
+    rtItems.forEach(function(item) {
+      var el = document.createElement('div');
+      el.className = item.excluded ? 'excluded-node' : 'render-node';
+      var tagSpan = document.createElement('span');
+      tagSpan.className = 'tag-name';
+      tagSpan.textContent = item.tag;
+      el.appendChild(tagSpan);
+      if (item.excluded) {
+        var lbl = document.createElement('span');
+        lbl.className = 'excluded-label';
+        lbl.textContent = '제외됨';
+        el.appendChild(lbl);
+      } else {
+        item.styles.forEach(function(st) {
+          var badge = document.createElement('span');
+          badge.className = 'style-badge';
+          badge.textContent = st;
+          el.appendChild(badge);
+        });
+      }
+      rtCol.appendChild(el);
+      rtEls.push(el);
+    });
+
+    wrap.appendChild(rtCol);
+    panel.appendChild(wrap);
+
+    // Animate
+    var idx = 0;
+    function showAll() {
+      domEls.forEach(function(el) { el.classList.add('visible'); });
+      cssEls.forEach(function(el) { el.classList.add('visible'); });
+      arrow.style.opacity = '1';
+      arrow2.style.opacity = '1';
+    }
+    animTimer = setTimeout(showAll, 200);
+
+    function showRT() {
+      if (idx < rtEls.length) {
+        rtEls[idx].classList.add('visible');
+        idx++;
+        animTimer = setTimeout(showRT, 280);
+      }
+    }
+    animTimer = setTimeout(showRT, 700);
+  }
+
+  function addColTitle(col, text, color) {
+    var t = document.createElement('div');
+    t.style.cssText = 'font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;';
+    t.style.color = color;
+    t.textContent = text;
+    col.appendChild(t);
+  }
+
+  function buildSimpleList(col, items) {
+    var els = [];
+    items.forEach(function(item) {
+      var el = document.createElement('div');
+      el.className = 'tree-node';
+      el.style.color = item.color;
+      if (item.strike) el.style.textDecoration = 'line-through';
+      el.style.fontFamily = 'monospace';
+      el.style.fontSize = '12px';
+      el.textContent = item.text;
+      col.appendChild(el);
+      els.push(el);
+    });
+    return els;
+  }
+
+  /* =====================================================
+   *  STAGE 3 — Layout
+   * ===================================================== */
+  function buildStage3() {
+    var panel = document.getElementById('vizPanel');
+    panel.innerHTML = '';
+
+    var wrapper = document.createElement('div');
+    wrapper.style.cssText = 'position:relative;';
+
+    var title = document.createElement('div');
+    title.style.cssText = 'font-size:11px;font-weight:700;color:#7c85a2;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;text-align:center;';
+    title.textContent = '페이지 캔버스 — 박스 크기/위치 계산';
+    wrapper.appendChild(title);
+
+    var canvas = document.createElement('div');
+    canvas.className = 'page-canvas';
+
+    var boxes = [
+      {
+        id: 'container',
+        label: 'div.container',
+        x: 10, y: 10, w: 400, h: 270,
+        color: '#f97316', bg: 'rgba(249,115,22,0.08)',
+        dims: 'x:10 y:10 w:400 h:270'
+      },
+      {
+        id: 'h1',
+        label: 'h1 — 제목',
+        x: 30, y: 26, w: 360, h: 34,
+        color: '#a855f7', bg: 'rgba(168,85,247,0.15)',
+        dims: 'x:30 y:26 w:360 h:34'
+      },
+      {
+        id: 'p',
+        label: 'p.text — 본문',
+        x: 30, y: 72, w: 360, h: 22,
+        color: '#3b82f6', bg: 'rgba(59,130,246,0.15)',
+        dims: 'x:30 y:72 w:360 h:22'
+      },
+      {
+        id: 'ul',
+        label: 'ul',
+        x: 30, y: 106, w: 360, h: 56,
+        color: '#22c55e', bg: 'rgba(34,197,94,0.08)',
+        dims: 'x:30 y:106 w:360 h:56'
+      },
+      {
+        id: 'li1',
+        label: 'li — 항목 1',
+        x: 50, y: 112, w: 320, h: 20,
+        color: '#22c55e', bg: 'rgba(34,197,94,0.15)',
+        dims: 'x:50 y:112 w:320 h:20'
+      },
+      {
+        id: 'li2',
+        label: 'li — 항목 2',
+        x: 50, y: 138, w: 320, h: 20,
+        color: '#22c55e', bg: 'rgba(34,197,94,0.15)',
+        dims: 'x:50 y:138 w:320 h:20'
+      }
+    ];
+
+    var boxEls = [];
+    boxes.forEach(function(b) {
+      var el = document.createElement('div');
+      el.className = 'layout-box';
+      el.style.left   = b.x + 'px';
+      el.style.top    = b.y + 'px';
+      el.style.width  = '0px';
+      el.style.height = '0px';
+      el.style.borderColor = b.color;
+      el.style.background  = b.bg;
+      var lbl = document.createElement('span');
+      lbl.style.cssText = 'font-size:9px;font-weight:700;color:' + b.color + ';white-space:nowrap;overflow:hidden;';
+      lbl.textContent = b.label;
+      el.appendChild(lbl);
+      var dim = document.createElement('div');
+      dim.className = 'dim-label';
+      dim.textContent = b.dims;
+      el.appendChild(dim);
+      canvas.appendChild(el);
+      boxEls.push(el);
+    });
+
+    wrapper.appendChild(canvas);
+    panel.appendChild(wrapper);
+
+    // Animate boxes appearing
+    var idx = 0;
+    function showBox() {
+      if (idx < boxEls.length) {
+        var b = boxes[idx];
+        var el = boxEls[idx];
+        el.style.transition = 'width 0.35s ease, height 0.35s ease, color 0.2s 0.3s';
+        el.style.width  = b.w + 'px';
+        el.style.height = b.h + 'px';
+        el.classList.add('visible');
+        idx++;
+        animTimer = setTimeout(showBox, 400);
+      }
+    }
+    animTimer = setTimeout(showBox, 300);
+  }
+
+  /* =====================================================
+   *  STAGE 4 — Paint
+   * ===================================================== */
+  function buildStage4() {
+    var panel = document.getElementById('vizPanel');
+    panel.innerHTML = '';
+
+    var wrapper = document.createElement('div');
+    wrapper.style.cssText = 'padding:20px;width:100%;';
+
+    var title = document.createElement('div');
+    title.style.cssText = 'font-size:11px;font-weight:700;color:#7c85a2;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;text-align:center;';
+    title.textContent = '픽셀 채우기 애니메이션 (Paint)';
+    wrapper.appendChild(title);
+
+    var paintItems = [
+      { label: 'div.container — 배경',       color: '#f97316', bg: 'rgba(249,115,22,0.2)',  text: 'background-color',  x: 0,   y: 0,   w: 400, h: 60  },
+      { label: 'h1 — 제목 텍스트',             color: '#a855f7', bg: 'rgba(168,85,247,0.25)', text: 'text rendering',   x: 0,   y: 64,  w: 300, h: 36  },
+      { label: 'p.text — 본문',               color: '#3b82f6', bg: 'rgba(59,130,246,0.2)',  text: 'text + border',    x: 0,   y: 104, w: 360, h: 24  },
+      { label: 'ul — 배경 + 테두리',           color: '#22c55e', bg: 'rgba(34,197,94,0.15)',  text: 'background+border',x: 0,   y: 132, w: 360, h: 26  },
+      { label: 'li — 항목 텍스트',             color: '#facc15', bg: 'rgba(250,204,21,0.2)',  text: 'list item text',   x: 0,   y: 162, w: 280, h: 22  }
+    ];
+
+    var posY = 0;
+    var fillEls = [];
+    paintItems.forEach(function(item) {
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:10px;';
+
+      var lbl = document.createElement('div');
+      lbl.style.cssText = 'font-size:11px;color:#7c85a2;width:170px;flex-shrink:0;font-family:monospace;';
+      lbl.textContent = item.label;
+      row.appendChild(lbl);
+
+      var bar = document.createElement('div');
+      bar.style.cssText = 'flex:1;height:32px;background:#1a1d27;border:1px solid #2e3250;border-radius:4px;position:relative;overflow:hidden;';
+
+      var fill = document.createElement('div');
+      fill.style.cssText = 'position:absolute;top:0;left:0;bottom:0;width:0%;background:' + item.bg + ';border-right:2px solid ' + item.color + ';transition:width 0.9s ease;';
+      bar.appendChild(fill);
+
+      var txt = document.createElement('div');
+      txt.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;padding:0 8px;font-size:10px;font-weight:700;color:' + item.color + ';z-index:1;opacity:0;transition:opacity 0.3s 0.6s;';
+      txt.textContent = item.text;
+      bar.appendChild(txt);
+
+      row.appendChild(bar);
+
+      var pct = document.createElement('div');
+      pct.style.cssText = 'font-size:10px;color:#7c85a2;width:36px;flex-shrink:0;text-align:right;font-family:monospace;';
+      pct.textContent = '0%';
+      row.appendChild(pct);
+
+      wrapper.appendChild(row);
+      fillEls.push({ fill: fill, txt: txt, pct: pct });
+    });
+
+    var tip = document.createElement('div');
+    tip.className = 'tip';
+    tip.innerHTML = '<strong style="color:#facc15">Paint 순서:</strong> 배경색 → 테두리 → 텍스트 → 그림자 순으로 그려집니다.';
+    wrapper.appendChild(tip);
+
+    panel.appendChild(wrapper);
+
+    // Animate fills one by one
+    var idx = 0;
+    function paintNext() {
+      if (idx < fillEls.length) {
+        var fe = fillEls[idx];
+        fe.fill.style.width = '100%';
+        fe.txt.style.opacity = '1';
+        fe.pct.textContent = '100%';
+        // Count up percentage
+        var count = 0;
+        var countTimer = setInterval(function() {
+          count += 5;
+          if (count >= 100) { count = 100; clearInterval(countTimer); }
+          fe.pct.textContent = count + '%';
+        }, 45);
+        idx++;
+        animTimer = setTimeout(paintNext, 600);
+      }
+    }
+    animTimer = setTimeout(paintNext, 200);
+  }
+
+  /* =====================================================
+   *  STAGE 5 — Composite
+   * ===================================================== */
+  function buildStage5() {
+    var panel = document.getElementById('vizPanel');
+    panel.innerHTML = '';
+
+    var wrapper = document.createElement('div');
+    wrapper.style.cssText = 'padding:20px;display:flex;gap:30px;align-items:flex-start;width:100%;';
+
+    // Layers separated
+    var leftCol = document.createElement('div');
+    leftCol.style.cssText = 'flex:1;';
+    var leftTitle = document.createElement('div');
+    leftTitle.style.cssText = 'font-size:11px;font-weight:700;color:#7c85a2;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;text-align:center;';
+    leftTitle.textContent = '개별 레이어';
+    leftCol.appendChild(leftTitle);
+
+    var layers = [
+      { label: '레이어 1 — 배경/컨텐츠',   color: '#f97316', bg: 'rgba(249,115,22,0.15)',   offsetX: 0 },
+      { label: '레이어 2 — 텍스트',         color: '#a855f7', bg: 'rgba(168,85,247,0.15)',  offsetX: 0 },
+      { label: '레이어 3 — UI 요소',        color: '#3b82f6', bg: 'rgba(59,130,246,0.15)',  offsetX: 0 },
+      { label: '레이어 4 — GPU 고속 레이어', color: '#22c55e', bg: 'rgba(34,197,94,0.15)',   offsetX: 0 }
+    ];
+
+    var layerEls = [];
+    layers.forEach(function(l, i) {
+      var el = document.createElement('div');
+      el.style.cssText = [
+        'margin-bottom: 8px',
+        'padding: 14px 16px',
+        'border-radius: 6px',
+        'border: 2px solid ' + l.color,
+        'background: ' + l.bg,
+        'font-size: 12px',
+        'font-weight: 700',
+        'color: ' + l.color,
+        'opacity: 0',
+        'transform: translateX(-40px)',
+        'transition: opacity 0.4s ease, transform 0.5s ease'
+      ].join(';');
+      el.textContent = l.label;
+      leftCol.appendChild(el);
+      layerEls.push(el);
+    });
+    wrapper.appendChild(leftCol);
+
+    // Arrow
+    var arrowCol = document.createElement('div');
+    arrowCol.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:26px;color:#06b6d4;opacity:0;transition:opacity 0.5s 1.2s;padding-top:40px;';
+    arrowCol.textContent = '⟹';
+    wrapper.appendChild(arrowCol);
+
+    // Composited result
+    var rightCol = document.createElement('div');
+    rightCol.style.cssText = 'flex:1;';
+    var rightTitle = document.createElement('div');
+    rightTitle.style.cssText = 'font-size:11px;font-weight:700;color:#7c85a2;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;text-align:center;';
+    rightTitle.textContent = '합성 결과 (최종 화면)';
+    rightCol.appendChild(rightTitle);
+
+    var composited = document.createElement('div');
+    composited.style.cssText = [
+      'position: relative',
+      'width: 200px',
+      'height: 200px',
+      'margin: 0 auto',
+      'opacity: 0',
+      'transition: opacity 0.6s 1.5s'
+    ].join(';');
+
+    var stackItems = [
+      { t:10, l:10, w:180, h:180, bg:'rgba(249,115,22,0.2)',  border:'#f97316', z:1 },
+      { t:20, l:20, w:160, h:100, bg:'rgba(168,85,247,0.2)',  border:'#a855f7', z:2 },
+      { t:55, l:20, w:160, h: 40, bg:'rgba(59,130,246,0.2)',  border:'#3b82f6', z:3 },
+      { t: 0, l: 0, w:200, h:200, bg:'rgba(34,197,94,0.05)',  border:'#22c55e', z:4 }
+    ];
+    stackItems.forEach(function(s) {
+      var el = document.createElement('div');
+      el.style.cssText = [
+        'position: absolute',
+        'top: ' + s.t + 'px',
+        'left: ' + s.l + 'px',
+        'width: ' + s.w + 'px',
+        'height: ' + s.h + 'px',
+        'background: ' + s.bg,
+        'border: 2px solid ' + s.border,
+        'border-radius: 4px',
+        'z-index: ' + s.z
+      ].join(';');
+      composited.appendChild(el);
+    });
+
+    var gpuLabel = document.createElement('div');
+    gpuLabel.style.cssText = 'text-align:center;margin-top:8px;font-size:11px;color:#22c55e;font-weight:700;opacity:0;transition:opacity 0.4s 2s;';
+    gpuLabel.textContent = 'GPU 합성 완료 ✓';
+    rightCol.appendChild(composited);
+    rightCol.appendChild(gpuLabel);
+    wrapper.appendChild(rightCol);
+    panel.appendChild(wrapper);
+
+    // Animate
+    var idx = 0;
+    function showLayer() {
+      if (idx < layerEls.length) {
+        layerEls[idx].style.opacity = '1';
+        layerEls[idx].style.transform = 'translateX(0)';
+        idx++;
+        animTimer = setTimeout(showLayer, 300);
+      } else {
+        arrowCol.style.opacity = '1';
+        composited.style.opacity = '1';
+        gpuLabel.style.opacity = '1';
+      }
+    }
+    animTimer = setTimeout(showLayer, 200);
+  }
+
+  /* =====================================================
+   *  INIT
+   * ===================================================== */
+  renderStage();
+</script>
+</body>
+</html>

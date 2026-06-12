@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>연결 리스트 시각화</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f1117;
+      color: #e2e8f0;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 24px 16px;
+    }
+
+    a.back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #94a3b8;
+      text-decoration: none;
+      font-size: 0.85rem;
+      margin-bottom: 20px;
+      transition: color 0.2s;
+    }
+    a.back-link:hover { color: #e2e8f0; }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 4px;
+    }
+
+    .subtitle {
+      color: #64748b;
+      font-size: 0.88rem;
+      margin-bottom: 28px;
+    }
+
+    /* ── Controls ── */
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+
+    .control-group {
+      background: #1e2433;
+      border: 1px solid #2d3748;
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+
+    .control-group label {
+      display: block;
+      font-size: 0.78rem;
+      color: #94a3b8;
+      margin-bottom: 8px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    input[type="text"], input[type="number"] {
+      flex: 1;
+      background: #0f1117;
+      border: 1px solid #2d3748;
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-size: 0.9rem;
+      padding: 7px 10px;
+      outline: none;
+      transition: border-color 0.2s;
+      min-width: 0;
+    }
+    input[type="text"]:focus, input[type="number"]:focus {
+      border-color: #4f80ff;
+    }
+
+    button {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 7px 14px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      white-space: nowrap;
+    }
+    button:hover:not(:disabled) { background: #1d4ed8; }
+    button:active:not(:disabled) { transform: scale(0.97); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    button.btn-prepend  { background: #7c3aed; }
+    button.btn-prepend:hover:not(:disabled) { background: #6d28d9; }
+    button.btn-append   { background: #0891b2; }
+    button.btn-append:hover:not(:disabled) { background: #0e7490; }
+    button.btn-insert   { background: #059669; }
+    button.btn-insert:hover:not(:disabled) { background: #047857; }
+    button.btn-del-val  { background: #dc2626; }
+    button.btn-del-val:hover:not(:disabled) { background: #b91c1c; }
+    button.btn-del-idx  { background: #ea580c; }
+    button.btn-del-idx:hover:not(:disabled) { background: #c2410c; }
+    button.btn-search   { background: #d97706; }
+    button.btn-search:hover:not(:disabled) { background: #b45309; }
+    button.btn-clear    { background: #374151; }
+    button.btn-clear:hover:not(:disabled) { background: #1f2937; }
+
+    /* ── Visualizer Stage ── */
+    .stage-wrapper {
+      background: #1a1f2e;
+      border: 1px solid #2d3748;
+      border-radius: 12px;
+      padding: 28px 20px 20px;
+      margin-bottom: 20px;
+      min-height: 120px;
+      position: relative;
+    }
+
+    .stage-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .list-meta {
+      font-size: 0.82rem;
+      color: #64748b;
+    }
+    .list-meta span {
+      color: #94a3b8;
+      font-weight: 600;
+    }
+
+    .status-badge {
+      margin-left: auto;
+      font-size: 0.8rem;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: #1e2433;
+      border: 1px solid #2d3748;
+      color: #94a3b8;
+      transition: all 0.3s;
+    }
+    .status-badge.traversing {
+      background: #451a03;
+      border-color: #d97706;
+      color: #fbbf24;
+      animation: pulse-badge 0.8s ease-in-out infinite alternate;
+    }
+    .status-badge.found {
+      background: #052e16;
+      border-color: #16a34a;
+      color: #4ade80;
+    }
+    .status-badge.error {
+      background: #450a0a;
+      border-color: #dc2626;
+      color: #f87171;
+    }
+
+    @keyframes pulse-badge {
+      from { opacity: 0.7; }
+      to   { opacity: 1; }
+    }
+
+    /* ── Linked List Node Row ── */
+    .list-display {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0;
+      row-gap: 20px;
+    }
+
+    .empty-message {
+      color: #4b5563;
+      font-size: 0.95rem;
+      font-style: italic;
+      padding: 12px 0;
+    }
+
+    .head-label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #7c3aed;
+      background: #2d1b69;
+      border: 1px solid #5b21b6;
+      border-radius: 6px;
+      padding: 4px 8px;
+      margin-right: 4px;
+      white-space: nowrap;
+      letter-spacing: 0.03em;
+    }
+
+    .arrow-head {
+      color: #4b5563;
+      font-size: 1.1rem;
+      margin: 0 4px;
+      flex-shrink: 0;
+    }
+
+    .node-wrapper {
+      display: flex;
+      align-items: center;
+    }
+
+    .node {
+      display: flex;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 2px solid #2d3748;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9rem;
+      transition: border-color 0.25s, box-shadow 0.25s, transform 0.2s;
+      position: relative;
+    }
+
+    /* State colours */
+    .node.state-normal   { border-color: #374151; }
+    .node.state-traverse { border-color: #d97706; box-shadow: 0 0 12px 2px rgba(217,119,6,0.45); transform: translateY(-2px); }
+    .node.state-found    { border-color: #16a34a; box-shadow: 0 0 14px 2px rgba(22,163,74,0.5); transform: translateY(-2px); }
+    .node.state-new      { border-color: #2563eb; box-shadow: 0 0 14px 2px rgba(37,99,235,0.55); animation: flash-new 0.6s ease-out; }
+
+    @keyframes flash-new {
+      0%   { box-shadow: 0 0 0 0 rgba(37,99,235,0); transform: scale(1.1); }
+      40%  { box-shadow: 0 0 20px 6px rgba(37,99,235,0.7); }
+      100% { box-shadow: 0 0 14px 2px rgba(37,99,235,0.55); transform: scale(1); }
+    }
+
+    .node-value {
+      padding: 8px 14px;
+      background: #1e2433;
+      font-weight: 700;
+      color: #e2e8f0;
+      border-right: 1px solid #2d3748;
+      min-width: 44px;
+      text-align: center;
+    }
+    .node.state-traverse .node-value { background: #451a03; color: #fbbf24; }
+    .node.state-found    .node-value { background: #052e16; color: #4ade80; }
+    .node.state-new      .node-value { background: #1e3a5f; color: #93c5fd; }
+
+    .node-pointer {
+      padding: 8px 10px;
+      background: #161b27;
+      color: #4b5563;
+      font-size: 0.8rem;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+    .node.state-traverse .node-pointer { background: #2c1503; color: #d97706; }
+    .node.state-found    .node-pointer { background: #031a0c; color: #16a34a; }
+    .node.state-new      .node-pointer { background: #0f2340; color: #3b82f6; }
+
+    .inter-arrow {
+      color: #374151;
+      font-size: 1.3rem;
+      margin: 0 2px;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    .null-label {
+      font-family: 'Courier New', monospace;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #4b5563;
+      background: #1a1f2e;
+      border: 1px dashed #374151;
+      border-radius: 6px;
+      padding: 4px 10px;
+      margin-left: 4px;
+    }
+
+    /* ── Index badges ── */
+    .node-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .index-badge {
+      font-size: 0.68rem;
+      color: #4b5563;
+      font-weight: 600;
+    }
+
+    /* ── Operation Log ── */
+    .log-section {
+      background: #1a1f2e;
+      border: 1px solid #2d3748;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: #1e2433;
+      border-bottom: 1px solid #2d3748;
+    }
+
+    .log-header h3 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .log-body {
+      padding: 12px 16px;
+      max-height: 200px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .log-body::-webkit-scrollbar { width: 6px; }
+    .log-body::-webkit-scrollbar-track { background: #1a1f2e; }
+    .log-body::-webkit-scrollbar-thumb { background: #2d3748; border-radius: 3px; }
+
+    .log-entry {
+      font-size: 0.82rem;
+      color: #94a3b8;
+      line-height: 1.5;
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      animation: slide-in 0.2s ease-out;
+    }
+
+    @keyframes slide-in {
+      from { opacity: 0; transform: translateX(-6px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    .log-entry .log-time {
+      color: #374151;
+      font-family: 'Courier New', monospace;
+      font-size: 0.76rem;
+      flex-shrink: 0;
+      padding-top: 1px;
+    }
+
+    .log-entry .log-msg { color: #cbd5e1; }
+    .log-entry .log-msg.success { color: #4ade80; }
+    .log-entry .log-msg.error   { color: #f87171; }
+    .log-entry .log-msg.info    { color: #60a5fa; }
+    .log-entry .log-msg.warn    { color: #fbbf24; }
+
+    /* ── Legend ── */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.78rem;
+      color: #64748b;
+    }
+
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      border: 2px solid currentColor;
+    }
+    .legend-dot.normal   { border-color: #374151; background: #1e2433; }
+    .legend-dot.traverse { border-color: #d97706; background: #451a03; }
+    .legend-dot.found    { border-color: #16a34a; background: #052e16; }
+    .legend-dot.new      { border-color: #2563eb; background: #1e3a5f; }
+  </style>
+</head>
+<body>
+
+  <a class="back-link" href="../../../index.html">&#8592; 목록으로 돌아가기</a>
+
+  <h1>연결 리스트 시각화</h1>
+  <p class="subtitle">Linked List — 노드와 포인터로 구성된 선형 자료구조</p>
+
+  <!-- ── Legend ── -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot normal"></div>일반 노드</div>
+    <div class="legend-item"><div class="legend-dot traverse"></div>탐색 중</div>
+    <div class="legend-item"><div class="legend-dot found"></div>발견 / 목표</div>
+    <div class="legend-item"><div class="legend-dot new"></div>새로 삽입</div>
+  </div>
+
+  <!-- ── Controls ── -->
+  <div class="controls">
+
+    <!-- Prepend -->
+    <div class="control-group">
+      <label>맨 앞에 삽입 — O(1)</label>
+      <div class="input-row">
+        <input type="text" id="val-prepend" placeholder="값 입력" maxlength="6" />
+        <button class="btn-prepend" onclick="opPrepend()">맨 앞에 삽입</button>
+      </div>
+    </div>
+
+    <!-- Append -->
+    <div class="control-group">
+      <label>맨 뒤에 삽입 — O(n)</label>
+      <div class="input-row">
+        <input type="text" id="val-append" placeholder="값 입력" maxlength="6" />
+        <button class="btn-append" onclick="opAppend()">맨 뒤에 삽입</button>
+      </div>
+    </div>
+
+    <!-- Insert at index -->
+    <div class="control-group">
+      <label>인덱스에 삽입 — O(n)</label>
+      <div class="input-row">
+        <input type="text"   id="val-insert" placeholder="값" maxlength="6" style="max-width:70px" />
+        <input type="number" id="idx-insert" placeholder="인덱스" min="0" style="max-width:90px" />
+        <button class="btn-insert" onclick="opInsertAt()">삽입</button>
+      </div>
+    </div>
+
+    <!-- Delete by value -->
+    <div class="control-group">
+      <label>값으로 삭제 — O(n)</label>
+      <div class="input-row">
+        <input type="text" id="val-del-val" placeholder="삭제할 값" maxlength="6" />
+        <button class="btn-del-val" onclick="opDeleteByValue()">삭제</button>
+      </div>
+    </div>
+
+    <!-- Delete at index -->
+    <div class="control-group">
+      <label>인덱스로 삭제 — O(n)</label>
+      <div class="input-row">
+        <input type="number" id="idx-del" placeholder="인덱스" min="0" />
+        <button class="btn-del-idx" onclick="opDeleteAt()">삭제</button>
+      </div>
+    </div>
+
+    <!-- Search -->
+    <div class="control-group">
+      <label>값 탐색 — O(n)</label>
+      <div class="input-row">
+        <input type="text" id="val-search" placeholder="탐색할 값" maxlength="6" />
+        <button class="btn-search" onclick="opSearch()">탐색</button>
+        <button class="btn-clear" onclick="opClear()">초기화</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Visualizer Stage ── -->
+  <div class="stage-wrapper">
+    <div class="stage-header">
+      <div class="list-meta">길이: <span id="list-length">0</span></div>
+      <div class="status-badge" id="status-badge">대기 중</div>
+    </div>
+    <div class="list-display" id="list-display">
+      <span class="empty-message">빈 리스트 — 노드를 삽입해 보세요</span>
+    </div>
+  </div>
+
+  <!-- ── Operation Log ── -->
+  <div class="log-section">
+    <div class="log-header">
+      <h3>동작 로그</h3>
+      <button class="btn-clear" style="font-size:0.75rem;padding:4px 10px;" onclick="clearLog()">지우기</button>
+    </div>
+    <div class="log-body" id="log-body">
+      <div class="log-entry">
+        <span class="log-time">--:--:--</span>
+        <span class="log-msg info">연결 리스트 시각화가 시작되었습니다. 노드를 삽입해 보세요.</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ═══════════════════════════════════════════
+       1. Linked List Data Structure
+    ═══════════════════════════════════════════ */
+
+    class ListNode {
+      constructor(value) {
+        this.value = value;
+        this.next  = null;
+      }
+    }
+
+    class LinkedList {
+      constructor() {
+        this.head   = null;
+        this.length = 0;
+      }
+
+      /** O(1) — head에 새 노드 삽입 */
+      prepend(value) {
+        const node = new ListNode(value);
+        node.next  = this.head;
+        this.head  = node;
+        this.length++;
+        return node;
+      }
+
+      /** O(n) — tail에 새 노드 삽입 */
+      append(value) {
+        const node = new ListNode(value);
+        if (!this.head) {
+          this.head = node;
+        } else {
+          let cur = this.head;
+          while (cur.next) cur = cur.next;
+          cur.next = node;
+        }
+        this.length++;
+        return node;
+      }
+
+      /** O(n) — 특정 인덱스에 삽입 */
+      insertAt(index, value) {
+        if (index < 0 || index > this.length) return { ok: false, msg: `유효하지 않은 인덱스: ${index}` };
+        if (index === 0) return { ok: true, node: this.prepend(value) };
+        const node = new ListNode(value);
+        let cur = this.head;
+        for (let i = 0; i < index - 1; i++) cur = cur.next;
+        node.next = cur.next;
+        cur.next  = node;
+        this.length++;
+        return { ok: true, node };
+      }
+
+      /** O(n) — 값으로 삭제, 첫 번째 일치 노드 제거 */
+      deleteByValue(value) {
+        if (!this.head) return { ok: false, msg: '리스트가 비어 있습니다.' };
+        if (String(this.head.value) === String(value)) {
+          this.head = this.head.next;
+          this.length--;
+          return { ok: true, index: 0 };
+        }
+        let cur = this.head;
+        let idx = 0;
+        while (cur.next) {
+          if (String(cur.next.value) === String(value)) {
+            cur.next = cur.next.next;
+            this.length--;
+            return { ok: true, index: idx + 1 };
+          }
+          cur = cur.next;
+          idx++;
+        }
+        return { ok: false, msg: `값 "${value}"를 찾을 수 없습니다.` };
+      }
+
+      /** O(n) — 인덱스로 삭제 */
+      deleteAt(index) {
+        if (index < 0 || index >= this.length) return { ok: false, msg: `유효하지 않은 인덱스: ${index}` };
+        let removed;
+        if (index === 0) {
+          removed = this.head.value;
+          this.head = this.head.next;
+          this.length--;
+          return { ok: true, value: removed };
+        }
+        let cur = this.head;
+        for (let i = 0; i < index - 1; i++) cur = cur.next;
+        removed = cur.next.value;
+        cur.next = cur.next.next;
+        this.length--;
+        return { ok: true, value: removed };
+      }
+
+      /** O(n) — 값 탐색, 인덱스 반환 */
+      search(value) {
+        let cur = this.head;
+        let idx = 0;
+        while (cur) {
+          if (String(cur.value) === String(value)) return { ok: true, index: idx };
+          cur = cur.next;
+          idx++;
+        }
+        return { ok: false };
+      }
+
+      /** 배열로 변환 */
+      toArray() {
+        const arr = [];
+        let cur = this.head;
+        while (cur) { arr.push(cur.value); cur = cur.next; }
+        return arr;
+      }
+    }
+
+    /* ═══════════════════════════════════════════
+       2. App State
+    ═══════════════════════════════════════════ */
+
+    const list       = new LinkedList();
+    let   busy       = false;           // animation in progress
+    let   highlights = {};              // { index: 'traverse' | 'found' | 'new' }
+
+    /* ═══════════════════════════════════════════
+       3. Render
+    ═══════════════════════════════════════════ */
+
+    function render() {
+      const container = document.getElementById('list-display');
+      const arr       = list.toArray();
+
+      document.getElementById('list-length').textContent = list.length;
+
+      if (arr.length === 0) {
+        container.innerHTML = '<span class="empty-message">빈 리스트 — 노드를 삽입해 보세요</span>';
+        return;
+      }
+
+      let html = '';
+
+      // HEAD label + arrow
+      html += '<div class="node-wrapper"><span class="head-label">HEAD →</span></div>';
+
+      arr.forEach((val, i) => {
+        const state = highlights[i] || 'normal';
+        const isLast = (i === arr.length - 1);
+
+        html += `
+          <div class="node-wrapper">
+            <div class="node-container">
+              <span class="index-badge">[${i}]</span>
+              <div class="node state-${state}">
+                <div class="node-value">${escHtml(String(val))}</div>
+                <div class="node-pointer">→</div>
+              </div>
+            </div>
+            ${isLast
+              ? '<span class="null-label">null</span>'
+              : '<span class="inter-arrow">→</span>'
+            }
+          </div>`;
+      });
+
+      container.innerHTML = html;
+    }
+
+    function escHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function setStatus(text, type = '') {
+      const badge = document.getElementById('status-badge');
+      badge.textContent = text;
+      badge.className   = 'status-badge' + (type ? ' ' + type : '');
+    }
+
+    /* ═══════════════════════════════════════════
+       4. Log
+    ═══════════════════════════════════════════ */
+
+    function addLog(msg, type = '') {
+      const body  = document.getElementById('log-body');
+      const now   = new Date();
+      const ts    = [now.getHours(), now.getMinutes(), now.getSeconds()]
+                    .map(n => String(n).padStart(2, '0')).join(':');
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerHTML = `<span class="log-time">${ts}</span><span class="log-msg ${type}">${escHtml(msg)}</span>`;
+      body.appendChild(entry);
+      body.scrollTop = body.scrollHeight;
+    }
+
+    function clearLog() {
+      document.getElementById('log-body').innerHTML = '';
+    }
+
+    /* ═══════════════════════════════════════════
+       5. Animation Helpers
+    ═══════════════════════════════════════════ */
+
+    function lockButtons(lock) {
+      document.querySelectorAll('button, input').forEach(el => el.disabled = lock);
+    }
+
+    const DELAY = 300; // ms per step
+
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    /** Animate traversal from index 0 up to (but not including) stopAt.
+     *  Returns after highlighting each node one at a time. */
+    async function animateTraversal(stopAt) {
+      for (let i = 0; i < stopAt; i++) {
+        highlights = { [i]: 'traverse' };
+        render();
+        setStatus(`현재 탐색 중... [${i}]`, 'traversing');
+        addLog(`인덱스 ${i} 탐색 중...`, 'warn');
+        await sleep(DELAY);
+      }
+    }
+
+    /* ═══════════════════════════════════════════
+       6. Operations
+    ═══════════════════════════════════════════ */
+
+    async function opPrepend() {
+      if (busy) return;
+      const val = document.getElementById('val-prepend').value.trim();
+      if (!val) { addLog('값을 입력해 주세요.', 'error'); return; }
+      busy = true; lockButtons(true);
+
+      addLog(`맨 앞에 "${val}" 삽입 시작 (O(1))`, 'info');
+      list.prepend(val);
+      highlights = { 0: 'new' };
+      render();
+      setStatus(`"${val}" 삽입 완료!`, 'found');
+      addLog(`✓ "${val}"이(가) 맨 앞(인덱스 0)에 삽입되었습니다. 기존 노드 인덱스가 1씩 증가.`, 'success');
+      document.getElementById('val-prepend').value = '';
+
+      await sleep(800);
+      highlights = {};
+      render();
+      setStatus('대기 중');
+      busy = false; lockButtons(false);
+    }
+
+    async function opAppend() {
+      if (busy) return;
+      const val = document.getElementById('val-append').value.trim();
+      if (!val) { addLog('값을 입력해 주세요.', 'error'); return; }
+      busy = true; lockButtons(true);
+
+      addLog(`맨 뒤에 "${val}" 삽입 시작 (O(n))`, 'info');
+      const len = list.length;
+      await animateTraversal(len);
+
+      list.append(val);
+      highlights = { [list.length - 1]: 'new' };
+      render();
+      setStatus(`"${val}" 삽입 완료!`, 'found');
+      addLog(`✓ "${val}"이(가) 인덱스 ${list.length - 1}(맨 뒤)에 삽입되었습니다.`, 'success');
+      document.getElementById('val-append').value = '';
+
+      await sleep(800);
+      highlights = {};
+      render();
+      setStatus('대기 중');
+      busy = false; lockButtons(false);
+    }
+
+    async function opInsertAt() {
+      if (busy) return;
+      const val = document.getElementById('val-insert').value.trim();
+      const idx = parseInt(document.getElementById('idx-insert').value, 10);
+      if (!val)        { addLog('값을 입력해 주세요.', 'error'); return; }
+      if (isNaN(idx))  { addLog('인덱스를 입력해 주세요.', 'error'); return; }
+      busy = true; lockButtons(true);
+
+      addLog(`인덱스 ${idx}에 "${val}" 삽입 시작 (O(n))`, 'info');
+      await animateTraversal(Math.min(idx, list.length));
+
+      const result = list.insertAt(idx, val);
+      if (!result.ok) {
+        addLog(`✗ 오류: ${result.msg}`, 'error');
+        setStatus('오류 발생', 'error');
+      } else {
+        highlights = { [idx]: 'new' };
+        render();
+        setStatus(`"${val}" 삽입 완료!`, 'found');
+        addLog(`✓ "${val}"이(가) 인덱스 ${idx}에 삽입되었습니다.`, 'success');
+        document.getElementById('val-insert').value = '';
+        document.getElementById('idx-insert').value = '';
+      }
+
+      await sleep(800);
+      highlights = {};
+      render();
+      setStatus('대기 중');
+      busy = false; lockButtons(false);
+    }
+
+    async function opDeleteByValue() {
+      if (busy) return;
+      const val = document.getElementById('val-del-val').value.trim();
+      if (!val) { addLog('삭제할 값을 입력해 주세요.', 'error'); return; }
+      busy = true; lockButtons(true);
+
+      addLog(`값 "${val}" 탐색 후 삭제 시작 (O(n))`, 'info');
+
+      // Animate search
+      const searchResult = list.search(val);
+      if (searchResult.ok) {
+        await animateTraversal(searchResult.index);
+        highlights = { [searchResult.index]: 'found' };
+        render();
+        setStatus(`"${val}" 발견 — 삭제 중...`, 'found');
+        addLog(`인덱스 ${searchResult.index}에서 "${val}" 발견.`, 'success');
+        await sleep(400);
+      }
+
+      const result = list.deleteByValue(val);
+      if (!result.ok) {
+        addLog(`✗ 오류: ${result.msg}`, 'error');
+        setStatus('오류 발생', 'error');
+      } else {
+        highlights = {};
+        render();
+        setStatus(`"${val}" 삭제 완료!`, 'found');
+        addLog(`✓ 인덱스 ${result.index}의 "${val}"이(가) 삭제되었습니다.`, 'success');
+        document.getElementById('val-del-val').value = '';
+      }
+
+      await sleep(800);
+      highlights = {};
+      render();
+      setStatus('대기 중');
+      busy = false; lockButtons(false);
+    }
+
+    async function opDeleteAt() {
+      if (busy) return;
+      const idx = parseInt(document.getElementById('idx-del').value, 10);
+      if (isNaN(idx)) { addLog('인덱스를 입력해 주세요.', 'error'); return; }
+      busy = true; lockButtons(true);
+
+      addLog(`인덱스 ${idx} 삭제 시작 (O(n))`, 'info');
+      await animateTraversal(Math.min(idx, list.length - 1));
+
+      if (idx < list.length) {
+        highlights = { [idx]: 'found' };
+        render();
+        setStatus(`인덱스 ${idx} 발견 — 삭제 중...`, 'found');
+        await sleep(400);
+      }
+
+      const result = list.deleteAt(idx);
+      if (!result.ok) {
+        addLog(`✗ 오류: ${result.msg}`, 'error');
+        setStatus('오류 발생', 'error');
+      } else {
+        highlights = {};
+        render();
+        setStatus(`인덱스 ${idx} 삭제 완료!`, 'found');
+        addLog(`✓ 인덱스 ${idx}의 값 "${result.value}"이(가) 삭제되었습니다.`, 'success');
+        document.getElementById('idx-del').value = '';
+      }
+
+      await sleep(800);
+      highlights = {};
+      render();
+      setStatus('대기 중');
+      busy = false; lockButtons(false);
+    }
+
+    async function opSearch() {
+      if (busy) return;
+      const val = document.getElementById('val-search').value.trim();
+      if (!val) { addLog('탐색할 값을 입력해 주세요.', 'error'); return; }
+      busy = true; lockButtons(true);
+
+      addLog(`값 "${val}" 탐색 시작 (O(n))`, 'info');
+
+      // Step-by-step traversal with highlight
+      let cur = list.head;
+      let idx = 0;
+      let found = false;
+
+      while (cur) {
+        highlights = { [idx]: 'traverse' };
+        render();
+        setStatus(`현재 탐색 중... [${idx}]`, 'traversing');
+        addLog(`인덱스 ${idx}: 값 "${cur.value}" 확인 중...`, 'warn');
+        await sleep(DELAY);
+
+        if (String(cur.value) === String(val)) {
+          highlights = { [idx]: 'found' };
+          render();
+          setStatus(`"${val}" 발견! (인덱스 ${idx})`, 'found');
+          addLog(`✓ "${val}"을(를) 인덱스 ${idx}에서 발견했습니다!`, 'success');
+          found = true;
+          break;
+        }
+        cur = cur.next;
+        idx++;
+      }
+
+      if (!found) {
+        highlights = {};
+        render();
+        setStatus(`"${val}" 찾을 수 없음`, 'error');
+        addLog(`✗ "${val}"을(를) 리스트에서 찾을 수 없습니다.`, 'error');
+        await sleep(1000);
+        setStatus('대기 중');
+      }
+
+      busy = false; lockButtons(false);
+    }
+
+    function opClear() {
+      if (busy) return;
+      highlights = {};
+      render();
+      setStatus('대기 중');
+      addLog('하이라이트가 초기화되었습니다.', 'info');
+    }
+
+    /* ═══════════════════════════════════════════
+       7. Enter key support
+    ═══════════════════════════════════════════ */
+
+    document.getElementById('val-prepend').addEventListener('keydown', e => { if (e.key === 'Enter') opPrepend(); });
+    document.getElementById('val-append' ).addEventListener('keydown', e => { if (e.key === 'Enter') opAppend(); });
+    document.getElementById('val-insert' ).addEventListener('keydown', e => { if (e.key === 'Enter') opInsertAt(); });
+    document.getElementById('idx-insert' ).addEventListener('keydown', e => { if (e.key === 'Enter') opInsertAt(); });
+    document.getElementById('val-del-val').addEventListener('keydown', e => { if (e.key === 'Enter') opDeleteByValue(); });
+    document.getElementById('idx-del'    ).addEventListener('keydown', e => { if (e.key === 'Enter') opDeleteAt(); });
+    document.getElementById('val-search' ).addEventListener('keydown', e => { if (e.key === 'Enter') opSearch(); });
+
+    /* ═══════════════════════════════════════════
+       8. Initial seed data
+    ═══════════════════════════════════════════ */
+
+    (function seed() {
+      ['A', 'B', 'C', 'D'].forEach(v => list.append(v));
+      render();
+      addLog('초기 데이터 [A → B → C → D]가 로드되었습니다.', 'info');
+    })();
+  </script>
+</body>
+</html>

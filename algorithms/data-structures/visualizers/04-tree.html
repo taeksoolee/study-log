@@ -1,0 +1,1440 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>이진 탐색 트리 시각화 · BST</title>
+  <style>
+    /* ─────────────────────────────────────────────
+       CSS Reset & Custom Properties
+    ───────────────────────────────────────────── */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-base:        #0d0f1a;
+      --bg-surface:     #141622;
+      --bg-card:        #1a1d2e;
+      --bg-card-hover:  #1f2338;
+      --border:         #2a2d45;
+      --border-hover:   #3a3d5c;
+      --text-primary:   #e8eaf6;
+      --text-secondary: #9fa8c7;
+      --text-muted:     #5c6080;
+
+      --accent-tree:    #ce93d8;
+      --accent-tree-dim: rgba(206, 147, 216, 0.35);
+      --accent-blue:    #4fc3f7;
+      --accent-green:   #81c784;
+      --accent-orange:  #ffb74d;
+      --accent-red:     #ef9a9a;
+
+      --node-normal-start: #1e3a8a;
+      --node-normal-end:   #1d4ed8;
+      --node-normal-border: #3b82f6;
+      --node-visit-start:  #92400e;
+      --node-visit-end:    #d97706;
+      --node-visit-border: #fbbf24;
+      --node-found-start:  #14532d;
+      --node-found-end:    #16a34a;
+      --node-found-border: #4ade80;
+
+      --radius-sm:  6px;
+      --radius-md:  12px;
+      --radius-lg:  20px;
+      --radius-xl:  28px;
+
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background-image:
+        linear-gradient(rgba(206, 147, 216, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(206, 147, 216, 0.02) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      top: -40%;
+      right: -20%;
+      width: 60%;
+      height: 60%;
+      background: radial-gradient(ellipse at center, rgba(206, 147, 216, 0.05) 0%, transparent 65%);
+      pointer-events: none;
+      z-index: 0;
+      animation: drift 20s ease-in-out infinite alternate;
+    }
+
+    @keyframes drift {
+      from { transform: translate(0, 0) scale(1); }
+      to   { transform: translate(-5%, 8%) scale(1.06); }
+    }
+
+    /* ─────────────────────────────────────────────
+       Layout
+    ───────────────────────────────────────────── */
+    .page-wrapper {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 0 24px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* ─────────────────────────────────────────────
+       Header / Nav
+    ───────────────────────────────────────────── */
+    .top-nav {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 20px 0 4px;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+      color: var(--text-secondary);
+      font-size: 0.82rem;
+      font-family: var(--font-mono);
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: rgba(255,255,255,0.03);
+      transition: color 150ms, border-color 150ms, background 150ms;
+    }
+
+    .back-link:hover {
+      color: var(--accent-tree);
+      border-color: var(--accent-tree-dim);
+      background: rgba(206, 147, 216, 0.06);
+    }
+
+    .breadcrumb {
+      font-size: 0.78rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+    }
+
+    .breadcrumb span { color: var(--accent-tree); }
+
+    .page-header {
+      padding: 8px 0 0;
+      animation: fadeSlideDown 0.5s ease both;
+    }
+
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(206, 147, 216, 0.08);
+      border: 1px solid rgba(206, 147, 216, 0.2);
+      border-radius: 100px;
+      padding: 5px 16px;
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      color: var(--accent-tree);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .header-badge::before {
+      content: '';
+      display: block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-tree);
+      box-shadow: 0 0 8px var(--accent-tree);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.4; transform: scale(0.7); }
+    }
+
+    .page-title {
+      font-size: clamp(1.6rem, 4vw, 2.4rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, #e8eaf6 30%, #ce93d8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .page-subtitle {
+      font-size: 0.92rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    @keyframes fadeSlideDown {
+      from { opacity: 0; transform: translateY(-14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ─────────────────────────────────────────────
+       Main layout: canvas left, panel right
+    ───────────────────────────────────────────── */
+    .visualizer-layout {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 800px) {
+      .visualizer-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ─────────────────────────────────────────────
+       Canvas section
+    ───────────────────────────────────────────── */
+    .canvas-section {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .canvas-container {
+      position: relative;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #080a14;
+      box-shadow: 0 4px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    #bstCanvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .canvas-label {
+      position: absolute;
+      top: 14px;
+      right: 16px;
+      font-size: 0.7rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      user-select: none;
+    }
+
+    /* Legend */
+    .canvas-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 14px 18px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.76rem;
+      color: var(--text-secondary);
+    }
+
+    .legend-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .legend-dot-normal  { background: linear-gradient(135deg, #1e3a8a, #1d4ed8); border: 1.5px solid #3b82f6; }
+    .legend-dot-visit   { background: linear-gradient(135deg, #92400e, #d97706); border: 1.5px solid #fbbf24; }
+    .legend-dot-found   { background: linear-gradient(135deg, #14532d, #16a34a); border: 1.5px solid #4ade80; }
+
+    /* ─────────────────────────────────────────────
+       Status / log area
+    ───────────────────────────────────────────── */
+    .status-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      min-height: 56px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .status-label {
+      font-size: 0.68rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    #statusText {
+      font-size: 0.9rem;
+      color: var(--text-primary);
+      line-height: 1.5;
+      min-height: 22px;
+      transition: color 200ms;
+    }
+
+    #statusText.success { color: var(--accent-green); }
+    #statusText.error   { color: var(--accent-red);   }
+    #statusText.info    { color: var(--accent-orange); }
+    #statusText.tree    { color: var(--accent-tree);   }
+
+    /* Traversal result */
+    #traversalResult {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      min-height: 52px;
+      display: none;
+    }
+
+    #traversalResult.visible { display: block; }
+
+    .traversal-label {
+      font-size: 0.68rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    #traversalSequence {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .seq-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 32px;
+      height: 28px;
+      padding: 0 8px;
+      border-radius: var(--radius-sm);
+      background: rgba(206, 147, 216, 0.1);
+      border: 1px solid rgba(206, 147, 216, 0.25);
+      font-size: 0.82rem;
+      font-family: var(--font-mono);
+      color: var(--accent-tree);
+      transition: background 200ms, border-color 200ms;
+    }
+
+    .seq-num.active {
+      background: rgba(206, 147, 216, 0.25);
+      border-color: rgba(206, 147, 216, 0.6);
+      color: #fff;
+    }
+
+    .seq-arrow {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      align-self: center;
+    }
+
+    .sorted-note {
+      margin-top: 8px;
+      font-size: 0.75rem;
+      color: var(--accent-green);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .sorted-note::before {
+      content: '✓';
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: rgba(129, 199, 132, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+      flex-shrink: 0;
+    }
+
+    /* ─────────────────────────────────────────────
+       Right panel
+    ───────────────────────────────────────────── */
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .panel-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 18px;
+    }
+
+    .panel-title {
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* Insert / Search inputs */
+    .input-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .num-input {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+      font-size: 0.88rem;
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color 150ms, box-shadow 150ms;
+      width: 100%;
+      min-width: 0;
+    }
+
+    .num-input::placeholder { color: var(--text-muted); }
+
+    .num-input:focus {
+      border-color: var(--accent-tree-dim);
+      box-shadow: 0 0 0 3px rgba(206, 147, 216, 0.1);
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      border: none;
+      font-size: 0.82rem;
+      font-weight: 600;
+      font-family: var(--font-sans);
+      cursor: pointer;
+      transition: transform 120ms, opacity 150ms, box-shadow 150ms;
+      white-space: nowrap;
+    }
+
+    .btn:active { transform: scale(0.96); }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #6d28d9, #7c3aed);
+      color: #fff;
+      box-shadow: 0 2px 12px rgba(124, 58, 237, 0.3);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
+    }
+
+    .btn-insert {
+      background: linear-gradient(135deg, #1e3a8a, #1d4ed8);
+      color: #fff;
+      box-shadow: 0 2px 12px rgba(29, 78, 216, 0.3);
+    }
+
+    .btn-insert:hover:not(:disabled) {
+      box-shadow: 0 4px 20px rgba(29, 78, 216, 0.4);
+    }
+
+    .btn-search {
+      background: linear-gradient(135deg, #92400e, #b45309);
+      color: #fff;
+      box-shadow: 0 2px 12px rgba(180, 83, 9, 0.3);
+    }
+
+    .btn-search:hover:not(:disabled) {
+      box-shadow: 0 4px 20px rgba(180, 83, 9, 0.4);
+    }
+
+    .btn-traversal {
+      width: 100%;
+      margin-bottom: 6px;
+      background: rgba(206, 147, 216, 0.08);
+      border: 1px solid rgba(206, 147, 216, 0.25);
+      color: var(--accent-tree);
+    }
+
+    .btn-traversal:hover:not(:disabled) {
+      background: rgba(206, 147, 216, 0.14);
+      border-color: rgba(206, 147, 216, 0.45);
+    }
+
+    .btn-reset {
+      width: 100%;
+      background: rgba(239, 154, 154, 0.08);
+      border: 1px solid rgba(239, 154, 154, 0.25);
+      color: var(--accent-red);
+    }
+
+    .btn-reset:hover:not(:disabled) {
+      background: rgba(239, 154, 154, 0.14);
+      border-color: rgba(239, 154, 154, 0.45);
+    }
+
+    /* ─────────────────────────────────────────────
+       Info stats
+    ───────────────────────────────────────────── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .stat-box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+    }
+
+    .stat-box-label {
+      font-size: 0.66rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .stat-box-value {
+      font-size: 1.1rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+    }
+
+    .stat-box-value.ok    { color: var(--accent-green); }
+    .stat-box-value.warn  { color: var(--accent-orange); }
+    .stat-box-value.bad   { color: var(--accent-red); }
+
+    /* Balance warning */
+    .balance-warning {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      background: rgba(239, 154, 154, 0.08);
+      border: 1px solid rgba(239, 154, 154, 0.3);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-size: 0.78rem;
+      color: var(--accent-red);
+      line-height: 1.5;
+    }
+
+    .balance-warning.visible { display: flex; }
+
+    .balance-warning-icon {
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    /* Height info */
+    .height-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.76rem;
+      color: var(--text-secondary);
+    }
+
+    .height-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .height-row span:last-child {
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+    }
+
+    /* ─────────────────────────────────────────────
+       Scrollbar
+    ───────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg-base); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+
+    /* ─────────────────────────────────────────────
+       Responsive tweaks
+    ───────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .page-wrapper { padding: 0 12px 32px; }
+      .input-group { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+<div class="page-wrapper">
+
+  <!-- ── Top nav ── -->
+  <nav class="top-nav">
+    <a class="back-link" href="index.html">← 목록으로</a>
+    <span class="breadcrumb">자료구조 / <span>이진 탐색 트리</span></span>
+  </nav>
+
+  <!-- ── Page header ── -->
+  <header class="page-header">
+    <div class="header-badge">04 / 06 · Binary Search Tree</div>
+    <h1 class="page-title">이진 탐색 트리 시각화</h1>
+    <p class="page-subtitle">
+      왼쪽은 루트보다 작고, 오른쪽은 루트보다 큽니다.
+      삽입·탐색·순회를 직접 실행하며 BST 동작 원리를 확인하세요.
+    </p>
+  </header>
+
+  <!-- ── Main visualizer ── -->
+  <div class="visualizer-layout">
+
+    <!-- ── Canvas column ── -->
+    <div class="canvas-section">
+
+      <div class="canvas-container">
+        <canvas id="bstCanvas" width="800" height="480"></canvas>
+        <span class="canvas-label">BST · 이진 탐색 트리</span>
+      </div>
+
+      <!-- Legend -->
+      <div class="canvas-legend">
+        <div class="legend-item">
+          <div class="legend-dot legend-dot-normal"></div>
+          일반 노드
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot legend-dot-visit"></div>
+          방문 중 / 경로
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot legend-dot-found"></div>
+          탐색 완료 / 삽입
+        </div>
+      </div>
+
+      <!-- Status -->
+      <div class="status-box">
+        <span class="status-label">현재 상태</span>
+        <div id="statusText">트리가 초기화되었습니다. 값을 삽입하거나 탐색해보세요.</div>
+      </div>
+
+      <!-- Traversal result -->
+      <div id="traversalResult">
+        <div class="traversal-label" id="traversalLabel">순회 결과</div>
+        <div id="traversalSequence"></div>
+        <div class="sorted-note" id="sortedNote" style="display:none;">
+          중위 순회는 정렬된 순서를 출력합니다 (오름차순)
+        </div>
+      </div>
+
+    </div><!-- /.canvas-section -->
+
+    <!-- ── Side panel ── -->
+    <div class="side-panel">
+
+      <!-- Insert -->
+      <div class="panel-card">
+        <div class="panel-title">값 삽입</div>
+        <div class="input-group">
+          <input class="num-input" id="insertInput" type="number" placeholder="숫자 입력" min="-999" max="999" />
+          <button class="btn btn-insert" id="insertBtn" onclick="handleInsert()">삽입</button>
+        </div>
+      </div>
+
+      <!-- Search -->
+      <div class="panel-card">
+        <div class="panel-title">값 탐색</div>
+        <div class="input-group">
+          <input class="num-input" id="searchInput" type="number" placeholder="숫자 입력" min="-999" max="999" />
+          <button class="btn btn-search" id="searchBtn" onclick="handleSearch()">탐색</button>
+        </div>
+      </div>
+
+      <!-- Traversals -->
+      <div class="panel-card">
+        <div class="panel-title">순회</div>
+        <button class="btn btn-traversal" id="preorderBtn"  onclick="handleTraversal('preorder')">전위 순회 (Root → L → R)</button>
+        <button class="btn btn-traversal" id="inorderBtn"   onclick="handleTraversal('inorder')">중위 순회 (L → Root → R)</button>
+        <button class="btn btn-traversal" id="postorderBtn" onclick="handleTraversal('postorder')">후위 순회 (L → R → Root)</button>
+      </div>
+
+      <!-- Reset -->
+      <div class="panel-card">
+        <div class="panel-title">초기화</div>
+        <button class="btn btn-reset" id="resetBtn" onclick="handleReset()">트리 초기화</button>
+      </div>
+
+      <!-- Info / Stats -->
+      <div class="panel-card">
+        <div class="panel-title">트리 정보</div>
+        <div class="stats-grid">
+          <div class="stat-box">
+            <div class="stat-box-label">노드 수</div>
+            <div class="stat-box-value" id="statCount">7</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-box-label">현재 높이</div>
+            <div class="stat-box-value" id="statHeight">3</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-box-label">최적 높이</div>
+            <div class="stat-box-value" id="statOptimal">3</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-box-label">균형 상태</div>
+            <div class="stat-box-value ok" id="statBalance">균형</div>
+          </div>
+        </div>
+
+        <div style="height:12px;"></div>
+
+        <div class="height-info" id="heightInfo">
+          <div class="height-row">
+            <span>현재 높이</span>
+            <span id="infoHeight">3</span>
+          </div>
+          <div class="height-row">
+            <span>최적 높이 ⌈log₂(n+1)⌉</span>
+            <span id="infoOptimal">3</span>
+          </div>
+        </div>
+
+        <div style="height:12px;"></div>
+
+        <div class="balance-warning" id="balanceWarning">
+          <span class="balance-warning-icon">⚠</span>
+          <span>트리 균형이 맞지 않습니다. 편향된 삽입 순서로 인해 탐색 성능이 O(n)에 가까워질 수 있습니다.</span>
+        </div>
+      </div>
+
+    </div><!-- /.side-panel -->
+  </div><!-- /.visualizer-layout -->
+
+</div><!-- /.page-wrapper -->
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   BST Node
+═══════════════════════════════════════════════════════════ */
+class BSTNode {
+  constructor(val) {
+    this.val = val;
+    this.left = null;
+    this.right = null;
+    // rendering state
+    this.x = 0;
+    this.y = 0;
+    this.state = 'normal'; // 'normal' | 'visiting' | 'found'
+    this.orderLabel = null; // traversal order number
+    this.scale = 1;         // for pop-in animation
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BST Class
+═══════════════════════════════════════════════════════════ */
+class BST {
+  constructor() {
+    this.root = null;
+  }
+
+  insert(val) {
+    const node = new BSTNode(val);
+    if (!this.root) { this.root = node; return []; }
+    const path = [];
+    let cur = this.root;
+    while (true) {
+      path.push(cur);
+      if (val < cur.val) {
+        if (!cur.left)  { cur.left = node; break; }
+        cur = cur.left;
+      } else if (val > cur.val) {
+        if (!cur.right) { cur.right = node; break; }
+        cur = cur.right;
+      } else {
+        // duplicate — no insert
+        return null;
+      }
+    }
+    path.push(node);
+    return path;
+  }
+
+  search(val) {
+    const path = [];
+    let cur = this.root;
+    while (cur) {
+      path.push({ node: cur, found: cur.val === val });
+      if (cur.val === val) return path;
+      cur = val < cur.val ? cur.left : cur.right;
+    }
+    return path; // last entry has found:false
+  }
+
+  // Each traversal returns nodes in visit order
+  preorder() {
+    const result = [];
+    const dfs = (n) => {
+      if (!n) return;
+      result.push(n);
+      dfs(n.left);
+      dfs(n.right);
+    };
+    dfs(this.root);
+    return result;
+  }
+
+  inorder() {
+    const result = [];
+    const dfs = (n) => {
+      if (!n) return;
+      dfs(n.left);
+      result.push(n);
+      dfs(n.right);
+    };
+    dfs(this.root);
+    return result;
+  }
+
+  postorder() {
+    const result = [];
+    const dfs = (n) => {
+      if (!n) return;
+      dfs(n.left);
+      dfs(n.right);
+      result.push(n);
+    };
+    dfs(this.root);
+    return result;
+  }
+
+  height(n = this.root) {
+    if (!n) return 0;
+    return 1 + Math.max(this.height(n.left), this.height(n.right));
+  }
+
+  count(n = this.root) {
+    if (!n) return 0;
+    return 1 + this.count(n.left) + this.count(n.right);
+  }
+
+  allNodes() {
+    const result = [];
+    const dfs = (n) => { if (!n) return; result.push(n); dfs(n.left); dfs(n.right); };
+    dfs(this.root);
+    return result;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Renderer
+═══════════════════════════════════════════════════════════ */
+const canvas = document.getElementById('bstCanvas');
+const ctx    = canvas.getContext('2d');
+
+const RADIUS   = 24;
+const V_GAP    = 70;
+const PADDING  = 40;
+
+// Map state → gradient colours [topStart, topEnd, strokeColor]
+const STATE_COLORS = {
+  normal:   ['#1e3a8a', '#1d4ed8', '#3b82f6', 'rgba(59,130,246,0.3)'],
+  visiting: ['#92400e', '#d97706', '#fbbf24', 'rgba(251,191,36,0.45)'],
+  found:    ['#14532d', '#16a34a', '#4ade80', 'rgba(74,222,128,0.4)'],
+};
+
+function computePositions(node, depth, left, right) {
+  if (!node) return;
+  const mid = (left + right) / 2;
+  node.x = mid;
+  node.y = PADDING + depth * V_GAP;
+  computePositions(node.left,  depth + 1, left, mid);
+  computePositions(node.right, depth + 1, mid, right);
+}
+
+function drawEdge(x1, y1, x2, y2) {
+  ctx.save();
+  ctx.strokeStyle = 'rgba(100, 116, 180, 0.45)';
+  ctx.lineWidth   = 1.8;
+  ctx.lineCap     = 'round';
+  ctx.beginPath();
+  // draw from node border to node border
+  const angle = Math.atan2(y2 - y1, x2 - x1);
+  const sx = x1 + Math.cos(angle) * RADIUS;
+  const sy = y1 + Math.sin(angle) * RADIUS;
+  const ex = x2 - Math.cos(angle) * RADIUS;
+  const ey = y2 - Math.sin(angle) * RADIUS;
+  ctx.moveTo(sx, sy);
+  ctx.lineTo(ex, ey);
+  ctx.stroke();
+
+  // arrowhead
+  ctx.fillStyle = 'rgba(100, 116, 180, 0.45)';
+  ctx.save();
+  ctx.translate(ex, ey);
+  ctx.rotate(angle);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-7, -4);
+  ctx.lineTo(-7,  4);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  ctx.restore();
+}
+
+function drawNode(node) {
+  const { x, y, val, state, orderLabel, scale } = node;
+  const s = scale || 1;
+  const [c0, c1, stroke, glow] = STATE_COLORS[state] || STATE_COLORS.normal;
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(s, s);
+
+  // Glow
+  if (state !== 'normal') {
+    ctx.shadowColor = glow.replace(/[^,]+\)$/, '0.8)');
+    ctx.shadowBlur  = 18;
+  }
+
+  // Circle fill gradient
+  const grad = ctx.createRadialGradient(-RADIUS * 0.3, -RADIUS * 0.3, 2, 0, 0, RADIUS);
+  grad.addColorStop(0, c0);
+  grad.addColorStop(1, c1);
+
+  ctx.beginPath();
+  ctx.arc(0, 0, RADIUS, 0, Math.PI * 2);
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Stroke
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth   = state === 'normal' ? 1.5 : 2.5;
+  ctx.stroke();
+
+  ctx.shadowBlur = 0;
+
+  // Value text
+  ctx.fillStyle   = '#f1f5f9';
+  ctx.textAlign   = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font        = `700 ${val > 99 || val < -9 ? 11 : 13}px var(--font-mono, monospace)`;
+  ctx.fillText(val, 0, 0);
+
+  // Order label badge (top-right)
+  if (orderLabel !== null && orderLabel !== undefined) {
+    ctx.fillStyle   = stroke;
+    ctx.strokeStyle = '#0d0f1a';
+    ctx.lineWidth   = 2;
+    ctx.beginPath();
+    ctx.arc(RADIUS - 2, -RADIUS + 2, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle   = '#fff';
+    ctx.font        = '700 8px monospace';
+    ctx.fillText(String(orderLabel), RADIUS - 2, -RADIUS + 2);
+  }
+
+  ctx.restore();
+}
+
+function drawLeftRightLabel(node) {
+  if (!node) return;
+  if (node.left) {
+    // "< root" label on left edge midpoint
+    const mx = (node.x + node.left.x) / 2 - 14;
+    const my = (node.y + node.left.y) / 2;
+    ctx.font        = '10px monospace';
+    ctx.fillStyle   = 'rgba(129,199,132,0.7)';
+    ctx.textAlign   = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`< ${node.val}`, mx, my);
+  }
+  if (node.right) {
+    const mx = (node.x + node.right.x) / 2 + 14;
+    const my = (node.y + node.right.y) / 2;
+    ctx.font        = '10px monospace';
+    ctx.fillStyle   = 'rgba(239,154,154,0.7)';
+    ctx.textAlign   = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`> ${node.val}`, mx, my);
+  }
+  if (node.left)  drawLeftRightLabel(node.left);
+  if (node.right) drawLeftRightLabel(node.right);
+}
+
+function renderTree() {
+  const W = canvas.width;
+  const H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  if (!bst.root) {
+    ctx.fillStyle = 'rgba(92, 96, 128, 0.5)';
+    ctx.textAlign   = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font        = '15px var(--font-sans, sans-serif)';
+    ctx.fillText('트리가 비어 있습니다. 값을 삽입하세요.', W / 2, H / 2);
+    return;
+  }
+
+  computePositions(bst.root, 0, 0, W);
+
+  // Draw edges first
+  const drawEdges = (node) => {
+    if (!node) return;
+    if (node.left)  { drawEdge(node.x, node.y, node.left.x,  node.left.y);  drawEdges(node.left);  }
+    if (node.right) { drawEdge(node.x, node.y, node.right.x, node.right.y); drawEdges(node.right); }
+  };
+  drawEdges(bst.root);
+
+  // Edge labels
+  drawLeftRightLabel(bst.root);
+
+  // Draw nodes
+  bst.allNodes().forEach(drawNode);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   State helpers
+═══════════════════════════════════════════════════════════ */
+function resetNodeStates() {
+  bst.allNodes().forEach(n => {
+    n.state = 'normal';
+    n.orderLabel = null;
+    n.scale = 1;
+  });
+}
+
+function setStatus(text, cls = '') {
+  const el = document.getElementById('statusText');
+  el.textContent  = text;
+  el.className    = cls;
+}
+
+function setButtons(disabled) {
+  ['insertBtn','searchBtn','preorderBtn','inorderBtn','postorderBtn','resetBtn'].forEach(id => {
+    document.getElementById(id).disabled = disabled;
+  });
+}
+
+function updateStats() {
+  const n       = bst.count();
+  const h       = bst.height();
+  const optimal = Math.ceil(Math.log2(n + 1));
+  const isBalanced = h <= 2 * Math.log2(n + 1) + 1;
+
+  document.getElementById('statCount').textContent   = n;
+  document.getElementById('statHeight').textContent  = h;
+  document.getElementById('statOptimal').textContent = optimal;
+  document.getElementById('infoHeight').textContent  = h;
+  document.getElementById('infoOptimal').textContent = optimal;
+
+  const balEl = document.getElementById('statBalance');
+  const warnEl = document.getElementById('balanceWarning');
+
+  if (n <= 1) {
+    balEl.textContent = '—';
+    balEl.className   = 'stat-box-value';
+    warnEl.classList.remove('visible');
+  } else if (isBalanced) {
+    balEl.textContent = '균형';
+    balEl.className   = 'stat-box-value ok';
+    warnEl.classList.remove('visible');
+  } else {
+    balEl.textContent = '불균형';
+    balEl.className   = 'stat-box-value bad';
+    warnEl.classList.add('visible');
+  }
+}
+
+function hideTraversalResult() {
+  document.getElementById('traversalResult').classList.remove('visible');
+  document.getElementById('sortedNote').style.display = 'none';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Animation helpers
+═══════════════════════════════════════════════════════════ */
+let animRunning = false;
+const ANIM_DELAY = 420; // ms per step
+
+function animateSequence(steps, onDone) {
+  // steps: array of () => void functions executed with ANIM_DELAY apart
+  animRunning = true;
+  setButtons(true);
+  let i = 0;
+  const next = () => {
+    if (i >= steps.length) {
+      animRunning = false;
+      setButtons(false);
+      if (onDone) onDone();
+      return;
+    }
+    steps[i]();
+    i++;
+    setTimeout(next, ANIM_DELAY);
+  };
+  next();
+}
+
+function popInNode(node, cb) {
+  node.scale = 0.1;
+  let frame = 0;
+  const total = 18;
+  const tick = () => {
+    frame++;
+    const t = frame / total;
+    // Overshoot spring
+    node.scale = 1 + 0.4 * Math.sin(t * Math.PI) * (1 - t);
+    renderTree();
+    if (frame < total) requestAnimationFrame(tick);
+    else { node.scale = 1; renderTree(); if (cb) cb(); }
+  };
+  requestAnimationFrame(tick);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Handlers
+═══════════════════════════════════════════════════════════ */
+function handleInsert() {
+  const raw = document.getElementById('insertInput').value.trim();
+  if (raw === '') { setStatus('숫자를 입력하세요.', 'error'); return; }
+  const val = parseInt(raw, 10);
+  if (isNaN(val)) { setStatus('유효한 숫자를 입력하세요.', 'error'); return; }
+
+  hideTraversalResult();
+  resetNodeStates();
+
+  const path = bst.insert(val);
+  if (!path) {
+    setStatus(`${val}은(는) 이미 트리에 존재합니다.`, 'error');
+    renderTree();
+    return;
+  }
+
+  document.getElementById('insertInput').value = '';
+  updateStats();
+
+  if (path.length === 1) {
+    // First node
+    path[0].state = 'found';
+    popInNode(path[0], () => {
+      setStatus(`루트 노드 ${val} 삽입 완료!`, 'success');
+      path[0].state = 'normal';
+      renderTree();
+    });
+    return;
+  }
+
+  // Animate path comparisons
+  const newNode = path[path.length - 1];
+  const steps = [];
+
+  for (let i = 0; i < path.length - 1; i++) {
+    const cur = path[i];
+    const next = path[i + 1];
+    const isNewNode = (next === newNode);
+    steps.push(() => {
+      cur.state = 'visiting';
+      renderTree();
+      const dir = val < cur.val ? '왼쪽' : '오른쪽';
+      const cmp = val < cur.val ? '<' : '>';
+      if (isNewNode) {
+        setStatus(`${val} ${cmp} ${cur.val} → ${dir}으로 이동 (빈 자리 발견!)`, 'info');
+      } else {
+        setStatus(`${val} ${cmp} ${cur.val} → ${dir}으로 이동`, 'info');
+      }
+    });
+  }
+
+  steps.push(() => {
+    // Mark path nodes as visited, new node as found
+    path.forEach((n, idx) => {
+      if (idx < path.length - 1) n.state = 'visiting';
+    });
+    newNode.state = 'found';
+    popInNode(newNode, () => {
+      setStatus(`✓ ${val} 삽입 완료! (깊이 ${path.length - 1})`, 'success');
+    });
+    renderTree();
+  });
+
+  steps.push(() => {
+    // Fade back to normal
+    path.forEach(n => { n.state = 'normal'; });
+    renderTree();
+  });
+
+  animateSequence(steps);
+}
+
+function handleSearch() {
+  const raw = document.getElementById('searchInput').value.trim();
+  if (raw === '') { setStatus('숫자를 입력하세요.', 'error'); return; }
+  const val = parseInt(raw, 10);
+  if (isNaN(val)) { setStatus('유효한 숫자를 입력하세요.', 'error'); return; }
+
+  hideTraversalResult();
+  resetNodeStates();
+
+  if (!bst.root) { setStatus('트리가 비어 있습니다.', 'error'); return; }
+
+  document.getElementById('searchInput').value = '';
+
+  const path = bst.search(val);
+  const steps = [];
+
+  path.forEach((entry, i) => {
+    steps.push(() => {
+      // Reset previous
+      if (i > 0) path[i - 1].node.state = 'visiting';
+      entry.node.state = entry.found ? 'found' : 'visiting';
+      renderTree();
+      if (entry.found) {
+        setStatus(`✓ ${val} 찾음! (깊이 ${i}, 비교 횟수 ${i + 1})`, 'success');
+      } else {
+        const dir = val < entry.node.val ? '왼쪽' : '오른쪽';
+        const cmp = val < entry.node.val ? '<' : '>';
+        const next = val < entry.node.val ? entry.node.left : entry.node.right;
+        if (!next) {
+          setStatus(`${val} ${cmp} ${entry.node.val} → ${dir} 자식 없음 → 없음`, 'error');
+        } else {
+          setStatus(`${val} ${cmp} ${entry.node.val} → ${dir}으로 이동`, 'info');
+        }
+      }
+    });
+  });
+
+  const lastEntry = path[path.length - 1];
+  if (!lastEntry.found) {
+    steps.push(() => {
+      setStatus(`✗ ${val}을(를) 찾지 못했습니다.`, 'error');
+    });
+  }
+
+  steps.push(() => {
+    path.forEach(e => { e.node.state = 'normal'; });
+    renderTree();
+  });
+
+  animateSequence(steps);
+}
+
+function handleTraversal(type) {
+  if (!bst.root) { setStatus('트리가 비어 있습니다.', 'error'); return; }
+
+  hideTraversalResult();
+  resetNodeStates();
+  renderTree();
+
+  const names = {
+    preorder:  '전위 순회 (Root → Left → Right)',
+    inorder:   '중위 순회 (Left → Root → Right)',
+    postorder: '후위 순회 (Left → Right → Root)',
+  };
+
+  const nodes = bst[type]();
+  const seqEl = document.getElementById('traversalSequence');
+  const resEl = document.getElementById('traversalResult');
+  const labelEl = document.getElementById('traversalLabel');
+
+  labelEl.textContent = names[type] + ' 결과';
+  seqEl.innerHTML = '';
+
+  // Build sequence badges (pre-rendered, highlighted as visited)
+  nodes.forEach((n, i) => {
+    if (i > 0) {
+      const arrow = document.createElement('span');
+      arrow.className = 'seq-arrow';
+      arrow.textContent = '→';
+      seqEl.appendChild(arrow);
+    }
+    const badge = document.createElement('span');
+    badge.className  = 'seq-num';
+    badge.id         = `seq-${n.val}-${i}`;
+    badge.textContent = String(n.val);
+    seqEl.appendChild(badge);
+  });
+
+  resEl.classList.add('visible');
+
+  if (type === 'inorder') {
+    document.getElementById('sortedNote').style.display = 'flex';
+  }
+
+  const steps = [];
+  let prevNode = null;
+
+  nodes.forEach((node, idx) => {
+    steps.push(() => {
+      if (prevNode) prevNode.state = 'visiting';
+      node.state = 'found';
+      node.orderLabel = idx + 1;
+      renderTree();
+      setStatus(`[${names[type]}] ${idx + 1}번째: ${node.val} 방문`, 'tree');
+
+      // Highlight badge
+      const badge = document.getElementById(`seq-${node.val}-${idx}`);
+      if (badge) badge.classList.add('active');
+
+      prevNode = node;
+    });
+  });
+
+  steps.push(() => {
+    bst.allNodes().forEach(n => { n.state = 'normal'; });
+    renderTree();
+    setStatus(`${names[type]} 완료! 총 ${nodes.length}개 노드.`, 'success');
+  });
+
+  animateSequence(steps);
+}
+
+function handleReset() {
+  if (animRunning) return;
+  bst = new BST();
+  const initial = [50, 30, 70, 20, 40, 60, 80];
+  initial.forEach(v => bst.insert(v));
+  resetNodeStates();
+  hideTraversalResult();
+  updateStats();
+  renderTree();
+  setStatus('트리가 초기 상태로 초기화되었습니다. [50, 30, 70, 20, 40, 60, 80]');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Keyboard shortcuts
+═══════════════════════════════════════════════════════════ */
+document.getElementById('insertInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') handleInsert();
+});
+document.getElementById('searchInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') handleSearch();
+});
+
+/* ═══════════════════════════════════════════════════════════
+   Responsive canvas
+═══════════════════════════════════════════════════════════ */
+function resizeCanvas() {
+  const container = canvas.parentElement;
+  const w = container.clientWidth;
+  const ratio = 800 / 480;
+  canvas.style.width  = w + 'px';
+  canvas.style.height = (w / ratio) + 'px';
+}
+
+window.addEventListener('resize', () => { resizeCanvas(); renderTree(); });
+
+/* ═══════════════════════════════════════════════════════════
+   Init
+═══════════════════════════════════════════════════════════ */
+let bst = new BST();
+const initial = [50, 30, 70, 20, 40, 60, 80];
+initial.forEach(v => bst.insert(v));
+
+resizeCanvas();
+updateStats();
+renderTree();
+setStatus('트리가 초기화되었습니다 [50, 30, 70, 20, 40, 60, 80]. 값을 삽입하거나 탐색해보세요.');
+
+/* ═══════════════════════════════════════════════════════════
+   Page load progress bar (matches index.html style)
+═══════════════════════════════════════════════════════════ */
+(function pageLoadBar() {
+  const bar = document.createElement('div');
+  Object.assign(bar.style, {
+    position: 'fixed', top: '0', left: '0', height: '2px', width: '0%',
+    background: 'linear-gradient(90deg, #ce93d8, #7c3aed, #4fc3f7)',
+    zIndex: '9999', transition: 'width 0.3s ease', borderRadius: '0 2px 2px 0',
+  });
+  document.body.appendChild(bar);
+  let pct = 0;
+  const tick = setInterval(() => {
+    pct += Math.random() * 18;
+    if (pct >= 90) { clearInterval(tick); pct = 90; }
+    bar.style.width = pct + '%';
+  }, 80);
+  window.addEventListener('load', () => {
+    clearInterval(tick); bar.style.width = '100%';
+    setTimeout(() => { bar.style.opacity = '0'; }, 400);
+    setTimeout(() => bar.remove(), 800);
+  });
+})();
+</script>
+</body>
+</html>

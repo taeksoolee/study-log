@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>해시 테이블 시각화</title>
+  <style>
+    /* ─────────────────────────────────────────────
+       CSS Reset & Custom Properties
+    ───────────────────────────────────────────── */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-base:        #0d0f1a;
+      --bg-surface:     #141622;
+      --bg-card:        #1a1d2e;
+      --bg-card-hover:  #1f2338;
+      --border:         #2a2d45;
+      --border-hover:   #3a3d5c;
+      --text-primary:   #e8eaf6;
+      --text-secondary: #9fa8c7;
+      --text-muted:     #5c6080;
+
+      --accent:         #80cbc4;
+      --accent-dim:     rgba(128, 203, 196, 0.35);
+      --accent-glow:    rgba(128, 203, 196, 0.15);
+      --accent-bright:  #b2dfdb;
+
+      --bucket-empty:   #1a1d2e;
+      --bucket-filled:  rgba(128, 203, 196, 0.12);
+      --bucket-active:  rgba(128, 203, 196, 0.30);
+      --bucket-found:   rgba(100, 220, 150, 0.25);
+
+      --node-bg:        rgba(128, 203, 196, 0.10);
+      --node-border:    rgba(128, 203, 196, 0.40);
+      --node-active:    rgba(128, 203, 196, 0.40);
+      --node-active-border: rgba(128, 203, 196, 0.90);
+
+      --warn-color:     #ffb74d;
+      --warn-bg:        rgba(255, 183, 77, 0.12);
+      --warn-border:    rgba(255, 183, 77, 0.35);
+
+      --danger-color:   #ef9a9a;
+      --success-color:  #81c784;
+
+      --radius-sm:  6px;
+      --radius-md:  12px;
+      --radius-lg:  18px;
+
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }
+
+    /* ─────────────────────────────────────────────
+       Base
+    ───────────────────────────────────────────── */
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background-image:
+        linear-gradient(rgba(128, 203, 196, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(128, 203, 196, 0.025) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+    }
+
+    /* ─────────────────────────────────────────────
+       Layout
+    ───────────────────────────────────────────── */
+    .page-wrapper {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px 64px;
+    }
+
+    /* ─────────────────────────────────────────────
+       Header
+    ───────────────────────────────────────────── */
+    .page-header {
+      padding: 40px 0 36px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 150ms ease;
+      width: fit-content;
+    }
+
+    .back-link:hover { color: var(--accent); }
+
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(128, 203, 196, 0.08);
+      border: 1px solid rgba(128, 203, 196, 0.2);
+      border-radius: 100px;
+      padding: 5px 16px;
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      color: var(--accent);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      width: fit-content;
+    }
+
+    .header-badge::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    .page-title {
+      font-size: clamp(1.6rem, 4vw, 2.4rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #e8eaf6 30%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .page-subtitle {
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      max-width: 600px;
+    }
+
+    /* ─────────────────────────────────────────────
+       Two-column layout
+    ───────────────────────────────────────────── */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 24px;
+      align-items: start;
+    }
+
+    @media (max-width: 860px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ─────────────────────────────────────────────
+       Panel / Card
+    ───────────────────────────────────────────── */
+    .panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .panel::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: 0.5;
+    }
+
+    .panel-title {
+      font-size: 0.78rem;
+      font-family: var(--font-mono);
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel-title::before {
+      content: '';
+      width: 3px;
+      height: 14px;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+
+    /* ─────────────────────────────────────────────
+       Hash Table Visual
+    ───────────────────────────────────────────── */
+    .bucket-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .bucket-row {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      transition: box-shadow 300ms ease;
+      min-height: 50px;
+    }
+
+    .bucket-row.highlight {
+      box-shadow: 0 0 0 2px var(--accent), 0 0 20px rgba(128,203,196,0.25);
+    }
+
+    .bucket-row.found {
+      box-shadow: 0 0 0 2px var(--success-color), 0 0 20px rgba(129,199,132,0.25);
+    }
+
+    .bucket-idx {
+      width: 44px;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(128, 203, 196, 0.07);
+      border: 1px solid var(--border);
+      border-right: none;
+      border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--accent);
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .bucket-content {
+      flex: 1;
+      min-height: 50px;
+      background: var(--bucket-empty);
+      border: 1px solid var(--border);
+      border-left: none;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      gap: 0;
+      transition: background 300ms ease;
+      flex-wrap: wrap;
+      row-gap: 4px;
+    }
+
+    .bucket-content.has-items {
+      background: var(--bucket-filled);
+    }
+
+    .bucket-empty-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    /* Chain nodes */
+    .chain-node {
+      display: inline-flex;
+      align-items: center;
+      gap: 0;
+      animation: nodeAppear 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+
+    @keyframes nodeAppear {
+      from { opacity: 0; transform: scale(0.6) translateY(-4px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .chain-node.removing {
+      animation: nodeRemove 280ms ease forwards;
+    }
+
+    @keyframes nodeRemove {
+      from { opacity: 1; transform: scale(1); }
+      to   { opacity: 0; transform: scale(0.6) translateY(-4px); }
+    }
+
+    .node-box {
+      background: var(--node-bg);
+      border: 1px solid var(--node-border);
+      border-radius: var(--radius-sm);
+      padding: 4px 10px;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-primary);
+      white-space: nowrap;
+      transition: background 300ms ease, border-color 300ms ease, box-shadow 300ms ease;
+    }
+
+    .node-box.active {
+      background: var(--node-active);
+      border-color: var(--node-active-border);
+      box-shadow: 0 0 12px rgba(128, 203, 196, 0.3);
+    }
+
+    .node-box .node-key {
+      color: var(--accent-bright);
+      font-weight: 600;
+    }
+
+    .node-box .node-val {
+      color: var(--text-secondary);
+    }
+
+    .chain-arrow {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      padding: 0 4px;
+      font-family: var(--font-mono);
+    }
+
+    .chain-null {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      padding: 0 4px;
+    }
+
+    /* ─────────────────────────────────────────────
+       Hash Function Display
+    ───────────────────────────────────────────── */
+    .hash-calc {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      line-height: 1.9;
+      color: var(--text-secondary);
+      min-height: 100px;
+      transition: all 300ms ease;
+    }
+
+    .hash-calc .calc-step {
+      display: block;
+      animation: stepIn 200ms ease both;
+    }
+
+    @keyframes stepIn {
+      from { opacity: 0; transform: translateX(-8px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    .hash-calc .calc-step.delay-1 { animation-delay: 100ms; }
+    .hash-calc .calc-step.delay-2 { animation-delay: 200ms; }
+    .hash-calc .calc-step.delay-3 { animation-delay: 300ms; }
+    .hash-calc .calc-step.delay-4 { animation-delay: 400ms; }
+
+    .calc-highlight { color: var(--accent-bright); font-weight: 700; }
+    .calc-result    { color: var(--success-color); font-weight: 700; }
+    .calc-label     { color: var(--text-muted); }
+    .calc-formula   { color: var(--warn-color); }
+
+    /* ─────────────────────────────────────────────
+       Operations Panel
+    ───────────────────────────────────────────── */
+    .op-section {
+      margin-bottom: 20px;
+    }
+
+    .op-section:last-child { margin-bottom: 0; }
+
+    .op-label {
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+
+    .op-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .op-input {
+      flex: 1;
+      min-width: 80px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color 150ms ease, box-shadow 150ms ease;
+    }
+
+    .op-input:focus {
+      border-color: var(--accent-dim);
+      box-shadow: 0 0 0 2px rgba(128,203,196,0.1);
+    }
+
+    .op-input::placeholder { color: var(--text-muted); }
+
+    .op-btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-sans);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 150ms ease;
+      white-space: nowrap;
+    }
+
+    .op-btn:active { transform: scale(0.96); }
+    .op-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-set {
+      background: rgba(128, 203, 196, 0.15);
+      border: 1px solid var(--accent-dim);
+      color: var(--accent-bright);
+    }
+
+    .btn-set:hover:not(:disabled) {
+      background: rgba(128, 203, 196, 0.25);
+      box-shadow: 0 0 12px rgba(128, 203, 196, 0.2);
+    }
+
+    .btn-get {
+      background: rgba(100, 181, 246, 0.12);
+      border: 1px solid rgba(100, 181, 246, 0.35);
+      color: #90caf9;
+    }
+
+    .btn-get:hover:not(:disabled) {
+      background: rgba(100, 181, 246, 0.22);
+      box-shadow: 0 0 12px rgba(100, 181, 246, 0.2);
+    }
+
+    .btn-del {
+      background: rgba(239, 154, 154, 0.12);
+      border: 1px solid rgba(239, 154, 154, 0.35);
+      color: #ef9a9a;
+    }
+
+    .btn-del:hover:not(:disabled) {
+      background: rgba(239, 154, 154, 0.22);
+      box-shadow: 0 0 12px rgba(239, 154, 154, 0.2);
+    }
+
+    /* Result message */
+    .result-msg {
+      margin-top: 8px;
+      font-size: 0.78rem;
+      font-family: var(--font-mono);
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      opacity: 0;
+      transition: opacity 300ms ease;
+      min-height: 36px;
+    }
+
+    .result-msg.visible { opacity: 1; }
+    .result-msg.success {
+      background: rgba(129, 199, 132, 0.1);
+      border: 1px solid rgba(129, 199, 132, 0.3);
+      color: var(--success-color);
+    }
+    .result-msg.error {
+      background: rgba(239, 154, 154, 0.1);
+      border: 1px solid rgba(239, 154, 154, 0.3);
+      color: var(--danger-color);
+    }
+    .result-msg.info {
+      background: rgba(128, 203, 196, 0.1);
+      border: 1px solid var(--accent-dim);
+      color: var(--accent);
+    }
+
+    /* ─────────────────────────────────────────────
+       Statistics
+    ───────────────────────────────────────────── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .stat-box {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 1.4rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--accent-bright);
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .stat-name {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    /* Load factor bar */
+    .lf-section { margin-bottom: 0; }
+
+    .lf-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .lf-label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .lf-value {
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--accent);
+      transition: color 300ms ease;
+    }
+
+    .lf-value.warn { color: var(--warn-color); }
+
+    .lf-bar-track {
+      height: 8px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      overflow: hidden;
+    }
+
+    .lf-bar-fill {
+      height: 100%;
+      border-radius: 100px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-bright));
+      transition: width 400ms cubic-bezier(0.34, 1.56, 0.64, 1), background 300ms ease;
+      width: 0%;
+    }
+
+    .lf-bar-fill.warn {
+      background: linear-gradient(90deg, var(--warn-color), #ffe082);
+    }
+
+    .warn-badge {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      background: var(--warn-bg);
+      border: 1px solid var(--warn-border);
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+      margin-top: 10px;
+      font-size: 0.75rem;
+      color: var(--warn-color);
+      font-weight: 600;
+    }
+
+    .warn-badge.visible { display: flex; }
+    .warn-badge::before { content: '⚠'; }
+
+    /* ─────────────────────────────────────────────
+       Hash Explanation Panel
+    ───────────────────────────────────────────── */
+    .explain-block {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      margin-bottom: 14px;
+      font-size: 0.82rem;
+      line-height: 1.7;
+      color: var(--text-secondary);
+    }
+
+    .explain-block:last-child { margin-bottom: 0; }
+
+    .explain-title {
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .explain-formula {
+      margin-top: 10px;
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--accent-bright);
+      border-left: 3px solid var(--accent);
+    }
+
+    /* ─────────────────────────────────────────────
+       Section separator
+    ───────────────────────────────────────────── */
+    .separator {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+      margin: 20px 0;
+    }
+
+    /* ─────────────────────────────────────────────
+       Scrollbar
+    ───────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg-base); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+
+    /* ─────────────────────────────────────────────
+       Collisions highlight
+    ───────────────────────────────────────────── */
+    .collision-flash {
+      animation: collisionFlash 600ms ease;
+    }
+
+    @keyframes collisionFlash {
+      0%   { background: rgba(255, 183, 77, 0.35); }
+      100% { background: var(--bucket-filled); }
+    }
+
+    /* ─────────────────────────────────────────────
+       Responsive tweaks
+    ───────────────────────────────────────────── */
+    @media (max-width: 540px) {
+      .page-header { padding: 24px 0 24px; }
+      .stats-grid  { grid-template-columns: 1fr 1fr; }
+      .op-row      { flex-direction: column; align-items: stretch; }
+      .op-btn      { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-wrapper">
+
+    <!-- ════════════════════════════════
+         HEADER
+    ════════════════════════════════ -->
+    <header class="page-header">
+      <a class="back-link" href="../index.html">← 목록으로</a>
+      <div class="header-badge">06 / 06 · Hash Table</div>
+      <h1 class="page-title">해시 테이블</h1>
+      <p class="page-subtitle">
+        해시 함수로 키를 버킷 인덱스로 변환해 저장하는 자료구조입니다.
+        충돌 해결은 체이닝(Separate Chaining) 방식을 사용합니다.
+      </p>
+    </header>
+
+    <!-- ════════════════════════════════
+         MAIN GRID
+    ════════════════════════════════ -->
+    <div class="main-grid">
+
+      <!-- ──────────── LEFT COLUMN ──────────── -->
+      <div style="display:flex;flex-direction:column;gap:20px;">
+
+        <!-- Hash Table Visual -->
+        <div class="panel">
+          <div class="panel-title">해시 테이블 (크기: 8)</div>
+          <div class="bucket-list" id="bucketList">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+
+        <!-- Hash Function Calc Display -->
+        <div class="panel">
+          <div class="panel-title">해시 계산 과정</div>
+          <div class="hash-calc" id="hashCalc">
+            <span style="color:var(--text-muted);font-family:var(--font-mono);font-size:0.75rem;">
+              키를 입력하고 연산을 실행하면 해시 계산 과정이 여기에 표시됩니다.
+            </span>
+          </div>
+        </div>
+
+        <!-- Hash Function Explanation -->
+        <div class="panel">
+          <div class="panel-title">해시 함수 설명</div>
+
+          <div class="explain-block">
+            <div class="explain-title">🔑 해시 함수란?</div>
+            임의 크기의 데이터를 고정된 크기의 값(해시값)으로 변환하는 함수입니다.
+            같은 입력에는 항상 같은 출력이 나오며(결정론적), 키를 배열의 인덱스로
+            빠르게 매핑해 O(1) 평균 접근을 가능하게 합니다.
+            <div class="explain-formula">hash(key) = (각 문자 코드의 합) % 테이블 크기</div>
+          </div>
+
+          <div class="explain-block">
+            <div class="explain-title">➗ 왜 나머지(%)를 쓰나요?</div>
+            나머지 연산(모듈로)은 어떤 큰 숫자도 <strong style="color:var(--accent)">0 ~ (크기-1)</strong> 범위의
+            인덱스로 변환합니다. 예: 530 % 8 = 2 → 버킷 2에 저장.
+            이렇게 배열 범위를 벗어나지 않도록 보장합니다.
+          </div>
+
+          <div class="explain-block">
+            <div class="explain-title">⚡ 좋은 해시 함수의 조건</div>
+            <ul style="padding-left:16px;list-style-type:disc;">
+              <li>균등 분포 — 버킷에 고르게 분산</li>
+              <li>결정론적 — 같은 키 → 같은 버킷</li>
+              <li>빠른 계산 — O(키 길이)여야 함</li>
+              <li>낮은 충돌률 — 다른 키가 같은 버킷이 되는 경우 최소화</li>
+            </ul>
+          </div>
+
+          <div class="explain-block">
+            <div class="explain-title">🔗 충돌 해결 — 체이닝</div>
+            같은 버킷에 여러 키가 할당되면 연결 리스트로 이어 저장합니다.
+            <strong style="color:var(--accent)">로드 팩터(항목 수 / 테이블 크기)</strong>가 0.75를 초과하면
+            리해싱(rehashing)을 권장합니다. 이 시각화에서는 테이블 크기 8을 사용합니다.
+          </div>
+        </div>
+
+      </div><!-- /LEFT COLUMN -->
+
+      <!-- ──────────── RIGHT COLUMN ──────────── -->
+      <div style="display:flex;flex-direction:column;gap:20px;">
+
+        <!-- Operations -->
+        <div class="panel">
+          <div class="panel-title">연산</div>
+
+          <!-- SET -->
+          <div class="op-section">
+            <div class="op-label">Set (키, 값) — 저장 / 업데이트</div>
+            <div class="op-row">
+              <input class="op-input" id="setKey" type="text" placeholder="키 (예: apple)" maxlength="20" />
+              <input class="op-input" id="setVal" type="text" placeholder="값 (예: 사과)" maxlength="30" />
+              <button class="op-btn btn-set" id="btnSet">저장</button>
+            </div>
+          </div>
+
+          <div class="separator"></div>
+
+          <!-- GET -->
+          <div class="op-section">
+            <div class="op-label">Get (키) — 조회</div>
+            <div class="op-row">
+              <input class="op-input" id="getKey" type="text" placeholder="키 (예: apple)" maxlength="20" />
+              <button class="op-btn btn-get" id="btnGet">조회</button>
+            </div>
+          </div>
+
+          <div class="separator"></div>
+
+          <!-- DELETE -->
+          <div class="op-section">
+            <div class="op-label">Delete (키) — 삭제</div>
+            <div class="op-row">
+              <input class="op-input" id="delKey" type="text" placeholder="키 (예: apple)" maxlength="20" />
+              <button class="op-btn btn-del" id="btnDel">삭제</button>
+            </div>
+          </div>
+
+          <!-- Result message -->
+          <div class="result-msg" id="resultMsg"></div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="panel">
+          <div class="panel-title">통계</div>
+
+          <div class="stats-grid">
+            <div class="stat-box">
+              <div class="stat-value" id="statEntries">0</div>
+              <div class="stat-name">전체 항목</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-value" id="statOccupied">0</div>
+              <div class="stat-name">점유 버킷</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-value" id="statCollisions">0</div>
+              <div class="stat-name">충돌 횟수</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-value" id="statTableSize">8</div>
+              <div class="stat-name">테이블 크기</div>
+            </div>
+          </div>
+
+          <div class="lf-section">
+            <div class="lf-header">
+              <span class="lf-label">로드 팩터 (Load Factor)</span>
+              <span class="lf-value" id="lfValue">0.00</span>
+            </div>
+            <div class="lf-bar-track">
+              <div class="lf-bar-fill" id="lfBar"></div>
+            </div>
+            <div class="warn-badge" id="warnBadge">리해싱 권장 (Load Factor &gt; 0.75)</div>
+          </div>
+        </div>
+
+      </div><!-- /RIGHT COLUMN -->
+
+    </div><!-- /.main-grid -->
+
+  </div><!-- /.page-wrapper -->
+
+  <script>
+    /* ══════════════════════════════════════════════════════
+       HashTable Class — Separate Chaining
+    ══════════════════════════════════════════════════════ */
+    class Node {
+      constructor(key, value) {
+        this.key   = key;
+        this.value = value;
+        this.next  = null;
+      }
+    }
+
+    class HashTable {
+      constructor(size = 8) {
+        this.size       = size;
+        this.table      = new Array(size).fill(null);
+        this.entries    = 0;
+        this.collisions = 0;
+      }
+
+      hash(key) {
+        let sum = 0;
+        for (let i = 0; i < key.length; i++) {
+          sum += key.charCodeAt(i);
+        }
+        return sum % this.size;
+      }
+
+      // Returns detailed steps for animation
+      hashSteps(key) {
+        const codes = [];
+        for (let i = 0; i < key.length; i++) {
+          codes.push({ char: key[i], code: key.charCodeAt(i) });
+        }
+        const sum = codes.reduce((acc, c) => acc + c.code, 0);
+        const idx = sum % this.size;
+        return { codes, sum, idx };
+      }
+
+      set(key, value) {
+        const idx = this.hash(key);
+        if (!this.table[idx]) {
+          this.table[idx] = new Node(key, value);
+          this.entries++;
+          return { idx, isUpdate: false, isCollision: false };
+        }
+
+        // Walk chain — update if key exists
+        let cur = this.table[idx];
+        while (cur) {
+          if (cur.key === key) {
+            cur.value = value;
+            return { idx, isUpdate: true, isCollision: false };
+          }
+          cur = cur.next;
+        }
+
+        // Collision — prepend
+        const newNode  = new Node(key, value);
+        newNode.next   = this.table[idx];
+        this.table[idx] = newNode;
+        this.collisions++;
+        this.entries++;
+        return { idx, isUpdate: false, isCollision: true };
+      }
+
+      get(key) {
+        const idx = this.hash(key);
+        let cur = this.table[idx];
+        const chain = [];
+        while (cur) {
+          chain.push(cur.key);
+          if (cur.key === key) return { idx, value: cur.value, chain, found: true };
+          cur = cur.next;
+        }
+        return { idx, value: undefined, chain, found: false };
+      }
+
+      delete(key) {
+        const idx = this.hash(key);
+        if (!this.table[idx]) return { idx, found: false };
+
+        // If head matches
+        if (this.table[idx].key === key) {
+          this.table[idx] = this.table[idx].next;
+          this.entries--;
+          // If bucket still has items we don't decrement collisions — simplified
+          return { idx, found: true };
+        }
+
+        let prev = this.table[idx];
+        let cur  = prev.next;
+        while (cur) {
+          if (cur.key === key) {
+            prev.next = cur.next;
+            this.entries--;
+            return { idx, found: true };
+          }
+          prev = cur;
+          cur  = cur.next;
+        }
+        return { idx, found: false };
+      }
+
+      getBucketChain(idx) {
+        const chain = [];
+        let cur = this.table[idx];
+        while (cur) {
+          chain.push({ key: cur.key, value: cur.value });
+          cur = cur.next;
+        }
+        return chain;
+      }
+
+      getOccupied() {
+        let count = 0;
+        for (let i = 0; i < this.size; i++) {
+          if (this.table[i]) count++;
+        }
+        return count;
+      }
+
+      getLoadFactor() {
+        return this.entries / this.size;
+      }
+    }
+
+    /* ══════════════════════════════════════════════════════
+       UI State
+    ══════════════════════════════════════════════════════ */
+    const ht = new HashTable(8);
+    let animating = false;
+
+    /* ──────────── DOM refs ──────────── */
+    const bucketList  = document.getElementById('bucketList');
+    const hashCalc    = document.getElementById('hashCalc');
+    const resultMsg   = document.getElementById('resultMsg');
+    const statEntries    = document.getElementById('statEntries');
+    const statOccupied   = document.getElementById('statOccupied');
+    const statCollisions = document.getElementById('statCollisions');
+    const lfValue        = document.getElementById('lfValue');
+    const lfBar          = document.getElementById('lfBar');
+    const warnBadge      = document.getElementById('warnBadge');
+
+    /* ──────────── Helpers ──────────── */
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+    function setButtons(disabled) {
+      ['btnSet', 'btnGet', 'btnDel'].forEach(id => {
+        document.getElementById(id).disabled = disabled;
+      });
+    }
+
+    function showResult(text, type = 'info') {
+      resultMsg.textContent  = text;
+      resultMsg.className    = `result-msg ${type} visible`;
+    }
+
+    function hideResult() {
+      resultMsg.classList.remove('visible');
+    }
+
+    /* ──────────── Render bucket list ──────────── */
+    function renderBuckets(highlightIdx = -1, highlightType = 'highlight') {
+      bucketList.innerHTML = '';
+      for (let i = 0; i < ht.size; i++) {
+        const chain = ht.getBucketChain(i);
+
+        const row = document.createElement('div');
+        row.className = 'bucket-row';
+        row.id        = `bucket-${i}`;
+        if (i === highlightIdx) row.classList.add(highlightType);
+
+        // Index label
+        const idx = document.createElement('div');
+        idx.className   = 'bucket-idx';
+        idx.textContent = i;
+        row.appendChild(idx);
+
+        // Content area
+        const content = document.createElement('div');
+        content.className = 'bucket-content' + (chain.length ? ' has-items' : '');
+
+        if (chain.length === 0) {
+          const empty = document.createElement('span');
+          empty.className   = 'bucket-empty-label';
+          empty.textContent = '비어 있음';
+          content.appendChild(empty);
+        } else {
+          chain.forEach((item, ci) => {
+            const node = document.createElement('span');
+            node.className = 'chain-node';
+            node.id        = `node-${i}-${ci}`;
+
+            if (ci > 0) {
+              const arrow = document.createElement('span');
+              arrow.className   = 'chain-arrow';
+              arrow.textContent = '→';
+              node.appendChild(arrow);
+            }
+
+            const box = document.createElement('span');
+            box.className = 'node-box';
+            box.innerHTML = `<span class="node-key">${escHtml(item.key)}</span><span class="node-val"> → ${escHtml(String(item.value))}</span>`;
+            node.appendChild(box);
+            content.appendChild(node);
+          });
+
+          // null terminator
+          const arrow = document.createElement('span');
+          arrow.className   = 'chain-arrow';
+          arrow.textContent = '→';
+          content.appendChild(arrow);
+
+          const nullLabel = document.createElement('span');
+          nullLabel.className   = 'chain-null';
+          nullLabel.textContent = 'null';
+          content.appendChild(nullLabel);
+        }
+
+        row.appendChild(content);
+        bucketList.appendChild(row);
+      }
+    }
+
+    function escHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    /* ──────────── Update stats ──────────── */
+    function updateStats() {
+      const lf      = ht.getLoadFactor();
+      const lfPct   = (lf * 100).toFixed(1);
+      const barPct  = Math.min(lf * 100, 100);
+      const isWarn  = lf > 0.75;
+
+      statEntries.textContent    = ht.entries;
+      statOccupied.textContent   = ht.getOccupied();
+      statCollisions.textContent = ht.collisions;
+      lfValue.textContent        = lf.toFixed(2);
+      lfValue.classList.toggle('warn', isWarn);
+      lfBar.style.width          = barPct + '%';
+      lfBar.classList.toggle('warn', isWarn);
+      warnBadge.classList.toggle('visible', isWarn);
+    }
+
+    /* ──────────── Show hash calc ──────────── */
+    function renderHashCalc(key, highlightKey = null) {
+      const { codes, sum, idx } = ht.hashSteps(key);
+
+      const codeStr = codes.map(c => `<span style="color:var(--accent-bright)">${c.code}</span>`).join(' + ');
+      const charStr = codes.map(c => `'${escHtml(c.char)}'`).join('+');
+
+      hashCalc.innerHTML = `
+        <span class="calc-step"><span class="calc-label">입력 키:   </span><span class="calc-highlight">"${escHtml(key)}"</span></span>
+        <span class="calc-step delay-1"><span class="calc-label">문자 코드: </span>${charStr} = ${codeStr}</span>
+        <span class="calc-step delay-2"><span class="calc-label">합계:      </span><span class="calc-highlight">${sum}</span></span>
+        <span class="calc-step delay-3"><span class="calc-label">인덱스:    </span><span class="calc-formula">${sum} % ${ht.size}</span> = <span class="calc-result">${idx}</span></span>
+        <span class="calc-step delay-4"><span class="calc-label">→ 버킷    </span><span class="calc-result">${idx}</span>에 저장</span>
+      `;
+    }
+
+    /* ──────────── Highlight a node box in a bucket ──────────── */
+    function highlightNode(bucketIdx, keyToHighlight) {
+      const bucketRow = document.getElementById(`bucket-${bucketIdx}`);
+      if (!bucketRow) return;
+      const boxes = bucketRow.querySelectorAll('.node-box');
+      boxes.forEach(box => {
+        const keyEl = box.querySelector('.node-key');
+        if (keyEl && keyEl.textContent === keyToHighlight) {
+          box.classList.add('active');
+        }
+      });
+    }
+
+    function clearAllHighlights() {
+      document.querySelectorAll('.node-box.active').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.bucket-row.highlight, .bucket-row.found').forEach(r => {
+        r.classList.remove('highlight', 'found');
+      });
+    }
+
+    /* ══════════════════════════════════════════════════════
+       Operations
+    ══════════════════════════════════════════════════════ */
+
+    /* SET */
+    async function opSet() {
+      if (animating) return;
+      const key = document.getElementById('setKey').value.trim();
+      const val = document.getElementById('setVal').value.trim();
+      if (!key) { showResult('키를 입력하세요.', 'error'); return; }
+
+      animating = true;
+      setButtons(true);
+      hideResult();
+
+      // Step 1: show hash calc
+      renderHashCalc(key);
+
+      // Step 2: highlight bucket
+      const { codes, sum, idx } = ht.hashSteps(key);
+      renderBuckets(idx, 'highlight');
+      await sleep(600);
+
+      // Step 3: perform set
+      const result = ht.set(key, val === '' ? '(값 없음)' : val);
+
+      // Collision flash
+      if (result.isCollision) {
+        const bucketRow = document.getElementById(`bucket-${idx}`);
+        if (bucketRow) {
+          const content = bucketRow.querySelector('.bucket-content');
+          if (content) content.classList.add('collision-flash');
+        }
+      }
+
+      // Re-render with highlight
+      renderBuckets(idx, 'highlight');
+      highlightNode(idx, key);
+      updateStats();
+      await sleep(500);
+
+      clearAllHighlights();
+      renderBuckets();
+
+      if (result.isUpdate) {
+        showResult(`업데이트: "${key}" → "${val}"`, 'info');
+      } else if (result.isCollision) {
+        showResult(`저장 완료 (충돌 발생): "${key}" → 버킷 ${idx}에 체이닝`, 'info');
+      } else {
+        showResult(`저장 완료: "${key}" → 버킷 ${idx}`, 'success');
+      }
+
+      animating = false;
+      setButtons(false);
+    }
+
+    /* GET */
+    async function opGet() {
+      if (animating) return;
+      const key = document.getElementById('getKey').value.trim();
+      if (!key) { showResult('키를 입력하세요.', 'error'); return; }
+
+      animating = true;
+      setButtons(true);
+      hideResult();
+
+      // Show hash calc
+      renderHashCalc(key);
+
+      const { idx } = ht.hashSteps(key);
+      renderBuckets(idx, 'highlight');
+      await sleep(600);
+
+      // Traverse chain (animate each node)
+      const bucketRow = document.getElementById(`bucket-${idx}`);
+      const result = ht.get(key);
+
+      if (bucketRow) {
+        const boxes = bucketRow.querySelectorAll('.node-box');
+        for (let i = 0; i < boxes.length; i++) {
+          boxes[i].classList.add('active');
+          await sleep(300);
+          const keyEl = boxes[i].querySelector('.node-key');
+          if (keyEl && keyEl.textContent === key) break;
+          boxes[i].classList.remove('active');
+        }
+      }
+
+      await sleep(400);
+
+      if (result.found) {
+        renderBuckets(idx, 'found');
+        highlightNode(idx, key);
+        showResult(`찾음: "${key}" → "${result.value}"`, 'success');
+      } else {
+        showResult(`없음: "${key}" 키가 존재하지 않습니다.`, 'error');
+      }
+
+      await sleep(1000);
+      clearAllHighlights();
+      renderBuckets();
+
+      animating = false;
+      setButtons(false);
+    }
+
+    /* DELETE */
+    async function opDelete() {
+      if (animating) return;
+      const key = document.getElementById('delKey').value.trim();
+      if (!key) { showResult('키를 입력하세요.', 'error'); return; }
+
+      animating = true;
+      setButtons(true);
+      hideResult();
+
+      renderHashCalc(key);
+
+      const { idx } = ht.hashSteps(key);
+      renderBuckets(idx, 'highlight');
+      await sleep(500);
+
+      // Find and flash node before removal
+      const result = ht.get(key);
+
+      if (result.found) {
+        highlightNode(idx, key);
+        await sleep(400);
+
+        // Animate removal with class
+        const bucketRow = document.getElementById(`bucket-${idx}`);
+        if (bucketRow) {
+          const boxes = bucketRow.querySelectorAll('.node-box');
+          boxes.forEach(box => {
+            const keyEl = box.querySelector('.node-key');
+            if (keyEl && keyEl.textContent === key) {
+              const parentNode = box.closest('.chain-node');
+              if (parentNode) parentNode.classList.add('removing');
+            }
+          });
+        }
+
+        await sleep(300);
+        ht.delete(key);
+        renderBuckets(idx, 'highlight');
+        updateStats();
+        await sleep(400);
+
+        clearAllHighlights();
+        renderBuckets();
+        showResult(`삭제 완료: "${key}" (버킷 ${idx})`, 'success');
+      } else {
+        clearAllHighlights();
+        renderBuckets();
+        showResult(`없음: "${key}" 키가 존재하지 않습니다.`, 'error');
+      }
+
+      animating = false;
+      setButtons(false);
+    }
+
+    /* ══════════════════════════════════════════════════════
+       Event Listeners
+    ══════════════════════════════════════════════════════ */
+    document.getElementById('btnSet').addEventListener('click', opSet);
+    document.getElementById('btnGet').addEventListener('click', opGet);
+    document.getElementById('btnDel').addEventListener('click', opDelete);
+
+    // Enter key support
+    ['setKey', 'setVal'].forEach(id => {
+      document.getElementById(id).addEventListener('keydown', e => {
+        if (e.key === 'Enter') opSet();
+      });
+    });
+    document.getElementById('getKey').addEventListener('keydown', e => {
+      if (e.key === 'Enter') opGet();
+    });
+    document.getElementById('delKey').addEventListener('keydown', e => {
+      if (e.key === 'Enter') opDelete();
+    });
+
+    /* ══════════════════════════════════════════════════════
+       Pre-populate with initial data
+    ══════════════════════════════════════════════════════ */
+    async function init() {
+      const initialData = [
+        { key: 'apple',  value: '사과' },
+        { key: 'banana', value: '바나나' },
+        { key: 'cat',    value: '고양이' },
+        { key: 'dog',    value: '강아지' },
+        { key: 'earth',  value: '지구' },
+      ];
+
+      for (const { key, value } of initialData) {
+        ht.set(key, value);
+      }
+
+      renderBuckets();
+      updateStats();
+
+      // Show initial hash calc for "apple" as a demo
+      renderHashCalc('apple');
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reflow vs Repaint 비교 데모</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #0f1117;
+      --surface:      #1a1d27;
+      --surface2:     #22263a;
+      --surface3:     #2a2f45;
+      --border:       #2e3250;
+      --text:         #e2e8f0;
+      --muted:        #7c85a2;
+      --blue:         #3b82f6;
+      --blue-dim:     #1d3a6e;
+      --green:        #22c55e;
+      --green-dim:    #14422a;
+      --orange:       #f97316;
+      --orange-dim:   #5a2a0a;
+      --yellow:       #facc15;
+      --yellow-dim:   #4a3a00;
+      --red:          #ef4444;
+      --red-dim:      #4a1010;
+      --purple:       #a855f7;
+      --purple-dim:   #3b1f6e;
+      --cyan:         #06b6d4;
+      --cyan-dim:     #0a3040;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--red) 0%, var(--yellow) 50%, var(--green) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px;
+    }
+    .header .subtitle {
+      color: var(--muted);
+      font-size: 14px;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+    .tag-row {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .tag {
+      padding: 3px 10px;
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .tag-red    { background: var(--red-dim);    color: var(--red);    border: 1px solid var(--red);    }
+    .tag-yellow { background: var(--yellow-dim); color: var(--yellow); border: 1px solid var(--yellow); }
+    .tag-green  { background: var(--green-dim);  color: var(--green);  border: 1px solid var(--green);  }
+
+    /* ── Concept cards ── */
+    .concept-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .concept-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+    }
+    .concept-card h3 {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .concept-card p {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .dot-red    { width:10px; height:10px; border-radius:50%; background:var(--red);    flex-shrink:0; }
+    .dot-yellow { width:10px; height:10px; border-radius:50%; background:var(--yellow); flex-shrink:0; }
+
+    /* ── Main two-column layout ── */
+    .main-columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .panel-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .panel-reflow  { border-top: 3px solid var(--red);    }
+    .panel-repaint { border-top: 3px solid var(--yellow); }
+
+    .btn-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+      text-align: left;
+    }
+    .btn:hover  { background: var(--surface3); }
+    .btn:active { transform: scale(0.97); }
+    .btn-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+    .btn-reflow  .btn-icon { background: var(--red-dim);    }
+    .btn-repaint .btn-icon { background: var(--yellow-dim); }
+    .btn-label { flex: 1; }
+    .btn-prop {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: 'Courier New', monospace;
+      background: var(--surface3);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    /* ── Demo box area ── */
+    .demo-area {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .demo-area-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 16px;
+    }
+    .demo-wrapper {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    .demo-box-container {
+      flex: 1;
+      min-width: 260px;
+    }
+    #demoBox {
+      width: 280px;
+      min-height: 120px;
+      background: linear-gradient(135deg, #1e2a40 0%, #2a1e40 100%);
+      border: 2px solid var(--blue);
+      border-radius: 12px;
+      padding: 16px;
+      margin: 0 auto;
+      color: var(--text);
+      font-size: 14px;
+      transition: none;
+      position: relative;
+      overflow: hidden;
+    }
+    #demoBox .box-title {
+      font-weight: 700;
+      font-size: 15px;
+      margin-bottom: 8px;
+      color: var(--cyan);
+    }
+    #demoBox .box-desc {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .img-placeholder {
+      width: 100%;
+      height: 48px;
+      background: var(--surface3);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 10px;
+    }
+    .child-elements {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .child-chip {
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      background: var(--surface3);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    /* ── Inspector ── */
+    .inspector {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-top: 12px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+    }
+    .inspector-title {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .inspector-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 3px;
+    }
+    .inspector-key   { color: var(--blue);   }
+    .inspector-value { color: var(--yellow);  }
+    .inspector-sep   { color: var(--muted);   }
+
+    /* ── Result panel ── */
+    .result-panel {
+      flex: 1;
+      min-width: 260px;
+    }
+    .result-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .result-badge.reflow  { background: var(--red-dim);    border: 1px solid var(--red);    color: var(--red);    }
+    .result-badge.repaint { background: var(--yellow-dim); border: 1px solid var(--yellow); color: var(--yellow); }
+    .result-badge.idle    { background: var(--surface2);   border: 1px solid var(--border); color: var(--muted);  }
+
+    .result-explain {
+      background: var(--surface2);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.65;
+      margin-bottom: 12px;
+      border-left: 3px solid var(--border);
+    }
+    .result-explain.reflow  { border-left-color: var(--red);    }
+    .result-explain.repaint { border-left-color: var(--yellow); }
+
+    .timing-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 13px;
+    }
+    .timing-title {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 8px;
+    }
+    .timing-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .timing-label { color: var(--muted); }
+    .timing-value { font-family: 'Courier New', monospace; color: var(--cyan); }
+    .timing-diff-row {
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .timing-diff { font-family: 'Courier New', monospace; font-weight: 700; }
+    .timing-diff.fast   { color: var(--green);  }
+    .timing-diff.medium { color: var(--yellow); }
+    .timing-diff.slow   { color: var(--red);    }
+
+    /* ── History log ── */
+    .history-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    .history-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .history-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 13px;
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .history-badge {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .history-badge.reflow  { background: var(--red-dim);    color: var(--red);    }
+    .history-badge.repaint { background: var(--yellow-dim); color: var(--yellow); }
+    .history-name  { flex: 1; }
+    .history-time  { font-family: 'Courier New', monospace; color: var(--cyan); font-size: 12px; }
+    .history-empty { color: var(--muted); font-size: 13px; padding: 10px 0; }
+
+    /* ── Performance meter ── */
+    .perf-meter {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .meter-label { color: var(--muted); font-size: 12px; flex-shrink: 0; }
+    .meter-bar-wrap {
+      flex: 1;
+      height: 8px;
+      background: var(--surface3);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .meter-bar {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 0.4s ease, background 0.4s ease;
+      width: 0%;
+    }
+    .meter-value { font-family: 'Courier New', monospace; font-size: 12px; color: var(--text); flex-shrink: 0; width: 60px; text-align: right; }
+
+    /* ── Optimization section ── */
+    .opt-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    .opt-title {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+    .opt-subtitle {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
+
+    .opt-compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .opt-card {
+      border-radius: 10px;
+      padding: 16px;
+      border: 1px solid var(--border);
+    }
+    .opt-card.bad  { background: #1a1010; border-color: #4a2020; }
+    .opt-card.good { background: #0f1a10; border-color: #1a4020; }
+    .opt-card-title {
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .opt-card.bad  .opt-card-title { color: var(--red);   }
+    .opt-card.good .opt-card-title { color: var(--green); }
+    .code-block {
+      background: var(--surface3);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: #c9d1d9;
+      line-height: 1.7;
+      white-space: pre;
+      overflow-x: auto;
+      margin-bottom: 8px;
+    }
+    .code-comment { color: #6a8f6a; }
+    .code-kw      { color: #79c0ff; }
+    .code-str     { color: #a5d6ff; }
+    .code-fn      { color: #d2a8ff; }
+    .opt-note {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ── Animation demo ── */
+    .anim-demo {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .anim-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+    .anim-card-title {
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .anim-track {
+      height: 48px;
+      background: var(--surface3);
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+    .anim-ball {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      position: absolute;
+      top: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+    #ballBad  { background: var(--red-dim);   border: 2px solid var(--red);   left: 0; }
+    #ballGood { background: var(--green-dim); border: 2px solid var(--green); transform: translateX(0); }
+    .anim-btn {
+      padding: 7px 14px;
+      border-radius: 7px;
+      border: 1px solid;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .anim-btn.bad  { border-color: var(--red);   background: var(--red-dim);   color: var(--red);   }
+    .anim-btn.good { border-color: var(--green); background: var(--green-dim); color: var(--green); }
+    .anim-btn:hover { filter: brightness(1.2); }
+
+    /* ── RAF demo ── */
+    .raf-demo {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 8px;
+    }
+    .raf-demo-title {
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: var(--purple);
+    }
+    .raf-track {
+      height: 48px;
+      background: var(--surface3);
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+    #rafBall {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      background: var(--purple-dim, #3b1f6e);
+      border: 2px solid var(--purple);
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      transform: translateX(0);
+    }
+    .raf-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .raf-btn {
+      padding: 7px 14px;
+      border-radius: 7px;
+      border: 1px solid var(--purple);
+      background: var(--purple-dim, #3b1f6e);
+      color: var(--purple);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .raf-btn:hover { filter: brightness(1.2); }
+    .raf-status {
+      font-size: 12px;
+      color: var(--muted);
+      flex: 1;
+    }
+
+    /* ── Divider ── */
+    .section-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 8px 0 20px;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 700px) {
+      .main-columns, .concept-row, .opt-compare, .anim-demo { grid-template-columns: 1fr; }
+      .demo-wrapper { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════ HEADER ════════════════════════════ -->
+<div class="header">
+  <h1>Reflow vs Repaint 비교 데모</h1>
+  <p class="subtitle">
+    브라우저 렌더링 성능의 핵심 개념인 Reflow와 Repaint를 버튼 클릭으로 직접 체험하고,
+    각 작업이 왜 발생하는지 성능 타이밍과 함께 확인해 보세요.
+  </p>
+  <div class="tag-row">
+    <span class="tag tag-red">Reflow = Layout 재계산</span>
+    <span class="tag tag-yellow">Repaint = 픽셀 재그리기</span>
+    <span class="tag tag-green">Transform = GPU 합성</span>
+  </div>
+</div>
+
+<!-- ════════════════════════════ CONCEPT CARDS ════════════════════════════ -->
+<div class="concept-row">
+  <div class="concept-card">
+    <h3><span class="dot-red"></span>Reflow (레이아웃 재계산)</h3>
+    <p>
+      DOM 요소의 <strong>기하학적 속성</strong>(크기, 위치, 여백 등)이 바뀌면 브라우저는 영향 받는
+      모든 요소의 위치·크기를 다시 계산합니다. 이 작업은 <strong>CPU 집약적</strong>이며,
+      변경된 요소의 부모·자식·형제까지 전파될 수 있어 비용이 큽니다.
+      반드시 Repaint도 뒤따릅니다.
+    </p>
+  </div>
+  <div class="concept-card">
+    <h3><span class="dot-yellow"></span>Repaint (픽셀 재그리기)</h3>
+    <p>
+      요소의 <strong>시각적 스타일</strong>(색상, 배경, 그림자 등)이 바뀌었지만 기하학적 속성은
+      변하지 않을 때 발생합니다. Layout 단계를 건너뛰고 Paint 단계부터 실행하므로
+      Reflow보다 <strong>비용이 낮습니다.</strong> 단, opacity·transform은
+      GPU 합성 레이어를 사용해 Repaint도 생략 가능합니다.
+    </p>
+  </div>
+</div>
+
+<!-- ════════════════════════════ MAIN TWO COLUMNS ════════════════════════════ -->
+<div class="main-columns">
+
+  <!-- Left: Reflow -->
+  <div class="panel panel-reflow">
+    <div class="panel-title">
+      <span class="dot-red"></span>
+      Reflow 유발 작업
+    </div>
+    <div class="btn-list">
+      <button class="btn btn-reflow" onclick="doReflow('width')">
+        <span class="btn-icon">📐</span>
+        <span class="btn-label">width / height 변경</span>
+        <span class="btn-prop">width</span>
+      </button>
+      <button class="btn btn-reflow" onclick="doReflow('margin')">
+        <span class="btn-icon">📦</span>
+        <span class="btn-label">margin / padding 변경</span>
+        <span class="btn-prop">margin</span>
+      </button>
+      <button class="btn btn-reflow" onclick="doReflow('text')">
+        <span class="btn-icon">📝</span>
+        <span class="btn-label">텍스트 내용 변경</span>
+        <span class="btn-prop">textContent</span>
+      </button>
+      <button class="btn btn-reflow" onclick="doReflow('add')">
+        <span class="btn-icon">➕</span>
+        <span class="btn-label">자식 요소 추가</span>
+        <span class="btn-prop">appendChild</span>
+      </button>
+      <button class="btn btn-reflow" onclick="doReflow('remove')">
+        <span class="btn-icon">➖</span>
+        <span class="btn-label">자식 요소 제거</span>
+        <span class="btn-prop">removeChild</span>
+      </button>
+      <button class="btn btn-reflow" onclick="doReflow('font')">
+        <span class="btn-icon">🔤</span>
+        <span class="btn-label">font-size 변경</span>
+        <span class="btn-prop">font-size</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Right: Repaint -->
+  <div class="panel panel-repaint">
+    <div class="panel-title">
+      <span class="dot-yellow"></span>
+      Repaint만 유발 작업
+    </div>
+    <div class="btn-list">
+      <button class="btn btn-repaint" onclick="doRepaint('color')">
+        <span class="btn-icon">🎨</span>
+        <span class="btn-label">color 변경</span>
+        <span class="btn-prop">color</span>
+      </button>
+      <button class="btn btn-repaint" onclick="doRepaint('bg')">
+        <span class="btn-icon">🖌️</span>
+        <span class="btn-label">background-color 변경</span>
+        <span class="btn-prop">background-color</span>
+      </button>
+      <button class="btn btn-repaint" onclick="doRepaint('border')">
+        <span class="btn-icon">🔲</span>
+        <span class="btn-label">border-color 변경</span>
+        <span class="btn-prop">border-color</span>
+      </button>
+      <button class="btn btn-repaint" onclick="doRepaint('shadow')">
+        <span class="btn-icon">💫</span>
+        <span class="btn-label">box-shadow 추가/제거</span>
+        <span class="btn-prop">box-shadow</span>
+      </button>
+      <button class="btn btn-repaint" onclick="doRepaint('opacity')">
+        <span class="btn-icon">👻</span>
+        <span class="btn-label">opacity 변경</span>
+        <span class="btn-prop">opacity</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════ DEMO AREA ════════════════════════════ -->
+<div class="demo-area">
+  <div class="demo-area-title">데모 박스 영역</div>
+  <div class="demo-wrapper">
+
+    <!-- Demo box + inspector -->
+    <div class="demo-box-container">
+      <div id="demoBox">
+        <div class="box-title" id="boxTitle">데모 박스</div>
+        <div class="img-placeholder">🖼️ 이미지 플레이스홀더</div>
+        <div class="box-desc" id="boxDesc">버튼을 클릭하면 이 박스에 변화가 적용됩니다.</div>
+        <div class="child-elements" id="childElements">
+          <span class="child-chip">chip-1</span>
+          <span class="child-chip">chip-2</span>
+          <span class="child-chip">chip-3</span>
+        </div>
+      </div>
+      <!-- Inspector -->
+      <div class="inspector">
+        <div class="inspector-title">Applied Styles</div>
+        <div class="inspector-row">
+          <span class="inspector-key">width</span>
+          <span class="inspector-sep">:</span>
+          <span class="inspector-value" id="iWidth">280px</span>
+        </div>
+        <div class="inspector-row">
+          <span class="inspector-key">font-size</span>
+          <span class="inspector-sep">:</span>
+          <span class="inspector-value" id="iFontSize">14px</span>
+        </div>
+        <div class="inspector-row">
+          <span class="inspector-key">margin</span>
+          <span class="inspector-sep">:</span>
+          <span class="inspector-value" id="iMargin">0px auto</span>
+        </div>
+        <div class="inspector-row">
+          <span class="inspector-key">color</span>
+          <span class="inspector-sep">:</span>
+          <span class="inspector-value" id="iColor">#e2e8f0</span>
+        </div>
+        <div class="inspector-row">
+          <span class="inspector-key">background</span>
+          <span class="inspector-sep">:</span>
+          <span class="inspector-value" id="iBg">linear-gradient(...)</span>
+        </div>
+        <div class="inspector-row">
+          <span class="inspector-key">opacity</span>
+          <span class="inspector-sep">:</span>
+          <span class="inspector-value" id="iOpacity">1</span>
+        </div>
+        <div class="inspector-row">
+          <span class="inspector-key">box-shadow</span>
+          <span class="inspector-sep">:</span>
+          <span class="inspector-value" id="iShadow">none</span>
+        </div>
+        <div class="inspector-row">
+          <span class="inspector-key">border-color</span>
+          <span class="inspector-sep">:</span>
+          <span class="inspector-value" id="iBorderColor">#3b82f6</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result panel -->
+    <div class="result-panel">
+      <div id="resultBadge" class="result-badge idle">
+        ⏸ 아직 작업 없음
+      </div>
+      <div id="resultExplain" class="result-explain">
+        왼쪽 또는 오른쪽 패널의 버튼을 클릭하면 해당 작업이 왜 Reflow 또는 Repaint를 유발하는지 여기에 설명이 표시됩니다.
+      </div>
+      <div class="timing-box">
+        <div class="timing-title">성능 타이밍</div>
+        <div class="timing-row">
+          <span class="timing-label">시작 시각</span>
+          <span class="timing-value" id="tStart">-</span>
+        </div>
+        <div class="timing-row">
+          <span class="timing-label">종료 시각</span>
+          <span class="timing-value" id="tEnd">-</span>
+        </div>
+        <div class="timing-diff-row">
+          <span class="timing-label">소요 시간</span>
+          <span class="timing-diff" id="tDiff">-</span>
+        </div>
+        <div class="perf-meter">
+          <span class="meter-label">성능</span>
+          <div class="meter-bar-wrap">
+            <div class="meter-bar" id="meterBar"></div>
+          </div>
+          <span class="meter-value" id="meterValue">0ms</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════ HISTORY LOG ════════════════════════════ -->
+<div class="history-panel">
+  <div class="history-title">
+    📋 최근 작업 히스토리 (최대 5개)
+  </div>
+  <div class="history-list" id="historyList">
+    <div class="history-empty">아직 수행된 작업이 없습니다.</div>
+  </div>
+</div>
+
+<!-- ════════════════════════════ OPTIMIZATION SECTION ════════════════════════════ -->
+<div class="opt-section">
+  <div class="opt-title">최적화 비교</div>
+  <div class="opt-subtitle">
+    Reflow를 줄이는 실전 패턴들을 코드와 함께 비교해 보세요.
+  </div>
+  <hr class="section-divider" />
+
+  <!-- Pattern 1: DOM read/write interleaving -->
+  <div style="margin-bottom:6px;font-size:14px;font-weight:700;color:var(--muted);">
+    패턴 1 — DOM 읽기/쓰기 분리
+  </div>
+  <div class="opt-compare">
+    <div class="opt-card bad">
+      <div class="opt-card-title">❌ 나쁜 패턴 (읽기/쓰기 혼합)</div>
+      <div class="code-block"><span class="code-comment">// 읽기 → 쓰기 → 읽기 → 쓰기</span>
+<span class="code-comment">// 매번 강제 Reflow 발생!</span>
+<span class="code-kw">const</span> h1 = el1.offsetHeight;  <span class="code-comment">// 읽기</span>
+el1.style.height = h1 + <span class="code-str">'px'</span>;  <span class="code-comment">// 쓰기 → dirty</span>
+<span class="code-kw">const</span> h2 = el2.offsetHeight;  <span class="code-comment">// 읽기 → 강제 Reflow!</span>
+el2.style.height = h2 + <span class="code-str">'px'</span>;  <span class="code-comment">// 쓰기 → dirty</span></div>
+      <div class="opt-note">
+        브라우저는 쓰기 후 layout을 "dirty"로 표시하고 지연합니다.
+        그런데 읽기(offsetHeight)를 하면 즉시 강제로 Reflow를 수행해야 합니다.
+        읽기·쓰기가 교차될수록 Reflow 횟수가 늘어납니다.
+      </div>
+    </div>
+    <div class="opt-card good">
+      <div class="opt-card-title">✅ 좋은 패턴 (읽기 먼저, 쓰기 나중)</div>
+      <div class="code-block"><span class="code-comment">// 읽기를 모두 먼저 수행</span>
+<span class="code-kw">const</span> h1 = el1.offsetHeight;  <span class="code-comment">// 읽기</span>
+<span class="code-kw">const</span> h2 = el2.offsetHeight;  <span class="code-comment">// 읽기 (Reflow 1회)</span>
+
+<span class="code-comment">// 쓰기를 한꺼번에 수행</span>
+el1.style.height = h1 + <span class="code-str">'px'</span>;  <span class="code-comment">// 쓰기</span>
+el2.style.height = h2 + <span class="code-str">'px'</span>;  <span class="code-comment">// 쓰기</span></div>
+      <div class="opt-note">
+        모든 읽기를 먼저 수행하면 Reflow는 한 번만 발생합니다.
+        쓰기는 layout을 다시 dirty로 만들지만,
+        다음 frame에 한꺼번에 처리되어 성능이 크게 향상됩니다.
+      </div>
+    </div>
+  </div>
+
+  <!-- Pattern 2: top/left vs transform -->
+  <div style="margin-bottom:6px;font-size:14px;font-weight:700;color:var(--muted);">
+    패턴 2 — top/left 이동 vs transform 이동
+  </div>
+  <div class="opt-compare" style="margin-bottom:16px;">
+    <div class="opt-card bad">
+      <div class="opt-card-title">❌ 나쁜 패턴 (top / left)</div>
+      <div class="code-block"><span class="code-comment">// position + top/left 변경</span>
+<span class="code-comment">// Layout 재계산 → Reflow 발생</span>
+el.style.top  = x + <span class="code-str">'px'</span>;
+el.style.left = y + <span class="code-str">'px'</span>;</div>
+      <div class="opt-note">
+        top/left는 기하학적 속성이므로 변경 시 Reflow가 발생하고
+        주변 요소의 layout도 영향 받을 수 있습니다.
+      </div>
+    </div>
+    <div class="opt-card good">
+      <div class="opt-card-title">✅ 좋은 패턴 (transform)</div>
+      <div class="code-block"><span class="code-comment">// transform: translate 사용</span>
+<span class="code-comment">// GPU 합성 레이어 → Reflow 없음!</span>
+el.style.transform =
+  <span class="code-str">`translate(<span class="code-fn">${x}</span>px, <span class="code-fn">${y}</span>px)`</span>;</div>
+      <div class="opt-note">
+        transform은 합성(Compositing) 단계만 거쳐 GPU에서 처리됩니다.
+        Layout과 Paint를 건너뛰어 60fps 애니메이션이 가능합니다.
+      </div>
+    </div>
+  </div>
+
+  <!-- Animation demo: bad vs good -->
+  <div style="margin-bottom:10px;font-size:13px;font-weight:700;color:var(--muted);">
+    직접 비교 — 애니메이션 데모
+  </div>
+  <div class="anim-demo">
+    <div class="anim-card">
+      <div class="anim-card-title" style="color:var(--red);">❌ left 이동 (Reflow 발생)</div>
+      <div class="anim-track">
+        <div class="anim-ball" id="ballBad">🔴</div>
+      </div>
+      <button class="anim-btn bad" id="btnBadAnim" onclick="toggleBadAnim()">애니메이션 시작</button>
+    </div>
+    <div class="anim-card">
+      <div class="anim-card-title" style="color:var(--green);">✅ transform 이동 (GPU 합성)</div>
+      <div class="anim-track">
+        <div class="anim-ball" id="ballGood">🟢</div>
+      </div>
+      <button class="anim-btn good" id="btnGoodAnim" onclick="toggleGoodAnim()">애니메이션 시작</button>
+    </div>
+  </div>
+
+  <!-- rAF demo -->
+  <div class="raf-demo">
+    <div class="raf-demo-title">requestAnimationFrame 예제</div>
+    <div class="raf-track">
+      <div id="rafBall">🟣</div>
+    </div>
+    <div class="raf-controls">
+      <button class="raf-btn" id="rafBtn" onclick="toggleRaf()">rAF 애니메이션 시작</button>
+      <span class="raf-status" id="rafStatus">requestAnimationFrame을 사용하면 브라우저의 렌더링 사이클에 맞춰 정확히 60fps로 실행됩니다.</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════ FOOTER ════════════════════════════ -->
+<div style="text-align:center;color:var(--muted);font-size:12px;padding:16px 0 8px;">
+  Reflow vs Repaint 인터랙티브 데모 — 브라우저 렌더링 파이프라인 학습용
+</div>
+
+<!-- ════════════════════════════ JAVASCRIPT ════════════════════════════ -->
+<script>
+(function () {
+  'use strict';
+
+  /* ── State ── */
+  var state = {
+    width:       280,
+    margin:      0,
+    fontSize:    14,
+    color:       '#e2e8f0',
+    bg:          'linear-gradient(135deg, #1e2a40 0%, #2a1e40 100%)',
+    opacity:     1,
+    shadow:      false,
+    borderColor: '#3b82f6',
+    chipCount:   3,
+  };
+
+  var historyItems = [];
+  var badAnimFrame  = null;
+  var goodAnimFrame = null;
+  var rafFrame      = null;
+
+  /* ── Helpers ── */
+  function randomColor() {
+    var colors = ['#ef4444','#f97316','#facc15','#22c55e','#06b6d4','#3b82f6','#a855f7','#ec4899'];
+    return colors[Math.floor(Math.random() * colors.length)];
+  }
+  function randomBg() {
+    var c1 = randomColor(), c2 = randomColor();
+    return 'linear-gradient(135deg, ' + c1 + '33 0%, ' + c2 + '33 100%)';
+  }
+  function clamp(v, mn, mx) { return Math.max(mn, Math.min(mx, v)); }
+
+  /* ── Inspector update ── */
+  function updateInspector() {
+    var box = document.getElementById('demoBox');
+    document.getElementById('iWidth').textContent       = state.width + 'px';
+    document.getElementById('iFontSize').textContent    = state.fontSize + 'px';
+    document.getElementById('iMargin').textContent      = state.margin + 'px auto';
+    document.getElementById('iColor').textContent       = state.color;
+    document.getElementById('iBg').textContent          = state.bg.length > 28 ? state.bg.substring(0,28)+'…' : state.bg;
+    document.getElementById('iOpacity').textContent     = state.opacity;
+    document.getElementById('iShadow').textContent      = state.shadow ? '0 0 20px #a855f7' : 'none';
+    document.getElementById('iBorderColor').textContent = state.borderColor;
+  }
+
+  /* ── Result panel update ── */
+  function showResult(type, name, explain, diff) {
+    var badge   = document.getElementById('resultBadge');
+    var explain_el = document.getElementById('resultExplain');
+
+    if (type === 'reflow') {
+      badge.className = 'result-badge reflow';
+      badge.textContent = '🔴 이 작업은 Reflow + Repaint 발생';
+      explain_el.className = 'result-explain reflow';
+    } else {
+      badge.className = 'result-badge repaint';
+      badge.textContent = '🟡 이 작업은 Repaint만 발생';
+      explain_el.className = 'result-explain repaint';
+    }
+    explain_el.textContent = explain;
+
+    /* Timing */
+    var tDiffEl  = document.getElementById('tDiff');
+    var meterBar = document.getElementById('meterBar');
+    var meterVal = document.getElementById('meterValue');
+
+    tDiffEl.textContent = diff.toFixed(4) + ' ms';
+    meterVal.textContent = diff.toFixed(4) + 'ms';
+
+    /* Color coding */
+    if (diff < 0.5) {
+      tDiffEl.className = 'timing-diff fast';
+      meterBar.style.background = '#22c55e';
+      meterBar.style.width = Math.min(diff * 40, 100) + '%';
+    } else if (diff < 2) {
+      tDiffEl.className = 'timing-diff medium';
+      meterBar.style.background = '#facc15';
+      meterBar.style.width = Math.min(diff * 20, 100) + '%';
+    } else {
+      tDiffEl.className = 'timing-diff slow';
+      meterBar.style.background = '#ef4444';
+      meterBar.style.width = Math.min(diff * 10, 100) + '%';
+    }
+
+    /* Add to history */
+    addHistory(type, name, diff);
+  }
+
+  /* ── Timing helper ── */
+  function measure(fn) {
+    var t0 = performance.now();
+    fn();
+    /* Force a layout read to make the timing meaningful */
+    var _ = document.getElementById('demoBox').getBoundingClientRect();
+    var t1 = performance.now();
+    document.getElementById('tStart').textContent = t0.toFixed(4) + ' ms';
+    document.getElementById('tEnd').textContent   = t1.toFixed(4) + ' ms';
+    return t1 - t0;
+  }
+
+  /* ── History ── */
+  function addHistory(type, name, diff) {
+    historyItems.unshift({ type: type, name: name, diff: diff });
+    if (historyItems.length > 5) historyItems.pop();
+    renderHistory();
+  }
+  function renderHistory() {
+    var list = document.getElementById('historyList');
+    list.innerHTML = '';
+    historyItems.forEach(function (item) {
+      var div = document.createElement('div');
+      div.className = 'history-item';
+      var badgeLabel = item.type === 'reflow' ? 'Reflow' : 'Repaint';
+      div.innerHTML =
+        '<span class="history-badge ' + item.type + '">' + badgeLabel + '</span>' +
+        '<span class="history-name">' + item.name + '</span>' +
+        '<span class="history-time">' + item.diff.toFixed(4) + 'ms</span>';
+      list.appendChild(div);
+    });
+  }
+
+  /* ══════════════════════════════
+     REFLOW ACTIONS
+  ══════════════════════════════ */
+  window.doReflow = function (action) {
+    var box = document.getElementById('demoBox');
+    var name, explain, diff;
+
+    if (action === 'width') {
+      name = 'width/height 변경';
+      state.width = state.width === 280 ? 360 : 280;
+      diff = measure(function () {
+        box.style.width = state.width + 'px';
+      });
+      explain =
+        'width는 요소의 크기를 직접 변경하는 기하학적(geometric) 속성입니다. ' +
+        '크기가 바뀌면 브라우저는 해당 요소와 그 자식·부모 요소의 위치·크기를 모두 재계산합니다. ' +
+        '이 Layout 재계산 과정이 Reflow이며, 완료 후 반드시 Repaint도 수행됩니다.';
+
+    } else if (action === 'margin') {
+      name = 'margin/padding 변경';
+      state.margin = state.margin === 0 ? 20 : 0;
+      diff = measure(function () {
+        box.style.margin = state.margin + 'px auto';
+      });
+      explain =
+        'margin과 padding은 요소 주변의 여백을 결정하는 기하학적 속성입니다. ' +
+        '이 값이 변경되면 요소의 실제 렌더링 위치가 달라지므로 Reflow가 발생합니다. ' +
+        '특히 margin은 형제 요소의 위치에도 영향을 주어 더 넓은 범위의 Reflow가 발생할 수 있습니다.';
+
+    } else if (action === 'text') {
+      name = '텍스트 내용 변경';
+      var texts = [
+        '텍스트가 변경되었습니다! 내용이 길어지면 높이가 변합니다.',
+        '데모 박스',
+      ];
+      var current = document.getElementById('boxTitle').textContent;
+      var next = current === '데모 박스' ? texts[0] : texts[1];
+      diff = measure(function () {
+        document.getElementById('boxTitle').textContent = next;
+      });
+      explain =
+        '텍스트 내용이 바뀌면 텍스트 노드의 크기가 달라질 수 있습니다. ' +
+        '브라우저는 새 텍스트가 차지하는 공간을 계산하기 위해 Layout(Reflow)을 다시 실행합니다. ' +
+        '특히 텍스트가 길어져 줄 바꿈이 발생하면 부모 요소의 높이까지 바뀌어 더 큰 Reflow로 이어집니다.';
+
+    } else if (action === 'add') {
+      name = '자식 요소 추가';
+      diff = measure(function () {
+        var chip = document.createElement('span');
+        chip.className = 'child-chip';
+        state.chipCount += 1;
+        chip.textContent = 'chip-' + state.chipCount;
+        document.getElementById('childElements').appendChild(chip);
+      });
+      explain =
+        '새 DOM 요소를 삽입하면 기존 레이아웃이 바뀔 수 있습니다. ' +
+        '브라우저는 새 요소를 포함한 전체 레이아웃을 재계산해야 하므로 Reflow가 발생합니다. ' +
+        'DocumentFragment를 사용하거나 변경 후 한 번에 삽입하면 Reflow 횟수를 줄일 수 있습니다.';
+
+    } else if (action === 'remove') {
+      name = '자식 요소 제거';
+      var container = document.getElementById('childElements');
+      var chips = container.querySelectorAll('.child-chip');
+      if (chips.length === 0) {
+        alert('제거할 chip이 없습니다. "요소 추가" 버튼을 먼저 눌러보세요.');
+        return;
+      }
+      diff = measure(function () {
+        var last = container.querySelector('.child-chip:last-child');
+        if (last) {
+          container.removeChild(last);
+          state.chipCount = Math.max(0, state.chipCount - 1);
+        }
+      });
+      explain =
+        'DOM 요소를 제거하면 나머지 요소들의 위치가 재배치됩니다. ' +
+        '브라우저는 빠진 공간을 어떻게 채울지 다시 Layout을 계산합니다(Reflow). ' +
+        '대량 삭제 시에는 부모 요소를 display:none으로 숨긴 뒤 작업하고 다시 보이게 하면 Reflow를 한 번으로 줄일 수 있습니다.';
+
+    } else if (action === 'font') {
+      name = 'font-size 변경';
+      state.fontSize = state.fontSize === 14 ? 18 : 14;
+      diff = measure(function () {
+        box.style.fontSize = state.fontSize + 'px';
+      });
+      explain =
+        'font-size는 텍스트의 크기를 바꿔 요소가 차지하는 공간을 변경합니다. ' +
+        '모든 텍스트 노드의 크기가 달라지므로 해당 요소와 부모·자식의 크기가 모두 재계산됩니다(Reflow). ' +
+        '영향 범위가 넓어 비용이 큰 Reflow 중 하나입니다.';
+    }
+
+    updateInspector();
+    showResult('reflow', name, explain, diff);
+  };
+
+  /* ══════════════════════════════
+     REPAINT ACTIONS
+  ══════════════════════════════ */
+  window.doRepaint = function (action) {
+    var box = document.getElementById('demoBox');
+    var name, explain, diff;
+
+    if (action === 'color') {
+      name = 'color 변경';
+      state.color = randomColor();
+      diff = measure(function () {
+        box.style.color = state.color;
+      });
+      explain =
+        'color는 텍스트의 색상을 변경합니다. 색상은 요소의 기하학적 크기·위치에 영향을 주지 않아 Layout 재계산(Reflow)이 발생하지 않습니다. ' +
+        '브라우저는 이미 계산된 Layout 정보를 재사용하고 Paint(픽셀 그리기) 단계만 다시 수행합니다. ' +
+        '따라서 Reflow보다 비용이 훨씬 낮습니다.';
+
+    } else if (action === 'bg') {
+      name = 'background-color 변경';
+      var bgColors = ['#1e2a40','#1a2a1e','#2a1e1e','#2a1e2a','#1a2a2a'];
+      var bi = Math.floor(Math.random() * bgColors.length);
+      state.bg = 'linear-gradient(135deg, ' + bgColors[bi] + ' 0%, ' + bgColors[(bi+1)%5] + ' 100%)';
+      diff = measure(function () {
+        box.style.background = state.bg;
+      });
+      explain =
+        'background-color(또는 background gradient)은 요소의 배경 픽셀만 변경합니다. ' +
+        '요소의 크기나 위치는 전혀 변하지 않으므로 Reflow가 발생하지 않습니다. ' +
+        'Paint 단계만 실행되어 변경된 픽셀이 다시 그려집니다.';
+
+    } else if (action === 'border') {
+      name = 'border-color 변경';
+      state.borderColor = randomColor();
+      diff = measure(function () {
+        box.style.borderColor = state.borderColor;
+      });
+      explain =
+        'border-color는 테두리의 색상만 변경하며 테두리의 두께(border-width)와 레이아웃에는 영향을 주지 않습니다. ' +
+        '기하학적 속성이 그대로이므로 Reflow 없이 Repaint만 발생합니다. ' +
+        '단, border-width를 변경하면 요소 크기가 바뀌어 Reflow가 발생하니 주의해야 합니다.';
+
+    } else if (action === 'shadow') {
+      name = 'box-shadow 토글';
+      state.shadow = !state.shadow;
+      diff = measure(function () {
+        box.style.boxShadow = state.shadow ? '0 0 24px #a855f7, 0 0 48px #a855f733' : 'none';
+      });
+      explain =
+        'box-shadow는 요소 바깥에 그림자를 그리지만 레이아웃 공간을 차지하지 않습니다(outline-offset과 유사). ' +
+        '따라서 크기·위치가 변하지 않아 Reflow 없이 Repaint만 발생합니다. ' +
+        '그림자가 복잡할수록 Repaint 비용이 높아지므로 CSS filter 대신 filter: drop-shadow를 과도하게 쓰지 않는 것이 좋습니다.';
+
+    } else if (action === 'opacity') {
+      name = 'opacity 변경';
+      state.opacity = state.opacity === 1 ? 0.5 : 1;
+      diff = measure(function () {
+        box.style.opacity = state.opacity;
+      });
+      explain =
+        'opacity는 현대 브라우저에서 GPU 합성 레이어(Composite Layer)를 통해 처리됩니다. ' +
+        '이상적으로는 Reflow도, Paint도 발생하지 않고 Composite 단계만 실행됩니다. ' +
+        '단, opacity가 적용된 요소가 아직 별도의 합성 레이어로 승격되지 않은 경우 첫 변경 시 Repaint가 발생할 수 있습니다.';
+    }
+
+    updateInspector();
+    showResult('repaint', name, explain, diff);
+  };
+
+  /* ══════════════════════════════
+     ANIMATION: BAD (left)
+  ══════════════════════════════ */
+  var badPos = 0;
+  var badDir = 1;
+  var badRunning = false;
+
+  function badStep() {
+    var ball  = document.getElementById('ballBad');
+    var track = ball.parentElement;
+    var maxX  = track.offsetWidth - ball.offsetWidth - 4;
+    badPos += badDir * 3;
+    if (badPos >= maxX) { badPos = maxX; badDir = -1; }
+    if (badPos <= 0)    { badPos = 0;    badDir =  1; }
+    /* This triggers Reflow on every frame */
+    ball.style.left = badPos + 'px';
+    if (badRunning) badAnimFrame = requestAnimationFrame(badStep);
+  }
+
+  window.toggleBadAnim = function () {
+    badRunning = !badRunning;
+    var btn = document.getElementById('btnBadAnim');
+    if (badRunning) {
+      btn.textContent = '애니메이션 정지';
+      badAnimFrame = requestAnimationFrame(badStep);
+    } else {
+      btn.textContent = '애니메이션 시작';
+      if (badAnimFrame) cancelAnimationFrame(badAnimFrame);
+    }
+  };
+
+  /* ══════════════════════════════
+     ANIMATION: GOOD (transform)
+  ══════════════════════════════ */
+  var goodPos = 0;
+  var goodDir = 1;
+  var goodRunning = false;
+
+  function goodStep() {
+    var ball  = document.getElementById('ballGood');
+    var track = ball.parentElement;
+    var maxX  = track.offsetWidth - ball.offsetWidth - 4;
+    goodPos += goodDir * 3;
+    if (goodPos >= maxX) { goodPos = maxX; goodDir = -1; }
+    if (goodPos <= 0)    { goodPos = 0;    goodDir =  1; }
+    /* Uses transform — GPU Composite only */
+    ball.style.transform = 'translateX(' + goodPos + 'px)';
+    if (goodRunning) goodAnimFrame = requestAnimationFrame(goodStep);
+  }
+
+  window.toggleGoodAnim = function () {
+    goodRunning = !goodRunning;
+    var btn = document.getElementById('btnGoodAnim');
+    if (goodRunning) {
+      btn.textContent = '애니메이션 정지';
+      goodAnimFrame = requestAnimationFrame(goodStep);
+    } else {
+      btn.textContent = '애니메이션 시작';
+      if (goodAnimFrame) cancelAnimationFrame(goodAnimFrame);
+    }
+  };
+
+  /* ══════════════════════════════
+     RAF DEMO
+  ══════════════════════════════ */
+  var rafPos = 4;
+  var rafDir = 1;
+  var rafRunning = false;
+  var rafFrameId = null;
+
+  function rafStep(timestamp) {
+    var ball  = document.getElementById('rafBall');
+    var track = ball.parentElement;
+    var maxX  = track.offsetWidth - ball.offsetWidth - 4;
+    rafPos += rafDir * 2;
+    if (rafPos >= maxX) { rafPos = maxX; rafDir = -1; }
+    if (rafPos <= 4)    { rafPos = 4;    rafDir =  1; }
+    ball.style.transform = 'translateX(' + (rafPos - 4) + 'px)';
+    document.getElementById('rafStatus').textContent =
+      'rAF 실행 중 — timestamp: ' + timestamp.toFixed(2) + 'ms | 위치: ' + rafPos.toFixed(0) + 'px';
+    if (rafRunning) rafFrameId = requestAnimationFrame(rafStep);
+  }
+
+  window.toggleRaf = function () {
+    rafRunning = !rafRunning;
+    var btn = document.getElementById('rafBtn');
+    if (rafRunning) {
+      btn.textContent = 'rAF 애니메이션 정지';
+      rafFrameId = requestAnimationFrame(rafStep);
+    } else {
+      btn.textContent = 'rAF 애니메이션 시작';
+      if (rafFrameId) cancelAnimationFrame(rafFrameId);
+      document.getElementById('rafStatus').textContent =
+        'requestAnimationFrame을 사용하면 브라우저의 렌더링 사이클에 맞춰 정확히 60fps로 실행됩니다.';
+    }
+  };
+
+  /* ── Initial inspector ── */
+  updateInspector();
+})();
+</script>
+</body>
+</html>

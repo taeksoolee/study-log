@@ -1,0 +1,1608 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>V8 엔진 최적화 시각화 | V8 Optimization Visualizer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0f1117;
+      --surface:     #1a1d27;
+      --surface2:    #22263a;
+      --surface3:    #2a2f44;
+      --border:      #2e3250;
+      --text:        #e2e8f0;
+      --muted:       #7c85a2;
+      --blue:        #3b82f6;
+      --blue-dim:    #1d3a6e;
+      --purple:      #a855f7;
+      --purple-dim:  #3b1f6e;
+      --green:       #22c55e;
+      --green-dim:   #14422a;
+      --orange:      #f97316;
+      --orange-dim:  #5a2a0a;
+      --yellow:      #facc15;
+      --yellow-dim:  #4a3a00;
+      --red:         #ef4444;
+      --red-dim:     #4a1212;
+      --cyan:        #06b6d4;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--surface);
+    }
+
+    header h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+
+    .badge {
+      background: var(--blue-dim);
+      color: var(--blue);
+      border: 1px solid var(--blue);
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    /* ── Tabs ─────────────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      padding: 0 24px;
+    }
+
+    .tab-btn {
+      padding: 12px 20px;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: color 0.2s, border-color 0.2s;
+      white-space: nowrap;
+    }
+
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); }
+
+    .tab-panel { display: none; padding: 24px; }
+    .tab-panel.active { display: block; }
+
+    /* ── Common Layout ────────────────────────────────────── */
+    .section-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .section-desc {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+
+    /* ── Buttons ──────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      background: var(--blue-dim);
+      color: var(--blue);
+      border-color: var(--blue);
+    }
+
+    .btn:hover { opacity: 0.85; }
+    .btn:active { transform: scale(0.97); }
+    .btn.green  { background: var(--green-dim);  color: var(--green);  border-color: var(--green);  }
+    .btn.orange { background: var(--orange-dim); color: var(--orange); border-color: var(--orange); }
+    .btn.red    { background: var(--red-dim);    color: var(--red);    border-color: var(--red);    }
+    .btn.yellow { background: var(--yellow-dim); color: var(--yellow); border-color: var(--yellow); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── Code Block ───────────────────────────────────────── */
+    .code-block {
+      background: #0a0c14;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-family: 'Fira Code', 'Consolas', monospace;
+      font-size: 12px;
+      line-height: 1.7;
+      overflow-x: auto;
+      white-space: pre;
+      color: #c9d1d9;
+    }
+
+    .kw  { color: #ff7b72; }
+    .fn  { color: #d2a8ff; }
+    .str { color: #a5d6ff; }
+    .num { color: #79c0ff; }
+    .cm  { color: #8b949e; }
+    .hl  { background: rgba(59,130,246,0.18); border-left: 2px solid var(--blue); padding-left: 4px; }
+
+    /* ══════════════════════════════════════════════════════
+       SECTION 1 — HIDDEN CLASSES
+    ══════════════════════════════════════════════════════ */
+    .hc-canvas-wrap {
+      position: relative;
+      height: 200px;
+      margin: 12px 0;
+    }
+
+    .hc-canvas-wrap canvas {
+      width: 100%;
+      height: 100%;
+      border-radius: 6px;
+      background: #0a0c14;
+      display: block;
+    }
+
+    .hc-log {
+      margin-top: 8px;
+      background: #0a0c14;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-family: monospace;
+      font-size: 11px;
+      min-height: 60px;
+      color: var(--muted);
+      line-height: 1.8;
+    }
+
+    .hc-log .line-good  { color: var(--green); }
+    .hc-log .line-bad   { color: var(--red); }
+    .hc-log .line-info  { color: var(--cyan); }
+
+    /* ══════════════════════════════════════════════════════
+       SECTION 2 — INLINE CACHING
+    ══════════════════════════════════════════════════════ */
+    .ic-visual {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      justify-content: center;
+      flex-wrap: wrap;
+      padding: 16px 0;
+      min-height: 120px;
+    }
+
+    .ic-box {
+      background: var(--surface2);
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+      min-width: 80px;
+      position: relative;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    .ic-box .ic-label { color: var(--muted); font-size: 10px; margin-bottom: 4px; }
+    .ic-box .ic-name  { font-size: 13px; }
+
+    .ic-arrow {
+      width: 36px;
+      height: 2px;
+      background: var(--border);
+      position: relative;
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+
+    .ic-arrow::after {
+      content: '';
+      position: absolute;
+      right: -1px;
+      top: -4px;
+      border: 5px solid transparent;
+      border-left-color: var(--border);
+      transition: border-left-color 0.3s;
+    }
+
+    .ic-arrow.hit  { background: var(--green); }
+    .ic-arrow.hit::after  { border-left-color: var(--green); }
+    .ic-arrow.miss { background: var(--red); }
+    .ic-arrow.miss::after { border-left-color: var(--red); }
+
+    .ic-flash {
+      position: absolute;
+      inset: -2px;
+      border-radius: 8px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.1s;
+    }
+
+    .ic-status-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      margin-left: 8px;
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+
+    .ic-stats {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .ic-stat {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
+    .ic-stat span { color: var(--muted); }
+
+    .call-list {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .call-chip {
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: monospace;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      opacity: 0.4;
+      transition: opacity 0.3s, background 0.3s, border-color 0.3s;
+    }
+
+    .call-chip.active { opacity: 1; }
+    .call-chip.hit    { background: var(--green-dim);  border-color: var(--green);  color: var(--green); }
+    .call-chip.miss   { background: var(--red-dim);    border-color: var(--red);    color: var(--red); }
+    .call-chip.warn   { background: var(--yellow-dim); border-color: var(--yellow); color: var(--yellow); }
+
+    /* ══════════════════════════════════════════════════════
+       SECTION 3 — JIT COMPILE CYCLE
+    ══════════════════════════════════════════════════════ */
+    .jit-pipeline {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      flex-wrap: wrap;
+      padding: 24px 0 16px;
+    }
+
+    .jit-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .jit-circle {
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      text-align: center;
+      border: 3px solid;
+      transition: all 0.4s;
+      cursor: default;
+      line-height: 1.3;
+      padding: 6px;
+    }
+
+    .jit-circle.interpreter { border-color: #4b5563; background: #1c2030; color: #9ca3af; }
+    .jit-circle.sparkplug   { border-color: var(--yellow); background: var(--yellow-dim); color: var(--yellow); }
+    .jit-circle.maglev      { border-color: var(--orange); background: var(--orange-dim); color: var(--orange); }
+    .jit-circle.turbofan    { border-color: var(--green);  background: var(--green-dim);  color: var(--green); }
+
+    .jit-circle.active-state {
+      transform: scale(1.12);
+      box-shadow: 0 0 24px currentColor;
+    }
+
+    .jit-circle.deopt-flash {
+      animation: deopt-anim 0.6s ease;
+    }
+
+    @keyframes deopt-anim {
+      0%   { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+      30%  { box-shadow: 0 0 30px 10px rgba(239,68,68,0.7); }
+      100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+    }
+
+    .jit-edge {
+      width: 48px;
+      height: 3px;
+      background: var(--border);
+      position: relative;
+      flex-shrink: 0;
+      margin-top: -36px;
+      transition: background 0.4s;
+    }
+
+    .jit-edge::after {
+      content: '';
+      position: absolute;
+      right: -1px;
+      top: -5px;
+      border: 7px solid transparent;
+      border-left-color: var(--border);
+      transition: border-left-color 0.4s;
+    }
+
+    .jit-edge.active { background: var(--blue); }
+    .jit-edge.active::after { border-left-color: var(--blue); }
+
+    .jit-node-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-align: center;
+      width: 90px;
+    }
+
+    .jit-counter-section {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin: 16px 0;
+    }
+
+    .jit-counter-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 20px;
+      text-align: center;
+    }
+
+    .jit-counter-box .num-big {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--blue);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .jit-counter-box .num-label {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .jit-state-box {
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: 2px solid var(--border);
+      font-weight: 700;
+      font-size: 13px;
+      transition: all 0.4s;
+    }
+
+    .jit-deopt-path {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      margin: 8px 0;
+      padding: 8px 12px;
+      background: var(--red-dim);
+      border: 1px solid var(--red);
+      border-radius: 6px;
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+
+    .jit-deopt-path.visible { opacity: 1; }
+
+    /* ── Bar Chart ────────────────────────────────────────── */
+    .bar-chart {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 8px 0;
+    }
+
+    .bar-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .bar-label {
+      width: 160px;
+      flex-shrink: 0;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: right;
+    }
+
+    .bar-track {
+      flex: 1;
+      height: 28px;
+      background: var(--surface2);
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      width: 0%;
+      transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      padding-left: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .bar-val {
+      width: 60px;
+      flex-shrink: 0;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      color: var(--muted);
+    }
+
+    /* ── Info tooltip box ─────────────────────────────────── */
+    .info-box {
+      background: var(--surface2);
+      border-left: 3px solid var(--blue);
+      padding: 10px 14px;
+      border-radius: 0 6px 6px 0;
+      font-size: 12px;
+      line-height: 1.7;
+      color: var(--muted);
+      margin-top: 12px;
+    }
+
+    .info-box strong { color: var(--text); }
+
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .pill.green  { background: var(--green-dim);  color: var(--green);  }
+    .pill.yellow { background: var(--yellow-dim); color: var(--yellow); }
+    .pill.red    { background: var(--red-dim);    color: var(--red);    }
+    .pill.gray   { background: var(--surface3);   color: var(--muted);  }
+
+    /* ── Threshold indicators ─────────────────────────────── */
+    .threshold-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .threshold-chip {
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: monospace;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--muted);
+      transition: all 0.3s;
+    }
+
+    .threshold-chip.reached {
+      border-color: var(--green);
+      background: var(--green-dim);
+      color: var(--green);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>⚙️ V8 엔진 최적화 시각화</h1>
+  <span class="badge">V8 Engine</span>
+  <span class="badge" style="background:var(--purple-dim);color:var(--purple);border-color:var(--purple);">인터랙티브</span>
+</header>
+
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="hc">🧬 히든 클래스</button>
+  <button class="tab-btn" data-tab="ic">⚡ 인라인 캐싱</button>
+  <button class="tab-btn" data-tab="jit">🚀 JIT 컴파일 사이클</button>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TAB 1 — HIDDEN CLASSES
+════════════════════════════════════════════════════════════ -->
+<div id="tab-hc" class="tab-panel active">
+  <div class="section-title">히든 클래스 (Hidden Classes)</div>
+  <p class="section-desc">
+    V8은 JavaScript 객체에 내부적으로 <strong style="color:var(--text)">히든 클래스(Hidden Class)</strong>를 부여합니다.
+    같은 순서로 프로퍼티를 추가하면 동일한 히든 클래스를 공유해 최적화 코드를 재사용할 수 있지만,
+    순서가 다르면 서로 다른 클래스 체인이 만들어져 최적화 효과가 줄어듭니다.
+  </p>
+
+  <div class="two-col">
+
+    <!-- Good Pattern -->
+    <div class="card">
+      <div class="card-title">
+        <span class="pill green">좋은 패턴</span>
+        생성자 함수로 일관된 순서 유지
+      </div>
+
+      <div class="code-block"><span class="kw">function</span> <span class="fn">Point</span>(x, y) {
+  <span class="kw">this</span>.x = x;   <span class="cm">// 항상 x 먼저</span>
+  <span class="kw">this</span>.y = y;   <span class="cm">// 항상 y 다음</span>
+}
+<span class="kw">const</span> p1 = <span class="kw">new</span> <span class="fn">Point</span>(<span class="num">1</span>, <span class="num">2</span>);
+<span class="kw">const</span> p2 = <span class="kw">new</span> <span class="fn">Point</span>(<span class="num">3</span>, <span class="num">4</span>);</div>
+
+      <div class="hc-canvas-wrap">
+        <canvas id="canvas-good" width="600" height="200"></canvas>
+      </div>
+      <div id="log-good" class="hc-log">버튼을 눌러 단계별로 실행하세요.</div>
+      <div class="btn-row">
+        <button class="btn green" id="btn-good-step">▶ 단계별 실행</button>
+        <button class="btn" id="btn-good-reset">↺ 초기화</button>
+      </div>
+      <div class="info-box" style="margin-top:12px">
+        p1과 p2는 <strong>동일한 히든 클래스(C2)</strong>를 공유합니다.
+        V8은 최적화 코드를 한 번만 생성하고 두 객체에 재사용합니다.
+      </div>
+    </div>
+
+    <!-- Bad Pattern -->
+    <div class="card">
+      <div class="card-title">
+        <span class="pill red">나쁜 패턴</span>
+        다른 순서로 프로퍼티 추가
+      </div>
+
+      <div class="code-block"><span class="kw">const</span> obj1 = {};
+obj1.x = <span class="num">1</span>;  <span class="cm">// x → y 순서</span>
+obj1.y = <span class="num">2</span>;
+
+<span class="kw">const</span> obj2 = {};
+obj2.y = <span class="num">1</span>;  <span class="cm">// y → x 순서 (다름!)</span>
+obj2.x = <span class="num">2</span>;</div>
+
+      <div class="hc-canvas-wrap">
+        <canvas id="canvas-bad" width="600" height="200"></canvas>
+      </div>
+      <div id="log-bad" class="hc-log">버튼을 눌러 단계별로 실행하세요.</div>
+      <div class="btn-row">
+        <button class="btn red" id="btn-bad-step">▶ 단계별 실행</button>
+        <button class="btn" id="btn-bad-reset">↺ 초기화</button>
+      </div>
+      <div class="info-box" style="margin-top:12px;border-left-color:var(--red)">
+        obj1은 <strong>C0→C1→C2</strong>, obj2는 <strong>C0→C3→C4</strong> 경로를 사용합니다.
+        히든 클래스가 달라 최적화 코드를 <strong>공유할 수 없어</strong> 성능이 저하됩니다.
+      </div>
+    </div>
+
+  </div><!-- /.two-col -->
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TAB 2 — INLINE CACHING
+════════════════════════════════════════════════════════════ -->
+<div id="tab-ic" class="tab-panel">
+  <div class="section-title">인라인 캐싱 (Inline Caching)</div>
+  <p class="section-desc">
+    V8은 함수 호출 지점마다 <strong style="color:var(--text)">IC (Inline Cache)</strong>를 유지합니다.
+    항상 같은 타입이 오면 캐시를 최적화하고, 여러 타입이 섞이면 캐시 효율이 떨어집니다.
+  </p>
+
+  <div class="code-block" style="margin-bottom:16px"><span class="kw">function</span> <span class="fn">getX</span>(obj) {
+  <span class="kw">return</span> obj.x;   <span class="cm">// 이 프로퍼티 접근에 IC가 생성됩니다</span>
+}</div>
+
+  <!-- Monomorphic -->
+  <div class="card" id="ic-mono-card">
+    <div class="card-title">
+      <span class="pill green">모노모픽 (Monomorphic)</span>
+      항상 같은 타입 → 캐시 히트
+      <span class="ic-status-badge" id="badge-mono" style="background:var(--green-dim);color:var(--green);border:1px solid var(--green)">✓ 최적화됨</span>
+    </div>
+
+    <div class="code-block"><span class="fn">getX</span>({ x: <span class="num">1</span> });     <span class="cm">// Point 타입</span>
+<span class="fn">getX</span>({ x: <span class="num">2</span> });     <span class="cm">// Point 타입 (같음!)</span>
+<span class="fn">getX</span>({ x: <span class="num">3</span> });     <span class="cm">// Point 타입 (같음!)</span></div>
+
+    <div class="ic-visual" id="ic-visual-mono">
+      <div class="ic-box" id="ic-caller-mono">
+        <div class="ic-label">호출</div>
+        <div class="ic-name">getX()</div>
+        <div class="ic-flash" id="ic-flash-caller-mono"></div>
+      </div>
+      <div class="ic-arrow" id="ic-arrow1-mono"></div>
+      <div class="ic-box" id="ic-cache-mono">
+        <div class="ic-label">IC 캐시</div>
+        <div class="ic-name">Point → x</div>
+        <div class="ic-flash" id="ic-flash-cache-mono"></div>
+      </div>
+      <div class="ic-arrow" id="ic-arrow2-mono"></div>
+      <div class="ic-box" id="ic-result-mono">
+        <div class="ic-label">결과</div>
+        <div class="ic-name">obj.x</div>
+        <div class="ic-flash" id="ic-flash-result-mono"></div>
+      </div>
+    </div>
+
+    <div class="ic-stats">
+      <div class="ic-stat">히트: <span>0</span> <strong id="mono-hits" style="color:var(--green)">0</strong></div>
+      <div class="ic-stat">미스: <span>0</span> <strong id="mono-misses" style="color:var(--red)">0</strong></div>
+      <div class="ic-stat">상태: <strong id="mono-state" style="color:var(--muted)">대기</strong></div>
+    </div>
+    <div class="call-list" id="call-list-mono"></div>
+    <div class="btn-row">
+      <button class="btn green" id="btn-mono-run">▶ 테스트 실행 (같은 타입)</button>
+      <button class="btn" id="btn-mono-reset">↺ 초기화</button>
+    </div>
+  </div>
+
+  <!-- Polymorphic -->
+  <div class="card" id="ic-poly-card">
+    <div class="card-title">
+      <span class="pill yellow">폴리모픽 (Polymorphic)</span>
+      2~4개 타입 혼합 → 캐시 부분 히트
+      <span class="ic-status-badge" id="badge-poly" style="background:var(--yellow-dim);color:var(--yellow);border:1px solid var(--yellow)">⚠ 경고</span>
+    </div>
+
+    <div class="code-block"><span class="fn">getX</span>(<span class="kw">new</span> <span class="fn">Point</span>(<span class="num">1</span>, <span class="num">2</span>));    <span class="cm">// Point 타입</span>
+<span class="fn">getX</span>(<span class="kw">new</span> <span class="fn">Circle</span>(<span class="num">5</span>));     <span class="cm">// Circle 타입</span>
+<span class="fn">getX</span>(<span class="kw">new</span> <span class="fn">Rect</span>(<span class="num">3</span>, <span class="num">4</span>));     <span class="cm">// Rect 타입</span></div>
+
+    <div class="ic-visual" id="ic-visual-poly">
+      <div class="ic-box" id="ic-caller-poly">
+        <div class="ic-label">호출</div>
+        <div class="ic-name">getX()</div>
+        <div class="ic-flash" id="ic-flash-caller-poly"></div>
+      </div>
+      <div class="ic-arrow" id="ic-arrow1-poly"></div>
+      <div class="ic-box" id="ic-cache-poly">
+        <div class="ic-label">IC 캐시 (복수)</div>
+        <div class="ic-name" id="ic-cache-poly-label">?</div>
+        <div class="ic-flash" id="ic-flash-cache-poly"></div>
+      </div>
+      <div class="ic-arrow" id="ic-arrow2-poly"></div>
+      <div class="ic-box" id="ic-result-poly">
+        <div class="ic-label">결과</div>
+        <div class="ic-name">obj.x</div>
+      </div>
+    </div>
+
+    <div class="ic-stats">
+      <div class="ic-stat">히트: <strong id="poly-hits" style="color:var(--green)">0</strong></div>
+      <div class="ic-stat">미스: <strong id="poly-misses" style="color:var(--red)">0</strong></div>
+      <div class="ic-stat">타입 수: <strong id="poly-types" style="color:var(--yellow)">0</strong></div>
+      <div class="ic-stat">상태: <strong id="poly-state" style="color:var(--muted)">대기</strong></div>
+    </div>
+    <div class="call-list" id="call-list-poly"></div>
+    <div class="btn-row">
+      <button class="btn yellow" id="btn-poly-run">▶ 테스트 실행 (혼합 타입)</button>
+      <button class="btn" id="btn-poly-reset">↺ 초기화</button>
+    </div>
+  </div>
+
+  <!-- Megamorphic -->
+  <div class="card" id="ic-mega-card">
+    <div class="card-title">
+      <span class="pill red">메가모픽 (Megamorphic)</span>
+      5개 이상 타입 → 최적화 포기
+      <span class="ic-status-badge" id="badge-mega" style="background:var(--red-dim);color:var(--red);border:1px solid var(--red)">✗ 최적화 포기</span>
+    </div>
+
+    <div class="code-block"><span class="cm">// 매번 다른 히든 클래스를 가진 객체가 전달됨</span>
+[A, B, C, D, E, F, ...].forEach(obj => <span class="fn">getX</span>(obj));</div>
+
+    <div class="ic-visual" id="ic-visual-mega">
+      <div class="ic-box" id="ic-caller-mega">
+        <div class="ic-label">호출</div>
+        <div class="ic-name">getX()</div>
+        <div class="ic-flash" id="ic-flash-caller-mega"></div>
+      </div>
+      <div class="ic-arrow" id="ic-arrow1-mega"></div>
+      <div class="ic-box" id="ic-cache-mega" style="border-color:var(--red)">
+        <div class="ic-label">IC 캐시</div>
+        <div class="ic-name" id="ic-cache-mega-label">MEGAMORPHIC</div>
+        <div class="ic-flash" id="ic-flash-cache-mega"></div>
+      </div>
+      <div class="ic-arrow" id="ic-arrow2-mega"></div>
+      <div class="ic-box" id="ic-result-mega">
+        <div class="ic-label">결과 (느림)</div>
+        <div class="ic-name">obj.x</div>
+      </div>
+    </div>
+
+    <div class="ic-stats">
+      <div class="ic-stat">히트: <strong id="mega-hits" style="color:var(--green)">0</strong></div>
+      <div class="ic-stat">미스: <strong id="mega-misses" style="color:var(--red)">0</strong></div>
+      <div class="ic-stat">타입 수: <strong id="mega-types" style="color:var(--red)">0</strong></div>
+      <div class="ic-stat">상태: <strong id="mega-state" style="color:var(--muted)">대기</strong></div>
+    </div>
+    <div class="call-list" id="call-list-mega"></div>
+    <div class="btn-row">
+      <button class="btn red" id="btn-mega-run">▶ 테스트 실행 (다양한 타입)</button>
+      <button class="btn" id="btn-mega-reset">↺ 초기화</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TAB 3 — JIT COMPILE CYCLE
+════════════════════════════════════════════════════════════ -->
+<div id="tab-jit" class="tab-panel">
+  <div class="section-title">JIT 컴파일 사이클</div>
+  <p class="section-desc">
+    V8은 함수 호출 횟수에 따라 점진적으로 최적화를 적용합니다.
+    <strong style="color:var(--text)">Interpreter → Sparkplug → Maglev → Turbofan</strong> 순서로
+    컴파일 단계가 올라가며, 타입이 바뀌면 역최적화(Deoptimization)가 발생합니다.
+  </p>
+
+  <div class="card">
+    <div class="card-title">컴파일 파이프라인 상태</div>
+
+    <div class="jit-pipeline" id="jit-pipeline">
+      <div class="jit-node">
+        <div class="jit-circle interpreter active-state" id="jit-interp">
+          <span>인터프리터</span>
+          <span style="font-size:9px;margin-top:2px">Ignition</span>
+        </div>
+        <div class="jit-node-label">1회~</div>
+      </div>
+      <div class="jit-edge" id="jit-edge-1"></div>
+      <div class="jit-node">
+        <div class="jit-circle sparkplug" id="jit-spark">
+          <span>Sparkplug</span>
+          <span style="font-size:9px;margin-top:2px">기본 컴파일</span>
+        </div>
+        <div class="jit-node-label">10회~</div>
+      </div>
+      <div class="jit-edge" id="jit-edge-2"></div>
+      <div class="jit-node">
+        <div class="jit-circle maglev" id="jit-maglev">
+          <span>Maglev</span>
+          <span style="font-size:9px;margin-top:2px">중간 최적화</span>
+        </div>
+        <div class="jit-node-label">100회~</div>
+      </div>
+      <div class="jit-edge" id="jit-edge-3"></div>
+      <div class="jit-node">
+        <div class="jit-circle turbofan" id="jit-turbo">
+          <span>Turbofan</span>
+          <span style="font-size:9px;margin-top:2px">최적 JIT</span>
+        </div>
+        <div class="jit-node-label">1000회~</div>
+      </div>
+    </div>
+
+    <div class="jit-deopt-path" id="jit-deopt-msg">
+      ⚡ 역최적화 발생! 타입 가정이 깨졌습니다. 인터프리터로 롤백 중...
+    </div>
+
+    <div class="jit-counter-section">
+      <div class="jit-counter-box">
+        <div class="num-big" id="jit-call-count">0</div>
+        <div class="num-label">총 호출 횟수</div>
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px">현재 컴파일 단계</div>
+        <div class="jit-state-box" id="jit-state-box" style="border-color:#4b5563;color:#9ca3af">
+          인터프리터 실행 중
+        </div>
+      </div>
+    </div>
+
+    <div class="threshold-row" id="threshold-row">
+      <div class="threshold-chip" id="th-0">호출 0회: 시작</div>
+      <div class="threshold-chip" id="th-10">10회: Sparkplug</div>
+      <div class="threshold-chip" id="th-100">100회: Maglev</div>
+      <div class="threshold-chip" id="th-1000">1000회: Turbofan</div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn green" id="btn-jit-call">▶ 함수 호출 (+1)</button>
+      <button class="btn red" id="btn-jit-deopt">💥 타입 변경 (역최적화 유발)</button>
+      <button class="btn orange" id="btn-jit-fast">⚡ 1000번 빠르게 실행</button>
+      <button class="btn" id="btn-jit-reset">↺ 초기화</button>
+    </div>
+  </div>
+
+  <!-- Performance bar chart -->
+  <div class="card">
+    <div class="card-title">📊 컴파일 단계별 성능 비교 (시뮬레이션)</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:16px">
+      동일 함수를 각 단계에서 10,000번 실행했을 때의 상대적 속도 (높을수록 빠름)
+    </p>
+
+    <div class="bar-chart" id="perf-chart">
+      <div class="bar-row">
+        <div class="bar-label">인터프리터 (Ignition)</div>
+        <div class="bar-track">
+          <div class="bar-fill" id="bar-interp" style="background:linear-gradient(90deg,#4b5563,#6b7280)">
+            <span style="color:#d1d5db">1x</span>
+          </div>
+        </div>
+        <div class="bar-val" id="val-interp">0 ops</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Sparkplug</div>
+        <div class="bar-track">
+          <div class="bar-fill" id="bar-spark" style="background:linear-gradient(90deg,#78350f,#f59e0b)">
+            <span style="color:#fef3c7">2.8x</span>
+          </div>
+        </div>
+        <div class="bar-val" id="val-spark">0 ops</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Maglev</div>
+        <div class="bar-track">
+          <div class="bar-fill" id="bar-maglev" style="background:linear-gradient(90deg,#7c2d12,#f97316)">
+            <span style="color:#fed7aa">12x</span>
+          </div>
+        </div>
+        <div class="bar-val" id="val-maglev">0 ops</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Turbofan (최적화됨)</div>
+        <div class="bar-track">
+          <div class="bar-fill" id="bar-turbo" style="background:linear-gradient(90deg,#14532d,#22c55e)">
+            <span style="color:#bbf7d0">35x</span>
+          </div>
+        </div>
+        <div class="bar-val" id="val-turbo">0 ops</div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn green" id="btn-chart-run">▶ 벤치마크 시뮬레이션 실행</button>
+      <button class="btn" id="btn-chart-reset">↺ 초기화</button>
+    </div>
+
+    <div class="info-box" style="margin-top:12px">
+      <strong>참고:</strong> 실제 Turbofan은 루프 언롤링, 인라이닝, SIMD 활용 등 고급 최적화를 통해
+      인터프리터 대비 <strong>수십 배</strong>의 성능을 낼 수 있습니다.
+      단, 최적화 컴파일 자체에 시간이 걸리므로 자주 호출되는 "핫 함수"에만 적용됩니다.
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   SHARED HELPERS
+═══════════════════════════════════════════════════════════ */
+function flash(el, color, duration) {
+  if (!el) return;
+  duration = duration || 300;
+  el.style.background = color;
+  el.style.opacity = '0.55';
+  setTimeout(function() { el.style.opacity = '0'; }, duration);
+}
+
+function delay(ms) {
+  return new Promise(function(r) { setTimeout(r, ms); });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TAB SWITCHING
+═══════════════════════════════════════════════════════════ */
+var tabBtns = document.querySelectorAll('.tab-btn');
+var tabPanels = document.querySelectorAll('.tab-panel');
+
+tabBtns.forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    tabBtns.forEach(function(b) { b.classList.remove('active'); });
+    tabPanels.forEach(function(p) { p.classList.remove('active'); });
+    btn.classList.add('active');
+    var panel = document.getElementById('tab-' + btn.dataset.tab);
+    if (panel) panel.classList.add('active');
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════
+   SECTION 1 — HIDDEN CLASS CANVAS
+═══════════════════════════════════════════════════════════ */
+var COLORS = {
+  c0: '#3b82f6',
+  c1: '#a855f7',
+  c2: '#22c55e',
+  c3: '#f97316',
+  c4: '#ef4444',
+  arrow: '#7c85a2',
+  label: '#e2e8f0',
+  dimText: '#7c85a2',
+  bg: '#0a0c14'
+};
+
+function drawHCNode(ctx, x, y, name, props, color, visible) {
+  if (!visible) return;
+  var r = 30;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = '#1a1d27';
+  ctx.fill();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.fillStyle = color;
+  ctx.font = 'bold 12px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(name, x, y - 4);
+
+  ctx.fillStyle = '#7c85a2';
+  ctx.font = '10px monospace';
+  ctx.fillText(props, x, y + 10);
+}
+
+function drawArrow(ctx, x1, y1, x2, y2, color, label) {
+  var dx = x2 - x1, dy = y2 - y1;
+  var len = Math.sqrt(dx * dx + dy * dy);
+  var ux = dx / len, uy = dy / len;
+  var r = 30;
+  var sx = x1 + ux * r, sy = y1 + uy * r;
+  var ex = x2 - ux * r, ey = y2 - uy * r;
+
+  ctx.beginPath();
+  ctx.moveTo(sx, sy);
+  ctx.lineTo(ex, ey);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  var angle = Math.atan2(ey - sy, ex - sx);
+  ctx.beginPath();
+  ctx.moveTo(ex, ey);
+  ctx.lineTo(ex - 8 * Math.cos(angle - 0.4), ey - 8 * Math.sin(angle - 0.4));
+  ctx.lineTo(ex - 8 * Math.cos(angle + 0.4), ey - 8 * Math.sin(angle + 0.4));
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+
+  if (label) {
+    var mx = (sx + ex) / 2, my = (sy + ey) / 2;
+    ctx.fillStyle = '#7c85a2';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, mx + 8, my - 8);
+  }
+}
+
+/* Good pattern state: steps 0..3 */
+var goodStep = 0;
+var goodCanvas = document.getElementById('canvas-good');
+var goodCtx = goodCanvas.getContext('2d');
+
+function drawGood(step) {
+  var W = goodCanvas.width, H = goodCanvas.height;
+  goodCtx.clearRect(0, 0, W, H);
+  goodCtx.fillStyle = COLORS.bg;
+  goodCtx.fillRect(0, 0, W, H);
+
+  // Nodes: C0(empty) C1(x) C2(x,y)
+  var nodes = [
+    { x: 100, y: 100, name: 'C0', props: '{}',    color: COLORS.c0 },
+    { x: 280, y: 100, name: 'C1', props: '{x}',   color: COLORS.c1 },
+    { x: 460, y: 100, name: 'C2', props: '{x,y}', color: COLORS.c2 }
+  ];
+
+  var showNodes = step >= 1 ? [0] : [];
+  if (step >= 2) showNodes.push(1);
+  if (step >= 3) showNodes.push(2);
+
+  showNodes.forEach(function(i) {
+    drawHCNode(goodCtx, nodes[i].x, nodes[i].y, nodes[i].name, nodes[i].props, nodes[i].color, true);
+  });
+
+  if (step >= 2) drawArrow(goodCtx, nodes[0].x, nodes[0].y, nodes[1].x, nodes[1].y, COLORS.arrow, '+x');
+  if (step >= 3) drawArrow(goodCtx, nodes[1].x, nodes[1].y, nodes[2].x, nodes[2].y, COLORS.arrow, '+y');
+
+  // p1/p2 labels at step 3
+  if (step >= 3) {
+    goodCtx.font = '11px monospace';
+    goodCtx.fillStyle = COLORS.c2;
+    goodCtx.textAlign = 'center';
+    goodCtx.fillText('p1, p2', nodes[2].x, nodes[2].y + 48);
+    goodCtx.font = '10px sans-serif';
+    goodCtx.fillStyle = '#22c55e';
+    goodCtx.fillText('✓ 동일한 클래스 공유!', nodes[2].x, nodes[2].y + 62);
+  }
+}
+
+function logGood(step) {
+  var el = document.getElementById('log-good');
+  var msgs = [
+    '',
+    '<span class="line-info">▶ new Point(1,2) 생성 시작...</span>\n<span class="line-info">  → 빈 객체 생성: 히든 클래스 C0 할당</span>',
+    '<span class="line-info">  → this.x = 1 추가</span>\n<span class="line-good">  → 새 히든 클래스 C1 생성 (C0에서 분기)</span>',
+    '<span class="line-info">  → this.y = 2 추가</span>\n<span class="line-good">  → 새 히든 클래스 C2 생성 (C1에서 분기)</span>\n<span class="line-info">▶ new Point(3,4) — 동일 패턴!</span>\n<span class="line-good">  → p2도 C0→C1→C2 경로 사용: 기존 클래스 공유 ✓</span>\n<span class="line-good">  → V8이 최적화 코드 재사용 가능!</span>'
+  ];
+  el.innerHTML = msgs[step] || msgs[0];
+}
+
+drawGood(0);
+
+document.getElementById('btn-good-step').addEventListener('click', function() {
+  if (goodStep < 3) goodStep++;
+  drawGood(goodStep);
+  logGood(goodStep);
+  if (goodStep === 3) this.disabled = true;
+});
+
+document.getElementById('btn-good-reset').addEventListener('click', function() {
+  goodStep = 0;
+  drawGood(0);
+  document.getElementById('log-good').innerHTML = '버튼을 눌러 단계별로 실행하세요.';
+  document.getElementById('btn-good-step').disabled = false;
+});
+
+/* Bad pattern state: steps 0..5 */
+var badStep = 0;
+var badCanvas = document.getElementById('canvas-bad');
+var badCtx = badCanvas.getContext('2d');
+
+function drawBad(step) {
+  var W = badCanvas.width, H = badCanvas.height;
+  badCtx.clearRect(0, 0, W, H);
+  badCtx.fillStyle = COLORS.bg;
+  badCtx.fillRect(0, 0, W, H);
+
+  // C0(empty) shared
+  // obj1: C0 → C1({x}) → C2({x,y})
+  // obj2: C0 → C3({y}) → C4({y,x})
+  var C0  = { x: 80,  y: 100 };
+  var C1  = { x: 220, y: 60  };
+  var C2  = { x: 380, y: 60  };
+  var C3  = { x: 220, y: 150 };
+  var C4  = { x: 380, y: 150 };
+
+  if (step >= 1) drawHCNode(badCtx, C0.x, C0.y, 'C0', '{}',    COLORS.c0, true);
+
+  if (step >= 2) {
+    drawHCNode(badCtx, C1.x, C1.y, 'C1', '{x}', COLORS.c1, true);
+    drawArrow(badCtx, C0.x, C0.y, C1.x, C1.y, COLORS.arrow, '+x');
+  }
+  if (step >= 3) {
+    drawHCNode(badCtx, C2.x, C2.y, 'C2', '{x,y}', COLORS.c2, true);
+    drawArrow(badCtx, C1.x, C1.y, C2.x, C2.y, COLORS.arrow, '+y');
+    badCtx.font = '10px sans-serif';
+    badCtx.fillStyle = COLORS.c2;
+    badCtx.textAlign = 'center';
+    badCtx.fillText('obj1', C2.x, C2.y + 44);
+  }
+  if (step >= 4) {
+    drawHCNode(badCtx, C3.x, C3.y, 'C3', '{y}', COLORS.c3, true);
+    drawArrow(badCtx, C0.x, C0.y, C3.x, C3.y, COLORS.arrow, '+y');
+  }
+  if (step >= 5) {
+    drawHCNode(badCtx, C4.x, C4.y, 'C4', '{y,x}', COLORS.c4, true);
+    drawArrow(badCtx, C3.x, C3.y, C4.x, C4.y, COLORS.arrow, '+x');
+    badCtx.font = '10px sans-serif';
+    badCtx.fillStyle = COLORS.c4;
+    badCtx.textAlign = 'center';
+    badCtx.fillText('obj2', C4.x, C4.y + 44);
+
+    badCtx.font = '11px sans-serif';
+    badCtx.fillStyle = '#ef4444';
+    badCtx.textAlign = 'center';
+    badCtx.fillText('✗ 서로 다른 클래스 — 공유 불가!', 300, 190);
+  }
+}
+
+function logBad(step) {
+  var el = document.getElementById('log-bad');
+  var msgs = [
+    '',
+    '<span class="line-info">▶ obj1 = {} 생성...</span>\n<span class="line-info">  → 히든 클래스 C0 할당</span>',
+    '<span class="line-info">  → obj1.x = 1 추가</span>\n<span class="line-info">  → 히든 클래스 C1({x}) 생성</span>',
+    '<span class="line-info">  → obj1.y = 2 추가</span>\n<span class="line-info">  → 히든 클래스 C2({x,y}) 생성</span>',
+    '<span class="line-info">▶ obj2 = {} 생성...</span>\n<span class="line-info">  → 히든 클래스 C0 할당 (공유됨)</span>\n<span class="line-bad">  → obj2.y = 1 추가 — obj1과 다른 순서!</span>\n<span class="line-bad">  → 히든 클래스 C3({y}) 새로 생성</span>',
+    '<span class="line-bad">  → obj2.x = 2 추가</span>\n<span class="line-bad">  → 히든 클래스 C4({y,x}) 생성</span>\n<span class="line-bad">✗ obj1(C2)과 obj2(C4)는 다른 히든 클래스</span>\n<span class="line-bad">✗ V8이 최적화 코드를 공유할 수 없습니다!</span>'
+  ];
+  el.innerHTML = msgs[step] || msgs[0];
+}
+
+drawBad(0);
+
+document.getElementById('btn-bad-step').addEventListener('click', function() {
+  if (badStep < 5) badStep++;
+  drawBad(badStep);
+  logBad(badStep);
+  if (badStep === 5) this.disabled = true;
+});
+
+document.getElementById('btn-bad-reset').addEventListener('click', function() {
+  badStep = 0;
+  drawBad(0);
+  document.getElementById('log-bad').innerHTML = '버튼을 눌러 단계별로 실행하세요.';
+  document.getElementById('btn-bad-step').disabled = false;
+});
+
+/* ═══════════════════════════════════════════════════════════
+   SECTION 2 — INLINE CACHING
+═══════════════════════════════════════════════════════════ */
+function flashEl(id, color) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.style.background = color;
+  el.style.opacity = '0.6';
+  setTimeout(function() { el.style.opacity = '0'; }, 350);
+}
+
+function setArrow(id, cls) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'ic-arrow ' + cls;
+  setTimeout(function() { el.className = 'ic-arrow'; }, 600);
+}
+
+/* --- MONOMORPHIC --- */
+var monoHits = 0, monoMisses = 0, monoCalls = 0;
+var monoRunning = false;
+
+function resetMono() {
+  monoHits = 0; monoMisses = 0; monoCalls = 0;
+  document.getElementById('mono-hits').textContent = '0';
+  document.getElementById('mono-misses').textContent = '0';
+  document.getElementById('mono-state').textContent = '대기';
+  document.getElementById('mono-state').style.color = 'var(--muted)';
+  document.getElementById('badge-mono').style.opacity = '0';
+  document.getElementById('call-list-mono').innerHTML = '';
+  document.getElementById('btn-mono-run').disabled = false;
+  monoRunning = false;
+}
+
+document.getElementById('btn-mono-reset').addEventListener('click', resetMono);
+
+document.getElementById('btn-mono-run').addEventListener('click', function() {
+  if (monoRunning) return;
+  monoRunning = true;
+  this.disabled = true;
+  var calls = [
+    { label: 'getX({x:1})', type: 'Point' },
+    { label: 'getX({x:2})', type: 'Point' },
+    { label: 'getX({x:3})', type: 'Point' },
+    { label: 'getX({x:4})', type: 'Point' },
+    { label: 'getX({x:5})', type: 'Point' }
+  ];
+  var list = document.getElementById('call-list-mono');
+  calls.forEach(function(c) {
+    var chip = document.createElement('span');
+    chip.className = 'call-chip';
+    chip.textContent = c.label;
+    list.appendChild(chip);
+  });
+  var chips = list.querySelectorAll('.call-chip');
+  var i = 0;
+
+  function runNext() {
+    if (i >= calls.length) {
+      document.getElementById('mono-state').textContent = '✓ 모노모픽 최적화 완료!';
+      document.getElementById('mono-state').style.color = 'var(--green)';
+      document.getElementById('badge-mono').style.opacity = '1';
+      monoRunning = false;
+      return;
+    }
+    var c = calls[i];
+    var chip = chips[i];
+    chip.classList.add('active');
+    var isFirst = (i === 0);
+    var isHit = !isFirst;
+
+    flashEl('ic-flash-caller-mono', '#3b82f6');
+    setTimeout(function() {
+      setArrow('ic-arrow1-mono', isHit ? 'hit' : 'miss');
+      flashEl('ic-flash-cache-mono', isHit ? '#22c55e' : '#ef4444');
+      if (isHit) { monoHits++; chip.classList.add('hit'); }
+      else        { monoMisses++; chip.classList.add('miss'); }
+      document.getElementById('mono-hits').textContent = monoHits;
+      document.getElementById('mono-misses').textContent = monoMisses;
+
+      setTimeout(function() {
+        setArrow('ic-arrow2-mono', 'hit');
+        flashEl('ic-flash-result-mono', '#22c55e');
+        if (i === 2) {
+          document.getElementById('mono-state').textContent = '최적화 시작됨 (3회 후)';
+          document.getElementById('mono-state').style.color = 'var(--green)';
+        }
+        i++;
+        setTimeout(runNext, 400);
+      }, 300);
+    }, 200);
+  }
+
+  setTimeout(runNext, 200);
+});
+
+/* --- POLYMORPHIC --- */
+var polyHits = 0, polyMisses = 0, polyTypeCount = 0, polyRunning = false;
+
+function resetPoly() {
+  polyHits = 0; polyMisses = 0; polyTypeCount = 0; polyRunning = false;
+  document.getElementById('poly-hits').textContent = '0';
+  document.getElementById('poly-misses').textContent = '0';
+  document.getElementById('poly-types').textContent = '0';
+  document.getElementById('poly-state').textContent = '대기';
+  document.getElementById('poly-state').style.color = 'var(--muted)';
+  document.getElementById('badge-poly').style.opacity = '0';
+  document.getElementById('ic-cache-poly-label').textContent = '?';
+  document.getElementById('call-list-poly').innerHTML = '';
+  document.getElementById('btn-poly-run').disabled = false;
+}
+
+document.getElementById('btn-poly-reset').addEventListener('click', resetPoly);
+
+document.getElementById('btn-poly-run').addEventListener('click', function() {
+  if (polyRunning) return;
+  polyRunning = true;
+  this.disabled = true;
+
+  var calls = [
+    { label: 'getX(Point)', type: 'Point', color: '#22c55e' },
+    { label: 'getX(Circle)', type: 'Circle', color: '#f59e0b' },
+    { label: 'getX(Rect)', type: 'Rect', color: '#f97316' },
+    { label: 'getX(Point)', type: 'Point', color: '#22c55e' },
+    { label: 'getX(Tri)', type: 'Triangle', color: '#a855f7' }
+  ];
+
+  var list = document.getElementById('call-list-poly');
+  calls.forEach(function(c) {
+    var chip = document.createElement('span');
+    chip.className = 'call-chip';
+    chip.textContent = c.label;
+    list.appendChild(chip);
+  });
+
+  var chips = list.querySelectorAll('.call-chip');
+  var knownTypes = [];
+  var i = 0;
+
+  function runNext() {
+    if (i >= calls.length) {
+      document.getElementById('poly-state').textContent = '⚠ 폴리모픽 상태 (느려짐)';
+      document.getElementById('poly-state').style.color = 'var(--yellow)';
+      document.getElementById('badge-poly').style.opacity = '1';
+      polyRunning = false;
+      return;
+    }
+    var c = calls[i];
+    var chip = chips[i];
+    chip.classList.add('active');
+    var isHit = knownTypes.indexOf(c.type) !== -1;
+
+    if (!isHit) { knownTypes.push(c.type); polyMisses++; chip.classList.add('warn'); }
+    else { polyHits++; chip.classList.add('hit'); }
+
+    polyTypeCount = knownTypes.length;
+    document.getElementById('ic-cache-poly-label').textContent = knownTypes.join(', ');
+
+    flashEl('ic-flash-caller-poly', '#3b82f6');
+    setTimeout(function() {
+      setArrow('ic-arrow1-poly', isHit ? 'hit' : 'miss');
+      flashEl('ic-flash-cache-poly', isHit ? '#22c55e' : '#f59e0b');
+      document.getElementById('poly-hits').textContent = polyHits;
+      document.getElementById('poly-misses').textContent = polyMisses;
+      document.getElementById('poly-types').textContent = polyTypeCount;
+
+      if (polyTypeCount === 2) document.getElementById('poly-state').textContent = '폴리모픽 전환 (2 타입)';
+      if (polyTypeCount >= 3) document.getElementById('poly-state').textContent = '⚠ 폴리모픽 (느려짐)';
+
+      i++;
+      setTimeout(runNext, 500);
+    }, 300);
+  }
+  setTimeout(runNext, 200);
+});
+
+/* --- MEGAMORPHIC --- */
+var megaHits = 0, megaMisses = 0, megaTypeCount = 0, megaRunning = false;
+
+function resetMega() {
+  megaHits = 0; megaMisses = 0; megaTypeCount = 0; megaRunning = false;
+  document.getElementById('mega-hits').textContent = '0';
+  document.getElementById('mega-misses').textContent = '0';
+  document.getElementById('mega-types').textContent = '0';
+  document.getElementById('mega-state').textContent = '대기';
+  document.getElementById('mega-state').style.color = 'var(--muted)';
+  document.getElementById('badge-mega').style.opacity = '0';
+  document.getElementById('ic-cache-mega-label').textContent = 'MEGAMORPHIC';
+  document.getElementById('call-list-mega').innerHTML = '';
+  document.getElementById('btn-mega-run').disabled = false;
+}
+
+document.getElementById('btn-mega-reset').addEventListener('click', resetMega);
+
+document.getElementById('btn-mega-run').addEventListener('click', function() {
+  if (megaRunning) return;
+  megaRunning = true;
+  this.disabled = true;
+
+  var typeNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+  var calls = typeNames.map(function(t) { return { label: 'getX(obj' + t + ')', type: t }; });
+  var list = document.getElementById('call-list-mega');
+  calls.forEach(function(c) {
+    var chip = document.createElement('span');
+    chip.className = 'call-chip';
+    chip.textContent = c.label;
+    list.appendChild(chip);
+  });
+
+  var chips = list.querySelectorAll('.call-chip');
+  var i = 0;
+
+  function runNext() {
+    if (i >= calls.length) {
+      document.getElementById('mega-state').textContent = '✗ 메가모픽 — 최적화 포기';
+      document.getElementById('mega-state').style.color = 'var(--red)';
+      document.getElementById('badge-mega').style.opacity = '1';
+      megaRunning = false;
+      return;
+    }
+    var c = calls[i];
+    var chip = chips[i];
+    chip.classList.add('active', 'miss');
+    megaMisses++;
+    megaTypeCount = i + 1;
+
+    document.getElementById('mega-hits').textContent = megaHits;
+    document.getElementById('mega-misses').textContent = megaMisses;
+    document.getElementById('mega-types').textContent = megaTypeCount;
+
+    if (megaTypeCount >= 5) {
+      document.getElementById('mega-state').textContent = '✗ 메가모픽 상태 진입!';
+      document.getElementById('mega-state').style.color = 'var(--red)';
+      document.getElementById('ic-cache-mega-label').textContent = 'MEGAMORPHIC';
+    }
+
+    flashEl('ic-flash-caller-mega', '#ef4444');
+    setTimeout(function() {
+      setArrow('ic-arrow1-mega', 'miss');
+      flashEl('ic-flash-cache-mega', '#ef4444');
+      i++;
+      setTimeout(runNext, 450);
+    }, 250);
+  }
+  setTimeout(runNext, 200);
+});
+
+/* ═══════════════════════════════════════════════════════════
+   SECTION 3 — JIT COMPILE CYCLE
+═══════════════════════════════════════════════════════════ */
+var jitCallCount = 0;
+var jitAnimating = false;
+
+var JIT_STATES = [
+  { min: 0,    max: 9,    id: 'jit-interp', label: '인터프리터 실행 중',     color: '#9ca3af', borderColor: '#4b5563' },
+  { min: 10,   max: 99,   id: 'jit-spark',  label: 'Sparkplug 컴파일됨',    color: '#fbbf24', borderColor: '#f59e0b' },
+  { min: 100,  max: 999,  id: 'jit-maglev', label: 'Maglev 최적화 중',      color: '#fb923c', borderColor: '#f97316' },
+  { min: 1000, max: Infinity, id: 'jit-turbo', label: 'Turbofan 최적화 완료!', color: '#4ade80', borderColor: '#22c55e' }
+];
+
+function getJitState(n) {
+  for (var i = JIT_STATES.length - 1; i >= 0; i--) {
+    if (n >= JIT_STATES[i].min) return i;
+  }
+  return 0;
+}
+
+function updateJitUI(count) {
+  document.getElementById('jit-call-count').textContent = count.toLocaleString();
+  var si = getJitState(count);
+  var s = JIT_STATES[si];
+
+  // Update state box
+  var sb = document.getElementById('jit-state-box');
+  sb.textContent = s.label;
+  sb.style.color = s.color;
+  sb.style.borderColor = s.borderColor;
+
+  // Update node highlights
+  var circleIds = ['jit-interp', 'jit-spark', 'jit-maglev', 'jit-turbo'];
+  circleIds.forEach(function(id, idx) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (idx === si) el.classList.add('active-state');
+    else el.classList.remove('active-state');
+  });
+
+  // Update edges
+  var edgeIds = ['jit-edge-1', 'jit-edge-2', 'jit-edge-3'];
+  edgeIds.forEach(function(id, idx) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (idx < si) el.classList.add('active');
+    else el.classList.remove('active');
+  });
+
+  // Update threshold chips
+  var thresholds = [
+    { id: 'th-0',    value: 0 },
+    { id: 'th-10',   value: 10 },
+    { id: 'th-100',  value: 100 },
+    { id: 'th-1000', value: 1000 }
+  ];
+  thresholds.forEach(function(t) {
+    var el = document.getElementById(t.id);
+    if (!el) return;
+    if (count >= t.value) el.classList.add('reached');
+    else el.classList.remove('reached');
+  });
+}
+
+document.getElementById('btn-jit-call').addEventListener('click', function() {
+  jitCallCount++;
+  updateJitUI(jitCallCount);
+  document.getElementById('jit-deopt-msg').classList.remove('visible');
+});
+
+document.getElementById('btn-jit-deopt').addEventListener('click', function() {
+  if (jitAnimating) return;
+  if (jitCallCount === 0) return;
+  jitAnimating = true;
+
+  var deoptMsg = document.getElementById('jit-deopt-msg');
+  deoptMsg.classList.add('visible');
+
+  // Flash turbofan/maglev red
+  var activeEl = document.getElementById(JIT_STATES[getJitState(jitCallCount)].id);
+  if (activeEl) activeEl.classList.add('deopt-flash');
+  setTimeout(function() {
+    if (activeEl) activeEl.classList.remove('deopt-flash');
+  }, 800);
+
+  setTimeout(function() {
+    jitCallCount = 0;
+    updateJitUI(0);
+    jitAnimating = false;
+  }, 700);
+});
+
+document.getElementById('btn-jit-fast').addEventListener('click', function() {
+  if (jitAnimating) return;
+  jitAnimating = true;
+  document.getElementById('jit-deopt-msg').classList.remove('visible');
+  var target = 1000;
+  var start = jitCallCount;
+  var startTime = performance.now();
+  var duration = 1200;
+
+  function tick(now) {
+    var elapsed = now - startTime;
+    var progress = Math.min(elapsed / duration, 1);
+    var eased = 1 - Math.pow(1 - progress, 3);
+    jitCallCount = Math.round(start + (target - start) * eased);
+    updateJitUI(jitCallCount);
+    if (progress < 1) {
+      requestAnimationFrame(tick);
+    } else {
+      jitCallCount = target;
+      updateJitUI(target);
+      jitAnimating = false;
+    }
+  }
+  requestAnimationFrame(tick);
+});
+
+document.getElementById('btn-jit-reset').addEventListener('click', function() {
+  jitCallCount = 0;
+  jitAnimating = false;
+  updateJitUI(0);
+  document.getElementById('jit-deopt-msg').classList.remove('visible');
+});
+
+updateJitUI(0);
+
+/* ── Performance Bar Chart ─────────────────────────────── */
+var BENCH_DATA = [
+  { id: 'bar-interp', valId: 'val-interp', pct: 8,  val: '12,000 ops/s' },
+  { id: 'bar-spark',  valId: 'val-spark',  pct: 22, val: '33,600 ops/s' },
+  { id: 'bar-maglev', valId: 'val-maglev', pct: 58, val: '144,000 ops/s' },
+  { id: 'bar-turbo',  valId: 'val-turbo',  pct: 95, val: '420,000 ops/s' }
+];
+
+var chartAnimating = false;
+
+document.getElementById('btn-chart-run').addEventListener('click', function() {
+  if (chartAnimating) return;
+  chartAnimating = true;
+  this.disabled = true;
+  BENCH_DATA.forEach(function(d, idx) {
+    setTimeout(function() {
+      var bar = document.getElementById(d.id);
+      if (bar) bar.style.width = d.pct + '%';
+      var val = document.getElementById(d.valId);
+      if (val) val.textContent = d.val;
+      if (idx === BENCH_DATA.length - 1) {
+        setTimeout(function() { chartAnimating = false; }, 1300);
+      }
+    }, idx * 200);
+  });
+});
+
+document.getElementById('btn-chart-reset').addEventListener('click', function() {
+  chartAnimating = false;
+  document.getElementById('btn-chart-run').disabled = false;
+  BENCH_DATA.forEach(function(d) {
+    var bar = document.getElementById(d.id);
+    if (bar) bar.style.width = '0%';
+    var val = document.getElementById(d.valId);
+    if (val) val.textContent = '0 ops';
+  });
+});
+</script>
+</body>
+</html>

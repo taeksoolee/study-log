@@ -1,0 +1,1480 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>스택 &amp; 큐 시각화</title>
+  <style>
+    /* ─────────────────────────────────────────────
+       CSS Reset & Custom Properties
+    ───────────────────────────────────────────── */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-base:        #0d0f1a;
+      --bg-surface:     #141622;
+      --bg-card:        #1a1d2e;
+      --bg-card-hover:  #1f2338;
+      --border:         #2a2d45;
+      --border-hover:   #3a3d5c;
+      --text-primary:   #e8eaf6;
+      --text-secondary: #9fa8c7;
+      --text-muted:     #5c6080;
+
+      --accent-stack: #ffb74d;
+      --accent-queue: #64b5f6;
+      --accent-warn:  #ef5350;
+      --accent-ok:    #66bb6a;
+
+      --radius-sm:  6px;
+      --radius-md:  12px;
+      --radius-lg:  20px;
+
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Animated grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background-image:
+        linear-gradient(rgba(255, 183, 77, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(100, 181, 246, 0.025) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      top: -40%;
+      right: -20%;
+      width: 60%;
+      height: 60%;
+      background: radial-gradient(ellipse, rgba(255,183,77,0.05) 0%, transparent 65%);
+      pointer-events: none;
+      z-index: 0;
+      animation: drift 20s ease-in-out infinite alternate;
+    }
+
+    @keyframes drift {
+      from { transform: translate(0,0) scale(1); }
+      to   { transform: translate(-5%, 8%) scale(1.06); }
+    }
+
+    /* ─────────────────────────────────────────────
+       Layout
+    ───────────────────────────────────────────── */
+    .page-wrapper {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      max-width: 1300px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 0 24px 40px;
+    }
+
+    /* ─────────────────────────────────────────────
+       Header
+    ───────────────────────────────────────────── */
+    .page-header {
+      padding: 36px 0 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      animation: fadeSlideDown 0.5s ease both;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-family: var(--font-mono);
+      padding: 6px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      transition: color 150ms, border-color 150ms, background 150ms;
+    }
+    .back-link:hover {
+      color: var(--accent-stack);
+      border-color: rgba(255,183,77,0.35);
+      background: rgba(255,183,77,0.05);
+    }
+
+    .header-center {
+      text-align: center;
+      flex: 1;
+    }
+
+    .page-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,183,77,0.08);
+      border: 1px solid rgba(255,183,77,0.2);
+      border-radius: 100px;
+      padding: 5px 16px;
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      color: var(--accent-stack);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .page-badge::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent-stack);
+      box-shadow: 0 0 8px var(--accent-stack);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%,100% { opacity:1; transform:scale(1); }
+      50%      { opacity:0.5; transform:scale(0.8); }
+    }
+
+    .page-title {
+      font-size: clamp(1.4rem, 4vw, 2.2rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #e8eaf6 30%, #9fa8c7 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .page-subtitle {
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+      margin-top: 6px;
+    }
+
+    .reset-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(239,83,80,0.1);
+      border: 1px solid rgba(239,83,80,0.25);
+      border-radius: var(--radius-md);
+      color: #ef9a9a;
+      font-size: 0.82rem;
+      font-family: var(--font-sans);
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: background 150ms, border-color 150ms, transform 150ms;
+      white-space: nowrap;
+    }
+    .reset-btn:hover {
+      background: rgba(239,83,80,0.18);
+      border-color: rgba(239,83,80,0.4);
+      transform: translateY(-1px);
+    }
+    .reset-btn:active { transform: translateY(0); }
+
+    @keyframes fadeSlideDown {
+      from { opacity:0; transform:translateY(-14px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+
+    /* ─────────────────────────────────────────────
+       LIFO / FIFO Explainer
+    ───────────────────────────────────────────── */
+    .concept-bar {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 24px;
+      animation: fadeSlideDown 0.5s 0.1s ease both;
+    }
+
+    .concept-card {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+    }
+
+    .concept-card.stack-concept { border-color: rgba(255,183,77,0.2); }
+    .concept-card.queue-concept { border-color: rgba(100,181,246,0.2); }
+
+    .concept-icon {
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .concept-text strong {
+      display: block;
+      font-size: 0.92rem;
+      font-weight: 700;
+      margin-bottom: 3px;
+    }
+
+    .concept-text p {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .concept-flow {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+    }
+
+    .concept-flow span {
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid;
+    }
+
+    .stack-concept .concept-flow span {
+      border-color: rgba(255,183,77,0.3);
+      color: var(--accent-stack);
+      background: rgba(255,183,77,0.06);
+    }
+
+    .queue-concept .concept-flow span {
+      border-color: rgba(100,181,246,0.3);
+      color: var(--accent-queue);
+      background: rgba(100,181,246,0.06);
+    }
+
+    /* ─────────────────────────────────────────────
+       Split Panels
+    ───────────────────────────────────────────── */
+    .panels {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      flex: 1;
+      animation: fadeSlideDown 0.5s 0.15s ease both;
+    }
+
+    @media (max-width: 800px) {
+      .panels { grid-template-columns: 1fr; }
+      .concept-bar { flex-direction: column; }
+    }
+
+    .panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      min-height: 560px;
+    }
+
+    .panel-stack { border-color: rgba(255,183,77,0.15); }
+    .panel-queue { border-color: rgba(100,181,246,0.15); }
+
+    /* Panel top bar */
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .panel-title-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .panel-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .badge {
+      font-size: 0.65rem;
+      font-family: var(--font-mono);
+      padding: 3px 9px;
+      border-radius: 100px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .badge-lifo {
+      background: rgba(255,183,77,0.12);
+      border: 1px solid rgba(255,183,77,0.3);
+      color: var(--accent-stack);
+    }
+
+    .badge-fifo {
+      background: rgba(100,181,246,0.12);
+      border: 1px solid rgba(100,181,246,0.3);
+      color: var(--accent-queue);
+    }
+
+    .size-info {
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+    }
+
+    .size-info .size-val {
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    /* ─────────────────────────────────────────────
+       Controls
+    ───────────────────────────────────────────── */
+    .controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .value-input {
+      flex: 1;
+      min-width: 80px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      padding: 8px 12px;
+      outline: none;
+      transition: border-color 150ms, box-shadow 150ms;
+    }
+    .value-input:focus {
+      border-color: rgba(255,183,77,0.4);
+      box-shadow: 0 0 0 3px rgba(255,183,77,0.08);
+    }
+    .panel-queue .value-input:focus {
+      border-color: rgba(100,181,246,0.4);
+      box-shadow: 0 0 0 3px rgba(100,181,246,0.08);
+    }
+    .value-input::placeholder { color: var(--text-muted); }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 0.83rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: transform 120ms, opacity 150ms, background 150ms, border-color 150ms;
+      white-space: nowrap;
+    }
+    .btn:hover  { transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    .btn-push {
+      background: rgba(255,183,77,0.15);
+      border-color: rgba(255,183,77,0.35);
+      color: var(--accent-stack);
+    }
+    .btn-push:not(:disabled):hover {
+      background: rgba(255,183,77,0.22);
+      border-color: rgba(255,183,77,0.5);
+    }
+
+    .btn-pop {
+      background: rgba(255,183,77,0.08);
+      border-color: rgba(255,183,77,0.2);
+      color: #ffd08a;
+    }
+    .btn-pop:not(:disabled):hover {
+      background: rgba(255,183,77,0.15);
+      border-color: rgba(255,183,77,0.35);
+    }
+
+    .btn-enqueue {
+      background: rgba(100,181,246,0.15);
+      border-color: rgba(100,181,246,0.35);
+      color: var(--accent-queue);
+    }
+    .btn-enqueue:not(:disabled):hover {
+      background: rgba(100,181,246,0.22);
+      border-color: rgba(100,181,246,0.5);
+    }
+
+    .btn-dequeue {
+      background: rgba(100,181,246,0.08);
+      border-color: rgba(100,181,246,0.2);
+      color: #93c8f6;
+    }
+    .btn-dequeue:not(:disabled):hover {
+      background: rgba(100,181,246,0.15);
+      border-color: rgba(100,181,246,0.35);
+    }
+
+    /* Complexity hints */
+    .op-hints {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .op-hint {
+      font-size: 0.68rem;
+      font-family: var(--font-mono);
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      color: var(--text-muted);
+    }
+
+    /* Status / result message */
+    .result-msg {
+      font-size: 0.82rem;
+      font-family: var(--font-mono);
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      color: var(--text-secondary);
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: border-color 300ms, color 300ms;
+    }
+
+    .result-msg.ok    { border-color: rgba(102,187,106,0.35); color: #a5d6a7; }
+    .result-msg.warn  { border-color: rgba(239,83,80,0.35);   color: #ef9a9a; }
+    .result-msg.info  { border-color: rgba(255,183,77,0.3);   color: #ffd08a; }
+    .result-msg.info2 { border-color: rgba(100,181,246,0.3);  color: #90caf9; }
+
+    /* ─────────────────────────────────────────────
+       Stack Visualizer
+    ───────────────────────────────────────────── */
+    .stack-visual-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 12px 0 4px;
+      position: relative;
+    }
+
+    .stack-top-label {
+      font-size: 0.68rem;
+      font-family: var(--font-mono);
+      color: var(--accent-stack);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+      opacity: 0;
+      transition: opacity 200ms;
+    }
+
+    .stack-top-label.visible { opacity: 1; }
+
+    .stack-top-arrow {
+      width: 0; height: 0;
+      border-left: 6px solid var(--accent-stack);
+      border-top: 4px solid transparent;
+      border-bottom: 4px solid transparent;
+    }
+
+    .stack-container {
+      width: 100%;
+      max-width: 300px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-height: 280px;
+      justify-content: flex-end;
+    }
+
+    .stack-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      height: 280px;
+      border: 2px dashed rgba(255,183,77,0.2);
+      border-radius: var(--radius-md);
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      font-family: var(--font-mono);
+    }
+
+    .stack-empty-icon { font-size: 2rem; opacity: 0.4; }
+
+    .stack-base {
+      width: 100%;
+      max-width: 300px;
+      height: 4px;
+      background: linear-gradient(90deg, transparent, rgba(255,183,77,0.3), transparent);
+      border-radius: 2px;
+      margin-top: 4px;
+    }
+
+    .stack-item {
+      width: 100%;
+      max-width: 300px;
+      height: 48px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 1rem;
+      font-weight: 600;
+      color: #0d0f1a;
+      border: 1px solid rgba(0,0,0,0.2);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      position: relative;
+      transition: box-shadow 150ms;
+      cursor: default;
+    }
+
+    .stack-item.item-new {
+      animation: stackPush 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+
+    .stack-item.item-popping {
+      animation: stackPop 0.3s ease-in forwards;
+    }
+
+    @keyframes stackPush {
+      from { transform: translateY(-60px); opacity: 0; }
+      to   { transform: translateY(0);     opacity: 1; }
+    }
+
+    @keyframes stackPop {
+      from { transform: translateY(0);    opacity: 1; }
+      to   { transform: translateY(-60px); opacity: 0; }
+    }
+
+    .stack-item .item-index {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.62rem;
+      opacity: 0.5;
+    }
+
+    /* ─────────────────────────────────────────────
+       Queue Visualizer
+    ───────────────────────────────────────────── */
+    .queue-visual-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 0;
+      gap: 12px;
+      position: relative;
+    }
+
+    .queue-labels {
+      display: flex;
+      width: 100%;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 8px;
+    }
+
+    .queue-label {
+      font-size: 0.68rem;
+      font-family: var(--font-mono);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .queue-label.front { color: var(--accent-queue); }
+    .queue-label.rear  { color: #b0bec5; }
+
+    .q-arrow-r {
+      width: 0; height: 0;
+      border-top: 4px solid transparent;
+      border-bottom: 4px solid transparent;
+      border-left: 6px solid var(--accent-queue);
+    }
+
+    .q-arrow-r2 {
+      width: 0; height: 0;
+      border-top: 4px solid transparent;
+      border-bottom: 4px solid transparent;
+      border-left: 6px solid #b0bec5;
+    }
+
+    .queue-track {
+      width: 100%;
+      min-height: 80px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 8px;
+      border: 1px solid rgba(100,181,246,0.12);
+      border-radius: var(--radius-md);
+      background: rgba(100,181,246,0.03);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .queue-empty {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      font-family: var(--font-mono);
+      padding: 16px 0;
+    }
+
+    .queue-empty-icon { font-size: 1.8rem; opacity: 0.4; }
+
+    .queue-item {
+      flex-shrink: 0;
+      width: 64px;
+      height: 56px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #0d0f1a;
+      border: 1px solid rgba(0,0,0,0.2);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      position: relative;
+      cursor: default;
+    }
+
+    .queue-item.item-new {
+      animation: queueEnqueue 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+
+    .queue-item.item-dequeuing {
+      animation: queueDequeue 0.3s ease-in forwards;
+    }
+
+    @keyframes queueEnqueue {
+      from { transform: translateX(80px); opacity: 0; }
+      to   { transform: translateX(0);    opacity: 1; }
+    }
+
+    @keyframes queueDequeue {
+      from { transform: translateX(0);     opacity: 1; }
+      to   { transform: translateX(-80px); opacity: 0; }
+    }
+
+    .queue-item .item-pos {
+      position: absolute;
+      bottom: 3px;
+      right: 5px;
+      font-size: 0.58rem;
+      opacity: 0.5;
+    }
+
+    /* Arrow connector between queue items */
+    .q-connector {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+    }
+
+    .q-connector-line {
+      width: 10px;
+      height: 2px;
+      background: rgba(100,181,246,0.25);
+    }
+
+    /* ─────────────────────────────────────────────
+       Operation Log
+    ───────────────────────────────────────────── */
+    .log-section {
+      margin-top: 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px 24px;
+      animation: fadeSlideDown 0.5s 0.2s ease both;
+    }
+
+    .log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .log-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .log-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent-ok);
+      box-shadow: 0 0 6px var(--accent-ok);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .log-clear-btn {
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 3px 10px;
+      cursor: pointer;
+      transition: color 150ms, border-color 150ms;
+    }
+    .log-clear-btn:hover { color: var(--text-secondary); border-color: var(--border-hover); }
+
+    .log-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 180px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .log-list::-webkit-scrollbar { width: 4px; }
+    .log-list::-webkit-scrollbar-track { background: transparent; }
+    .log-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .log-entry {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.78rem;
+      font-family: var(--font-mono);
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-surface);
+      border: 1px solid rgba(255,255,255,0.04);
+      animation: logFade 0.25s ease both;
+    }
+
+    @keyframes logFade {
+      from { opacity: 0; transform: translateX(-10px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    .log-entry .log-source {
+      font-size: 0.65rem;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .log-source.stack { background: rgba(255,183,77,0.15); color: var(--accent-stack); }
+    .log-source.queue { background: rgba(100,181,246,0.15); color: var(--accent-queue); }
+
+    .log-entry .log-op {
+      color: var(--text-secondary);
+      flex: 1;
+    }
+
+    .log-entry .log-time {
+      color: var(--text-muted);
+      font-size: 0.65rem;
+      flex-shrink: 0;
+    }
+
+    .log-empty {
+      font-size: 0.78rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      text-align: center;
+      padding: 20px 0;
+    }
+
+    /* ─────────────────────────────────────────────
+       Scrollbar
+    ───────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track  { background: var(--bg-base); }
+    ::-webkit-scrollbar-thumb  { background: var(--border); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+
+    /* ─────────────────────────────────────────────
+       Warning strip
+    ───────────────────────────────────────────── */
+    .warn-strip {
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      padding: 6px 12px;
+      background: rgba(239,83,80,0.08);
+      border: 1px solid rgba(239,83,80,0.25);
+      border-radius: var(--radius-sm);
+      color: #ef9a9a;
+      display: none;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .warn-strip.visible { display: flex; }
+  </style>
+</head>
+<body>
+<div class="page-wrapper">
+
+  <!-- ════════════════════════════════
+       HEADER
+  ════════════════════════════════ -->
+  <header class="page-header">
+    <a class="back-link" href="index.html">← 목록으로</a>
+    <div class="header-center">
+      <div class="page-badge">03 / 06 · 자료구조 시각화</div>
+      <h1 class="page-title">스택 &amp; 큐 (Stack &amp; Queue)</h1>
+      <p class="page-subtitle">LIFO vs FIFO · 인터랙티브 시각화</p>
+    </div>
+    <button class="reset-btn" id="btnResetAll">⟳ 모두 초기화</button>
+  </header>
+
+  <!-- ════════════════════════════════
+       CONCEPT BAR
+  ════════════════════════════════ -->
+  <div class="concept-bar">
+    <div class="concept-card stack-concept">
+      <div class="concept-icon">📦</div>
+      <div class="concept-text">
+        <strong style="color:var(--accent-stack);">스택 (Stack)</strong>
+        <p>가장 나중에 넣은 데이터가 가장 먼저 나오는 후입선출(LIFO) 구조입니다.<br>함수 호출 스택, Undo 기능, 괄호 검사 등에 활용됩니다.</p>
+        <div class="concept-flow">
+          <span>Push → TOP</span>
+          <span>→</span>
+          <span>Pop ← TOP</span>
+        </div>
+      </div>
+    </div>
+    <div class="concept-card queue-concept">
+      <div class="concept-icon">🚶</div>
+      <div class="concept-text">
+        <strong style="color:var(--accent-queue);">큐 (Queue)</strong>
+        <p>가장 먼저 넣은 데이터가 가장 먼저 나오는 선입선출(FIFO) 구조입니다.<br>프린터 대기열, BFS 탐색, 메시지 큐 등에 활용됩니다.</p>
+        <div class="concept-flow">
+          <span>Enqueue → REAR</span>
+          <span>→</span>
+          <span>FRONT → Dequeue</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════
+       SPLIT PANELS
+  ════════════════════════════════ -->
+  <div class="panels">
+
+    <!-- ── STACK Panel ── -->
+    <div class="panel panel-stack">
+      <div class="panel-header">
+        <div class="panel-title-group">
+          <span class="panel-title">스택 (Stack)</span>
+          <span class="badge badge-lifo">LIFO</span>
+        </div>
+        <span class="size-info">크기: <span class="size-val" id="stackSizeDisplay">0</span> / 8</span>
+      </div>
+
+      <!-- Controls -->
+      <div class="controls">
+        <input class="value-input" id="stackInput" type="text" placeholder="값 입력..." maxlength="6" />
+        <button class="btn btn-push" id="btnPush">↓ 푸시</button>
+        <button class="btn btn-pop"  id="btnPop">↑ 팝</button>
+      </div>
+
+      <div class="op-hints">
+        <span class="op-hint">push() O(1)</span>
+        <span class="op-hint">pop() O(1)</span>
+        <span class="op-hint">peek() O(1)</span>
+        <span class="op-hint">size() O(1)</span>
+      </div>
+
+      <div class="warn-strip" id="stackWarn">⚠ 스택이 가득 찼습니다 (최대 8개)</div>
+
+      <div class="result-msg" id="stackResult">스택 작업 결과가 여기에 표시됩니다.</div>
+
+      <!-- Visual -->
+      <div class="stack-visual-wrap">
+        <div class="stack-top-label" id="stackTopLabel">
+          <div class="stack-top-arrow"></div>
+          TOP
+        </div>
+        <div class="stack-container" id="stackContainer">
+          <div class="stack-empty" id="stackEmpty">
+            <div class="stack-empty-icon">📭</div>
+            빈 스택
+          </div>
+        </div>
+        <div class="stack-base"></div>
+      </div>
+    </div>
+
+    <!-- ── QUEUE Panel ── -->
+    <div class="panel panel-queue">
+      <div class="panel-header">
+        <div class="panel-title-group">
+          <span class="panel-title">큐 (Queue)</span>
+          <span class="badge badge-fifo">FIFO</span>
+        </div>
+        <span class="size-info">크기: <span class="size-val" id="queueSizeDisplay">0</span> / 6</span>
+      </div>
+
+      <!-- Controls -->
+      <div class="controls">
+        <input class="value-input" id="queueInput" type="text" placeholder="값 입력..." maxlength="6" />
+        <button class="btn btn-enqueue" id="btnEnqueue">→ 인큐</button>
+        <button class="btn btn-dequeue" id="btnDequeue">← 디큐</button>
+      </div>
+
+      <div class="op-hints">
+        <span class="op-hint">enqueue() O(1)</span>
+        <span class="op-hint">dequeue() O(1)</span>
+        <span class="op-hint">front() O(1)</span>
+        <span class="op-hint">size() O(1)</span>
+      </div>
+
+      <div class="warn-strip" id="queueWarn">⚠ 큐가 가득 찼습니다 (최대 6개)</div>
+
+      <div class="result-msg" id="queueResult">큐 작업 결과가 여기에 표시됩니다.</div>
+
+      <!-- Visual -->
+      <div class="queue-visual-wrap">
+        <div class="queue-labels">
+          <div class="queue-label front">
+            <div class="q-arrow-r"></div>
+            FRONT (디큐 위치)
+          </div>
+          <div class="queue-label rear">
+            REAR (인큐 위치)
+            <div class="q-arrow-r2"></div>
+          </div>
+        </div>
+        <div class="queue-track" id="queueTrack">
+          <div class="queue-empty" id="queueEmpty">
+            <div class="queue-empty-icon">📭</div>
+            빈 큐
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /.panels -->
+
+  <!-- ════════════════════════════════
+       OPERATION LOG
+  ════════════════════════════════ -->
+  <div class="log-section">
+    <div class="log-header">
+      <div class="log-title">
+        <div class="log-dot"></div>
+        작업 로그 (Operation Log)
+      </div>
+      <button class="log-clear-btn" id="btnClearLog">로그 지우기</button>
+    </div>
+    <div class="log-list" id="logList">
+      <div class="log-empty" id="logEmpty">아직 수행된 작업이 없습니다.</div>
+    </div>
+  </div>
+
+</div><!-- /.page-wrapper -->
+
+<script>
+  /* ══════════════════════════════════════════════════
+     Data Structures
+  ══════════════════════════════════════════════════ */
+
+  class Stack {
+    constructor(maxSize = 8) {
+      this._data = [];
+      this._maxSize = maxSize;
+    }
+    push(val) {
+      if (this.isFull()) return false;
+      this._data.push(val);
+      return true;
+    }
+    pop() {
+      if (this.isEmpty()) return undefined;
+      return this._data.pop();
+    }
+    peek() {
+      if (this.isEmpty()) return undefined;
+      return this._data[this._data.length - 1];
+    }
+    isEmpty()  { return this._data.length === 0; }
+    isFull()   { return this._data.length >= this._maxSize; }
+    size()     { return this._data.length; }
+    toArray()  { return [...this._data]; }
+    clear()    { this._data = []; }
+  }
+
+  class Queue {
+    constructor(maxSize = 6) {
+      this._data = [];
+      this._maxSize = maxSize;
+    }
+    enqueue(val) {
+      if (this.isFull()) return false;
+      this._data.push(val);
+      return true;
+    }
+    dequeue() {
+      if (this.isEmpty()) return undefined;
+      return this._data.shift();
+    }
+    front() {
+      if (this.isEmpty()) return undefined;
+      return this._data[0];
+    }
+    isEmpty()  { return this._data.length === 0; }
+    isFull()   { return this._data.length >= this._maxSize; }
+    size()     { return this._data.length; }
+    toArray()  { return [...this._data]; }
+    clear()    { this._data = []; }
+  }
+
+  /* ══════════════════════════════════════════════════
+     Color Palette
+  ══════════════════════════════════════════════════ */
+  const COLORS = [
+    '#ff7043','#ffa726','#ffca28','#66bb6a','#26c6da',
+    '#42a5f5','#7e57c2','#ec407a','#ef5350','#26a69a',
+    '#d4e157','#8d6e63','#78909c','#ab47bc','#29b6f6',
+  ];
+
+  let colorIdx = 0;
+  function nextColor() {
+    const c = COLORS[colorIdx % COLORS.length];
+    colorIdx++;
+    return c;
+  }
+
+  /* Assign colors stably per value sequence */
+  const stackColors = [];
+  const queueColors = [];
+
+  /* ══════════════════════════════════════════════════
+     State
+  ══════════════════════════════════════════════════ */
+  const stack = new Stack(8);
+  const queue = new Queue(6);
+
+  let lastStackAnimClass = '';
+  let lastQueueAnimClass = '';
+
+  /* ══════════════════════════════════════════════════
+     DOM Refs
+  ══════════════════════════════════════════════════ */
+  const stackInput       = document.getElementById('stackInput');
+  const queueInput       = document.getElementById('queueInput');
+  const btnPush          = document.getElementById('btnPush');
+  const btnPop           = document.getElementById('btnPop');
+  const btnEnqueue       = document.getElementById('btnEnqueue');
+  const btnDequeue       = document.getElementById('btnDequeue');
+  const btnResetAll      = document.getElementById('btnResetAll');
+  const btnClearLog      = document.getElementById('btnClearLog');
+
+  const stackSizeDisplay = document.getElementById('stackSizeDisplay');
+  const queueSizeDisplay = document.getElementById('queueSizeDisplay');
+  const stackWarn        = document.getElementById('stackWarn');
+  const queueWarn        = document.getElementById('queueWarn');
+  const stackResult      = document.getElementById('stackResult');
+  const queueResult      = document.getElementById('queueResult');
+  const stackContainer   = document.getElementById('stackContainer');
+  const stackEmpty       = document.getElementById('stackEmpty');
+  const stackTopLabel    = document.getElementById('stackTopLabel');
+  const queueTrack       = document.getElementById('queueTrack');
+  const queueEmpty       = document.getElementById('queueEmpty');
+  const logList          = document.getElementById('logList');
+  const logEmpty         = document.getElementById('logEmpty');
+
+  /* ══════════════════════════════════════════════════
+     Render: Stack
+  ══════════════════════════════════════════════════ */
+  function renderStack(animateTop = '') {
+    // animateTop: 'push' | 'pop' | ''
+    const data = stack.toArray(); // bottom → top
+
+    stackSizeDisplay.textContent = stack.size();
+    stackWarn.classList.toggle('visible', stack.isFull());
+    btnPop.disabled  = stack.isEmpty();
+    btnPush.disabled = stack.isFull();
+
+    // Clear previous dynamic items
+    Array.from(stackContainer.querySelectorAll('.stack-item')).forEach(el => el.remove());
+
+    if (stack.isEmpty()) {
+      stackEmpty.style.display = '';
+      stackTopLabel.classList.remove('visible');
+      return;
+    }
+
+    stackEmpty.style.display = 'none';
+    stackTopLabel.classList.add('visible');
+
+    // Render items: bottom to top visually (top of array = top of stack = rendered first/top in DOM column-reverse)
+    // We want top of stack at top of visual, so render in reverse order (index data.length-1 at top)
+    // stack container is flex-column (normal), so first child = top visual
+    const fragment = document.createDocumentFragment();
+    for (let i = data.length - 1; i >= 0; i--) {
+      const isTop = (i === data.length - 1);
+      const div = document.createElement('div');
+      div.className = 'stack-item';
+
+      // Color
+      const color = stackColors[i] || '#ffb74d';
+      div.style.background = color;
+
+      // Animation on the top element
+      if (isTop && animateTop === 'push') {
+        div.classList.add('item-new');
+      }
+
+      div.textContent = data[i];
+
+      const idx = document.createElement('span');
+      idx.className = 'item-index';
+      idx.textContent = i;
+      div.appendChild(idx);
+
+      fragment.appendChild(div);
+    }
+    stackContainer.prepend(fragment);
+  }
+
+  /* ══════════════════════════════════════════════════
+     Render: Queue
+  ══════════════════════════════════════════════════ */
+  function renderQueue(animateNew = false) {
+    const data = queue.toArray(); // front → rear
+
+    queueSizeDisplay.textContent = queue.size();
+    queueWarn.classList.toggle('visible', queue.isFull());
+    btnDequeue.disabled = queue.isEmpty();
+    btnEnqueue.disabled = queue.isFull();
+
+    // Clear dynamic items
+    Array.from(queueTrack.querySelectorAll('.queue-item, .q-connector')).forEach(el => el.remove());
+
+    if (queue.isEmpty()) {
+      queueEmpty.style.display = '';
+      return;
+    }
+
+    queueEmpty.style.display = 'none';
+
+    const fragment = document.createDocumentFragment();
+    data.forEach((val, i) => {
+      if (i > 0) {
+        const conn = document.createElement('div');
+        conn.className = 'q-connector';
+        const line = document.createElement('div');
+        line.className = 'q-connector-line';
+        conn.appendChild(line);
+        fragment.appendChild(conn);
+      }
+
+      const div = document.createElement('div');
+      div.className = 'queue-item';
+
+      const color = queueColors[i] || '#64b5f6';
+      div.style.background = color;
+
+      if (animateNew && i === data.length - 1) {
+        div.classList.add('item-new');
+      }
+
+      div.textContent = val;
+
+      const pos = document.createElement('span');
+      pos.className = 'item-pos';
+      pos.textContent = i === 0 ? 'F' : i === data.length - 1 ? 'R' : i;
+      div.appendChild(pos);
+
+      fragment.appendChild(div);
+    });
+
+    queueTrack.appendChild(fragment);
+  }
+
+  /* ══════════════════════════════════════════════════
+     Result Message
+  ══════════════════════════════════════════════════ */
+  function setResult(el, text, type = '') {
+    el.textContent = text;
+    el.className = 'result-msg' + (type ? ' ' + type : '');
+  }
+
+  /* ══════════════════════════════════════════════════
+     Log
+  ══════════════════════════════════════════════════ */
+  function addLog(source, message) {
+    logEmpty.style.display = 'none';
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+
+    const src = document.createElement('span');
+    src.className = 'log-source ' + source;
+    src.textContent = source === 'stack' ? 'STACK' : 'QUEUE';
+
+    const op = document.createElement('span');
+    op.className = 'log-op';
+    op.textContent = message;
+
+    const now = new Date();
+    const time = document.createElement('span');
+    time.className = 'log-time';
+    time.textContent =
+      String(now.getHours()).padStart(2,'0') + ':' +
+      String(now.getMinutes()).padStart(2,'0') + ':' +
+      String(now.getSeconds()).padStart(2,'0');
+
+    entry.appendChild(src);
+    entry.appendChild(op);
+    entry.appendChild(time);
+
+    logList.insertBefore(entry, logList.firstChild);
+
+    // Cap log at 50 entries
+    const entries = logList.querySelectorAll('.log-entry');
+    if (entries.length > 50) {
+      entries[entries.length - 1].remove();
+    }
+  }
+
+  /* ══════════════════════════════════════════════════
+     Generate a value if input is empty
+  ══════════════════════════════════════════════════ */
+  function getValue(input) {
+    const v = input.value.trim();
+    if (v !== '') return v;
+    return String(Math.floor(Math.random() * 90) + 10);
+  }
+
+  /* ══════════════════════════════════════════════════
+     Stack Operations
+  ══════════════════════════════════════════════════ */
+  function doPush() {
+    if (stack.isFull()) {
+      setResult(stackResult, '⚠ 스택이 가득 찼습니다! (최대 8개)', 'warn');
+      return;
+    }
+    const val = getValue(stackInput);
+    stackInput.value = '';
+    stackColors.unshift(nextColor()); // new item goes to top
+    stack.push(val);
+    renderStack('push');
+    setResult(stackResult, `↓ Push → "${val}" 추가됨  |  크기: ${stack.size()}`, 'ok');
+    addLog('stack', `push("${val}") → 스택 크기: ${stack.size()}`);
+  }
+
+  function doPop() {
+    if (stack.isEmpty()) {
+      setResult(stackResult, '⚠ 스택이 비어있습니다!', 'warn');
+      return;
+    }
+
+    // Animate pop then remove
+    const topEl = stackContainer.querySelector('.stack-item');
+    if (topEl) {
+      topEl.classList.add('item-popping');
+      setTimeout(() => {
+        const val = stack.pop();
+        stackColors.shift();
+        renderStack('');
+        setResult(stackResult, `↑ Pop → "${val}" 반환됨  |  크기: ${stack.size()}`, 'info');
+        addLog('stack', `pop() → "${val}" 반환  |  스택 크기: ${stack.size()}`);
+      }, 280);
+    }
+  }
+
+  /* ══════════════════════════════════════════════════
+     Queue Operations
+  ══════════════════════════════════════════════════ */
+  function doEnqueue() {
+    if (queue.isFull()) {
+      setResult(queueResult, '⚠ 큐가 가득 찼습니다! (최대 6개)', 'warn');
+      return;
+    }
+    const val = getValue(queueInput);
+    queueInput.value = '';
+    queueColors.push(nextColor()); // new item goes to rear
+    queue.enqueue(val);
+    renderQueue(true);
+    setResult(queueResult, `→ Enqueue → "${val}" 추가됨  |  크기: ${queue.size()}`, 'ok');
+    addLog('queue', `enqueue("${val}") → 큐 크기: ${queue.size()}`);
+  }
+
+  function doDequeue() {
+    if (queue.isEmpty()) {
+      setResult(queueResult, '⚠ 큐가 비어있습니다!', 'warn');
+      return;
+    }
+
+    const frontEl = queueTrack.querySelector('.queue-item');
+    if (frontEl) {
+      frontEl.classList.add('item-dequeuing');
+      setTimeout(() => {
+        const val = queue.dequeue();
+        queueColors.shift();
+        renderQueue(false);
+        setResult(queueResult, `← Dequeue → "${val}" 반환됨  |  크기: ${queue.size()}`, 'info2');
+        addLog('queue', `dequeue() → "${val}" 반환  |  큐 크기: ${queue.size()}`);
+      }, 280);
+    }
+  }
+
+  /* ══════════════════════════════════════════════════
+     Reset
+  ══════════════════════════════════════════════════ */
+  function resetAll() {
+    stack.clear();
+    queue.clear();
+    stackColors.length = 0;
+    queueColors.length = 0;
+    colorIdx = 0;
+
+    renderStack('');
+    renderQueue(false);
+
+    setResult(stackResult, '스택 작업 결과가 여기에 표시됩니다.');
+    setResult(queueResult, '큐 작업 결과가 여기에 표시됩니다.');
+    stackWarn.classList.remove('visible');
+    queueWarn.classList.remove('visible');
+
+    addLog('stack', '--- 초기화 ---');
+    addLog('queue', '--- 초기화 ---');
+  }
+
+  /* ══════════════════════════════════════════════════
+     Event Listeners
+  ══════════════════════════════════════════════════ */
+  btnPush.addEventListener('click', doPush);
+  btnPop.addEventListener('click', doPop);
+  btnEnqueue.addEventListener('click', doEnqueue);
+  btnDequeue.addEventListener('click', doDequeue);
+  btnResetAll.addEventListener('click', resetAll);
+
+  btnClearLog.addEventListener('click', () => {
+    Array.from(logList.querySelectorAll('.log-entry')).forEach(el => el.remove());
+    logEmpty.style.display = '';
+  });
+
+  stackInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doPush(); });
+  queueInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doEnqueue(); });
+
+  /* ══════════════════════════════════════════════════
+     Initial State — pre-populate a few items
+  ══════════════════════════════════════════════════ */
+  (function init() {
+    const sampleStack = ['42', '17', '8'];
+    const sampleQueue = ['A', 'B', 'C'];
+
+    sampleStack.forEach(v => {
+      stackColors.push(nextColor());
+      stack.push(v);
+    });
+
+    sampleQueue.forEach(v => {
+      queueColors.push(nextColor());
+      queue.enqueue(v);
+    });
+
+    renderStack('');
+    renderQueue(false);
+
+    addLog('stack', `push("8"), push("17"), push("42") → 초기 스택 설정`);
+    addLog('queue', `enqueue("A"), enqueue("B"), enqueue("C") → 초기 큐 설정`);
+  })();
+
+  /* ══════════════════════════════════════════════════
+     Page load progress bar
+  ══════════════════════════════════════════════════ */
+  (function pageLoadBar() {
+    const bar = document.createElement('div');
+    Object.assign(bar.style, {
+      position: 'fixed', top: '0', left: '0',
+      height: '2px', width: '0%',
+      background: 'linear-gradient(90deg, #ffb74d, #64b5f6)',
+      zIndex: '9999',
+      transition: 'width 0.3s ease',
+      borderRadius: '0 2px 2px 0',
+    });
+    document.body.appendChild(bar);
+    let pct = 0;
+    const tick = setInterval(() => {
+      pct += Math.random() * 18;
+      if (pct >= 90) { clearInterval(tick); pct = 90; }
+      bar.style.width = pct + '%';
+    }, 80);
+    window.addEventListener('load', () => {
+      clearInterval(tick);
+      bar.style.width = '100%';
+      setTimeout(() => { bar.style.opacity = '0'; }, 400);
+      setTimeout(() => bar.remove(), 800);
+    });
+  })();
+</script>
+</body>
+</html>

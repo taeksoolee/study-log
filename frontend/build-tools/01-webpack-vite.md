@@ -431,3 +431,11 @@ Vite는 개발 서버에서 소스 코드를 **번들링하지 않습니다**. �
 1. **동적 import**: `import()` 문법으로 특정 시점에 모듈 로드
 2. **React.lazy + Suspense**: 컴포넌트 단위 지연 로딩
 3. **SplitChunksPlugin**: 공통 모듈(vendor 등)을 자동으로 별도 청크로 분리
+
+---
+
+## Vite 최신 동향 (Vite 5.x / 6.x)
+- Rolldown (Rust 기반 Rollup 대체) 통합 계획
+- Environment API
+- CSS Layers 지원
+- Lightning CSS 통합

@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>그래프 시각화 - BFS / DFS</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #232638;
+      --border: #2e3248;
+      --accent: #7c6af7;
+      --accent2: #5e56c5;
+      --text: #e2e4f0;
+      --text-muted: #7a7f9a;
+      --green: #2dd4bf;
+      --yellow: #f59e0b;
+      --orange: #f97316;
+      --purple: #a78bfa;
+      --red: #f87171;
+
+      --node-unvisited: #3b4063;
+      --node-queue: #d97706;
+      --node-current: #10b981;
+      --node-visited: #7c3aed;
+      --node-border-unvisited: #5b6490;
+      --node-border-queue: #f59e0b;
+      --node-border-current: #34d399;
+      --node-border-visited: #a78bfa;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    header a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 13px;
+      transition: color 0.2s;
+    }
+
+    header a:hover { color: var(--accent); }
+
+    header h1 {
+      font-size: 18px;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--green));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .sep { color: var(--border); font-size: 18px; }
+
+    .layout {
+      display: flex;
+      flex: 1;
+      gap: 0;
+      overflow: hidden;
+    }
+
+    /* ── Left panel ── */
+    .left-panel {
+      width: 260px;
+      min-width: 220px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 18px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+    }
+
+    .panel-section {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .panel-section h3 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+
+    .row { display: flex; gap: 6px; align-items: center; }
+
+    .inp {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+      padding: 5px 8px;
+      outline: none;
+      transition: border-color 0.2s;
+      width: 100%;
+    }
+
+    .inp:focus { border-color: var(--accent); }
+    .inp::placeholder { color: var(--text-muted); }
+
+    .btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 10px;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn:hover:not(:disabled) {
+      background: var(--border);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-accent {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .btn-accent:hover:not(:disabled) {
+      background: var(--accent2);
+      border-color: var(--accent2);
+      color: #fff;
+    }
+
+    .btn-green {
+      background: #065f46;
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    .btn-green:hover:not(:disabled) {
+      background: #047857;
+      color: #fff;
+    }
+
+    .btn-orange {
+      background: #7c2d12;
+      border-color: var(--orange);
+      color: var(--orange);
+    }
+
+    .btn-orange:hover:not(:disabled) {
+      background: #9a3412;
+      color: #fff;
+    }
+
+    .btn-red {
+      background: #450a0a;
+      border-color: var(--red);
+      color: var(--red);
+      font-size: 11px;
+    }
+
+    .btn-red:hover:not(:disabled) {
+      background: #7f1d1d;
+      color: #fff;
+    }
+
+    .full-btn { width: 100%; }
+
+    /* ── Center panel ── */
+    .center-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .canvas-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #graphCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: default;
+    }
+
+    #graphCanvas.dragging { cursor: grabbing; }
+
+    /* Status bar */
+    .status-bar {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 8px 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 38px;
+    }
+
+    .status-label {
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+    }
+
+    .status-bfs { background: #1e3a5f; color: #60a5fa; }
+    .status-dfs { background: #3b1f5e; color: #c084fc; }
+    .status-idle { background: var(--surface2); color: var(--text-muted); }
+
+    .visit-order { color: var(--text); font-weight: 500; }
+
+    /* Data structures display */
+    .ds-panel {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 10px 16px;
+      min-height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      overflow-x: auto;
+    }
+
+    .ds-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      white-space: nowrap;
+      min-width: 48px;
+    }
+
+    .ds-items {
+      display: flex;
+      gap: 6px;
+      flex-wrap: nowrap;
+      align-items: center;
+    }
+
+    .ds-item {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 32px;
+      height: 32px;
+      padding: 0 8px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      border: 2px solid;
+      transition: all 0.2s;
+    }
+
+    .ds-item-queue {
+      background: #451a03;
+      border-color: var(--yellow);
+      color: var(--yellow);
+    }
+
+    .ds-item-stack {
+      background: #3b1f5e;
+      border-color: var(--purple);
+      color: var(--purple);
+    }
+
+    .ds-arrow {
+      color: var(--text-muted);
+      font-size: 16px;
+    }
+
+    .ds-front-label, .ds-top-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    .ds-pointer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    /* ── Right panel ── */
+    .right-panel {
+      width: 240px;
+      min-width: 200px;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      padding: 18px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+    }
+
+    .info-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+    }
+
+    .info-card h3 {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+    }
+
+    .badge-bfs { background: #1e3a5f; color: #60a5fa; }
+    .badge-dfs { background: #3b1f5e; color: #c084fc; }
+
+    .info-card p, .info-card li {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .info-card ul { padding-left: 14px; }
+    .info-card li { margin-bottom: 3px; }
+
+    .complexity {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .complexity-item {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 8px;
+      text-align: center;
+    }
+
+    .complexity-item .label {
+      font-size: 10px;
+      color: var(--text-muted);
+      display: block;
+    }
+
+    .complexity-item .value {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent);
+      font-family: monospace;
+    }
+
+    .legend {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .legend-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 2px solid;
+      flex-shrink: 0;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 20px;
+      font-size: 13px;
+      color: var(--text);
+      transition: transform 0.3s ease;
+      z-index: 999;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.error { border-color: var(--red); color: var(--red); }
+    .toast.success { border-color: var(--green); color: var(--green); }
+  </style>
+</head>
+<body>
+
+<header>
+  <a href="../../../index.html">← 목록으로</a>
+  <span class="sep">/</span>
+  <h1>그래프 시각화</h1>
+  <span class="sep">/</span>
+  <span style="font-size:13px; color:var(--text-muted);">BFS · DFS 탐색 애니메이션</span>
+</header>
+
+<div class="layout">
+
+  <!-- ── Left Controls ── -->
+  <div class="left-panel">
+
+    <div class="panel-section">
+      <h3>노드 관리</h3>
+      <button class="btn btn-accent full-btn" id="btnAddNode">+ 노드 추가</button>
+      <button class="btn btn-red full-btn" id="btnResetGraph">그래프 초기화</button>
+    </div>
+
+    <div class="panel-section">
+      <h3>엣지 추가</h3>
+      <div class="row">
+        <input class="inp" id="edgeFrom" placeholder="노드 A" maxlength="3" />
+        <span style="color:var(--text-muted);font-size:18px;">—</span>
+        <input class="inp" id="edgeTo" placeholder="노드 B" maxlength="3" />
+      </div>
+      <button class="btn full-btn" id="btnAddEdge">엣지 추가</button>
+    </div>
+
+    <div class="panel-section">
+      <h3>노드 삭제</h3>
+      <div class="row">
+        <input class="inp" id="deleteNode" placeholder="노드 이름" maxlength="3" />
+        <button class="btn btn-red" id="btnDeleteNode">삭제</button>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <h3>BFS 탐색</h3>
+      <div class="row">
+        <input class="inp" id="bfsStart" placeholder="시작 노드" maxlength="3" />
+        <button class="btn btn-green" id="btnBfs">BFS 실행</button>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <h3>DFS 탐색</h3>
+      <div class="row">
+        <input class="inp" id="dfsStart" placeholder="시작 노드" maxlength="3" />
+        <button class="btn btn-orange" id="btnDfs">DFS 실행</button>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <h3>현재 노드 목록</h3>
+      <div id="nodeList" style="font-size:12px; color:var(--text-muted); line-height:1.8; min-height:20px;"></div>
+    </div>
+
+  </div>
+
+  <!-- ── Center Canvas ── -->
+  <div class="center-panel">
+    <div class="canvas-wrap">
+      <canvas id="graphCanvas"></canvas>
+    </div>
+
+    <div class="ds-panel" id="dsPanel">
+      <span class="ds-label" id="dsLabel">대기</span>
+      <div class="ds-items" id="dsItems">
+        <span style="font-size:12px; color:var(--text-muted);">알고리즘을 실행하면 자료구조가 표시됩니다.</span>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <span class="status-label status-idle" id="statusLabel">대기</span>
+      <span class="visit-order" id="visitOrder">알고리즘을 선택하고 시작 노드를 입력하세요.</span>
+    </div>
+  </div>
+
+  <!-- ── Right Info ── -->
+  <div class="right-panel">
+
+    <div class="info-card">
+      <h3>노드 색상 범례</h3>
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#3b4063; border-color:#5b6490;"></div>
+          미방문 (Unvisited)
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#d97706; border-color:#f59e0b;"></div>
+          큐/스택 대기 중
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#10b981; border-color:#34d399;"></div>
+          현재 방문 중
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#7c3aed; border-color:#a78bfa;"></div>
+          방문 완료
+        </div>
+      </div>
+    </div>
+
+    <div class="info-card">
+      <h3><span class="badge badge-bfs">BFS</span> 너비 우선 탐색</h3>
+      <p>시작 노드에서 가까운 노드부터 순서대로 방문합니다. 큐(Queue)를 사용하며 최단 경로 탐색에 유용합니다.</p>
+      <ul style="margin-top:6px;">
+        <li>FIFO 큐 사용</li>
+        <li>최단 경로 보장</li>
+        <li>넓게 퍼지며 탐색</li>
+      </ul>
+      <div class="complexity">
+        <div class="complexity-item">
+          <span class="label">시간</span>
+          <span class="value">O(V+E)</span>
+        </div>
+        <div class="complexity-item">
+          <span class="label">공간</span>
+          <span class="value">O(V)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-card">
+      <h3><span class="badge badge-dfs">DFS</span> 깊이 우선 탐색</h3>
+      <p>한 방향으로 최대한 깊이 탐색한 후 되돌아옵니다. 스택(Stack)을 사용하며 경로 찾기, 사이클 감지에 활용됩니다.</p>
+      <ul style="margin-top:6px;">
+        <li>LIFO 스택 사용</li>
+        <li>메모리 효율적</li>
+        <li>깊게 파고드는 탐색</li>
+      </ul>
+      <div class="complexity">
+        <div class="complexity-item">
+          <span class="label">시간</span>
+          <span class="value">O(V+E)</span>
+        </div>
+        <div class="complexity-item">
+          <span class="label">공간</span>
+          <span class="value">O(V)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-card">
+      <h3>사용 방법</h3>
+      <ul>
+        <li>노드를 드래그해서 이동</li>
+        <li>노드 추가 후 엣지 연결</li>
+        <li>시작 노드 입력 후 탐색 실행</li>
+        <li>탐색 중 중단 불가</li>
+      </ul>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Toast notification -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════════════
+//  Graph Data Structure
+// ════════════════════════════════════════════════════════
+class Graph {
+  constructor() {
+    this.nodes = new Map();  // name -> { x, y, state }
+    this.adj   = new Map();  // name -> Set of neighbor names
+  }
+
+  addNode(name, x, y) {
+    if (this.nodes.has(name)) return false;
+    this.nodes.set(name, { x, y, state: 'unvisited' });
+    this.adj.set(name, new Set());
+    return true;
+  }
+
+  removeNode(name) {
+    if (!this.nodes.has(name)) return false;
+    this.nodes.delete(name);
+    this.adj.delete(name);
+    for (const [, neighbors] of this.adj) {
+      neighbors.delete(name);
+    }
+    return true;
+  }
+
+  addEdge(a, b) {
+    if (!this.nodes.has(a) || !this.nodes.has(b)) return false;
+    if (a === b) return false;
+    this.adj.get(a).add(b);
+    this.adj.get(b).add(a);
+    return true;
+  }
+
+  hasEdge(a, b) {
+    return this.adj.has(a) && this.adj.get(a).has(b);
+  }
+
+  resetStates() {
+    for (const node of this.nodes.values()) {
+      node.state = 'unvisited';
+    }
+  }
+
+  getNeighborsSorted(name) {
+    if (!this.adj.has(name)) return [];
+    return [...this.adj.get(name)].sort();
+  }
+
+  bfsSteps(start) {
+    if (!this.nodes.has(start)) return null;
+    const steps   = [];
+    const visited = new Set();
+    const queue   = [start];
+    visited.add(start);
+
+    steps.push({ type: 'enqueue', node: start, queue: [...queue], visited: new Set(visited) });
+
+    while (queue.length > 0) {
+      const cur = queue.shift();
+      steps.push({ type: 'visit', node: cur, queue: [...queue], visited: new Set(visited) });
+
+      for (const nb of this.getNeighborsSorted(cur)) {
+        if (!visited.has(nb)) {
+          visited.add(nb);
+          queue.push(nb);
+          steps.push({ type: 'enqueue', node: nb, queue: [...queue], visited: new Set(visited) });
+        }
+      }
+    }
+    return steps;
+  }
+
+  dfsSteps(start) {
+    if (!this.nodes.has(start)) return null;
+    const steps   = [];
+    const visited = new Set();
+    const stack   = [start];
+
+    steps.push({ type: 'push', node: start, stack: [...stack], visited: new Set(visited) });
+
+    while (stack.length > 0) {
+      const cur = stack.pop();
+      if (visited.has(cur)) {
+        steps.push({ type: 'skip', node: cur, stack: [...stack], visited: new Set(visited) });
+        continue;
+      }
+      visited.add(cur);
+      steps.push({ type: 'visit', node: cur, stack: [...stack], visited: new Set(visited) });
+
+      const neighbors = this.getNeighborsSorted(cur).reverse();
+      for (const nb of neighbors) {
+        if (!visited.has(nb)) {
+          stack.push(nb);
+          steps.push({ type: 'push', node: nb, stack: [...stack], visited: new Set(visited) });
+        }
+      }
+    }
+    return steps;
+  }
+}
+
+// ════════════════════════════════════════════════════════
+//  Visualizer State
+// ════════════════════════════════════════════════════════
+const canvas  = document.getElementById('graphCanvas');
+const ctx     = canvas.getContext('2d');
+const NODE_R  = 22;
+const COLORS  = {
+  unvisited: { fill: '#3b4063', stroke: '#5b6490', text: '#c5c9e0' },
+  queued:    { fill: '#d97706', stroke: '#f59e0b', text: '#fff' },
+  current:   { fill: '#10b981', stroke: '#34d399', text: '#fff' },
+  visited:   { fill: '#7c3aed', stroke: '#a78bfa', text: '#fff' },
+};
+
+const graph = new Graph();
+
+let animRunning  = false;
+let animTimerId  = null;
+let visitedOrder = [];
+let currentMode  = 'idle'; // 'idle' | 'bfs' | 'dfs'
+let renderStates = new Map(); // name -> color key
+let dsData       = [];         // current queue or stack snapshot
+let currentNode  = null;       // node being visited this step
+
+// Drag state
+let dragNode  = null;
+let dragOffX  = 0;
+let dragOffY  = 0;
+
+// Next auto-generated node label counter
+let nodeCounter = 0;
+const NODE_LABELS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+function nextLabel() {
+  // Use letters first, then numbers
+  if (nodeCounter < NODE_LABELS.length) {
+    return NODE_LABELS[nodeCounter++];
+  }
+  return String(nodeCounter++ - NODE_LABELS.length + 1);
+}
+
+// ════════════════════════════════════════════════════════
+//  Default Graph
+// ════════════════════════════════════════════════════════
+function buildDefaultGraph() {
+  graph.nodes.clear();
+  graph.adj.clear();
+  nodeCounter = 0;
+
+  // We'll position relative to canvas, so store logical coords first
+  // and rescale on first render if needed.
+  const defaultNodes = [
+    ['A', 100, 150],
+    ['B', 250,  80],
+    ['C', 250, 220],
+    ['D', 400,  80],
+    ['E', 400, 220],
+    ['F', 550, 150],
+    ['G', 325, 310],
+  ];
+  const defaultEdges = [
+    ['A','B'],['A','C'],['B','D'],['B','C'],
+    ['C','E'],['C','G'],['D','F'],['E','F'],
+  ];
+
+  nodeCounter = defaultNodes.length;
+  for (const [name, x, y] of defaultNodes) graph.addNode(name, x, y);
+  for (const [a, b] of defaultEdges) graph.addEdge(a, b);
+
+  renderStates.clear();
+  currentNode = null;
+  dsData = [];
+  updateNodeList();
+  redraw();
+  updateStatus('idle', '');
+  updateDS([]);
+}
+
+// ════════════════════════════════════════════════════════
+//  Canvas resize
+// ════════════════════════════════════════════════════════
+function resizeCanvas() {
+  const wrap = canvas.parentElement;
+  const dpr  = window.devicePixelRatio || 1;
+  canvas.width  = wrap.clientWidth  * dpr;
+  canvas.height = wrap.clientHeight * dpr;
+  canvas.style.width  = wrap.clientWidth  + 'px';
+  canvas.style.height = wrap.clientHeight + 'px';
+  ctx.scale(dpr, dpr);
+  redraw();
+}
+
+// ════════════════════════════════════════════════════════
+//  Drawing
+// ════════════════════════════════════════════════════════
+function getNodeColor(name) {
+  if (name === currentNode) return COLORS.current;
+  const s = renderStates.get(name);
+  if (s === 'visited') return COLORS.visited;
+  if (s === 'queued')  return COLORS.queued;
+  return COLORS.unvisited;
+}
+
+function drawArrow(x1, y1, x2, y2) {
+  const angle = Math.atan2(y2 - y1, x2 - x1);
+  const len   = Math.sqrt((x2-x1)**2 + (y2-y1)**2);
+  const sx    = x1 + Math.cos(angle) * NODE_R;
+  const sy    = y1 + Math.sin(angle) * NODE_R;
+  const ex    = x2 - Math.cos(angle) * NODE_R;
+  const ey    = y2 - Math.sin(angle) * NODE_R;
+  return { sx, sy, ex, ey };
+}
+
+function redraw() {
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.width  / dpr;
+  const H = canvas.height / dpr;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid background dots
+  ctx.fillStyle = '#1e2130';
+  for (let x = 20; x < W; x += 40) {
+    for (let y = 20; y < H; y += 40) {
+      ctx.beginPath();
+      ctx.arc(x, y, 1, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Draw edges
+  const drawn = new Set();
+  for (const [name, neighbors] of graph.adj) {
+    for (const nb of neighbors) {
+      const key = [name, nb].sort().join('|');
+      if (drawn.has(key)) continue;
+      drawn.add(key);
+
+      const a = graph.nodes.get(name);
+      const b = graph.nodes.get(nb);
+      if (!a || !b) continue;
+
+      const isActive = (
+        (name === currentNode || nb === currentNode) ||
+        (renderStates.get(name) === 'visited' && renderStates.get(nb) === 'visited')
+      );
+
+      ctx.save();
+      ctx.strokeStyle = isActive ? '#5b6490' : '#2e3248';
+      ctx.lineWidth   = isActive ? 2.5 : 1.5;
+      ctx.shadowColor = isActive ? '#7c6af7' : 'transparent';
+      ctx.shadowBlur  = isActive ? 6 : 0;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // Draw nodes
+  for (const [name, node] of graph.nodes) {
+    const c = getNodeColor(name);
+
+    // Shadow for current
+    if (name === currentNode) {
+      ctx.save();
+      ctx.shadowColor = c.stroke;
+      ctx.shadowBlur  = 18;
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, NODE_R, 0, Math.PI * 2);
+      ctx.fillStyle = c.fill;
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Node fill
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, NODE_R, 0, Math.PI * 2);
+
+    // Gradient fill
+    const grad = ctx.createRadialGradient(
+      node.x - NODE_R * 0.3, node.y - NODE_R * 0.3, 2,
+      node.x, node.y, NODE_R
+    );
+    grad.addColorStop(0, lighten(c.fill, 30));
+    grad.addColorStop(1, c.fill);
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    ctx.strokeStyle = c.stroke;
+    ctx.lineWidth   = 2.5;
+    ctx.stroke();
+    ctx.restore();
+
+    // Label
+    ctx.save();
+    ctx.fillStyle    = c.text;
+    ctx.font         = 'bold 14px Segoe UI, sans-serif';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(name, node.x, node.y);
+    ctx.restore();
+  }
+}
+
+function lighten(hex, amount) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  const toHex = v => Math.min(255, v + amount).toString(16).padStart(2,'0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+// ════════════════════════════════════════════════════════
+//  UI Helpers
+// ════════════════════════════════════════════════════════
+function updateNodeList() {
+  const el = document.getElementById('nodeList');
+  const names = [...graph.nodes.keys()].sort();
+  el.textContent = names.length ? names.join(', ') : '(노드 없음)';
+}
+
+function updateStatus(mode, orderStr) {
+  const label  = document.getElementById('statusLabel');
+  const orders = document.getElementById('visitOrder');
+
+  if (mode === 'bfs') {
+    label.className = 'status-label status-bfs';
+    label.textContent = 'BFS 실행 중...';
+  } else if (mode === 'dfs') {
+    label.className = 'status-label status-dfs';
+    label.textContent = 'DFS 실행 중...';
+  } else if (mode === 'bfs-done') {
+    label.className = 'status-label status-bfs';
+    label.textContent = 'BFS 완료';
+  } else if (mode === 'dfs-done') {
+    label.className = 'status-label status-dfs';
+    label.textContent = 'DFS 완료';
+  } else {
+    label.className = 'status-label status-idle';
+    label.textContent = '대기';
+  }
+
+  if (orderStr) {
+    orders.textContent = '방문 순서: ' + orderStr;
+  } else {
+    orders.textContent = '알고리즘을 선택하고 시작 노드를 입력하세요.';
+  }
+}
+
+function updateDS(items, type = 'queue') {
+  const label = document.getElementById('dsLabel');
+  const el    = document.getElementById('dsItems');
+
+  if (!items || items.length === 0) {
+    label.textContent = type === 'queue' ? '큐' : '스택';
+    el.innerHTML = '<span style="font-size:12px; color:var(--text-muted);">비어 있음</span>';
+    return;
+  }
+
+  if (type === 'queue') {
+    label.textContent = '큐 (Queue)';
+    let html = '';
+    items.forEach((item, i) => {
+      if (i === 0) {
+        html += `<div class="ds-pointer"><div class="ds-item ds-item-queue">${item}</div><div class="ds-front-label">front</div></div>`;
+      } else {
+        html += `<span class="ds-arrow">›</span><div class="ds-item ds-item-queue">${item}</div>`;
+      }
+    });
+    el.innerHTML = html;
+  } else {
+    label.textContent = '스택 (Stack)';
+    let html = '';
+    const top = items[items.length - 1];
+    items.slice().reverse().forEach((item, i) => {
+      if (i > 0) html += '<span class="ds-arrow" style="transform:rotate(90deg); display:inline-block;">›</span>';
+      if (item === top) {
+        html += `<div class="ds-pointer"><div class="ds-item ds-item-stack">${item}</div><div class="ds-top-label">top</div></div>`;
+      } else {
+        html += `<div class="ds-item ds-item-stack">${item}</div>`;
+      }
+    });
+    el.innerHTML = html;
+  }
+}
+
+function setControlsDisabled(disabled) {
+  const ids = [
+    'btnAddNode','btnResetGraph','btnAddEdge','btnDeleteNode',
+    'btnBfs','btnDfs','edgeFrom','edgeTo','deleteNode',
+    'bfsStart','dfsStart'
+  ];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = disabled;
+  });
+}
+
+let toastTimer = null;
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className   = 'toast show' + (type ? ' ' + type : '');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = 'toast'; }, 2600);
+}
+
+// ════════════════════════════════════════════════════════
+//  Animation Runner
+// ════════════════════════════════════════════════════════
+function runAnimation(steps, mode) {
+  if (!steps || steps.length === 0) {
+    showToast('방문할 노드가 없습니다.', 'error');
+    return;
+  }
+
+  animRunning = true;
+  currentMode = mode;
+  visitedOrder = [];
+  renderStates.clear();
+  graph.resetStates();
+  currentNode = null;
+  setControlsDisabled(true);
+  updateStatus(mode, '');
+
+  let i = 0;
+
+  function tick() {
+    if (i >= steps.length) {
+      // Done
+      animRunning = false;
+      currentNode = null;
+      setControlsDisabled(false);
+      updateStatus(mode + '-done', visitedOrder.join(' → '));
+      updateDS([], mode === 'bfs' ? 'queue' : 'stack');
+      redraw();
+      return;
+    }
+
+    const step = steps[i++];
+
+    if (mode === 'bfs') {
+      if (step.type === 'enqueue') {
+        renderStates.set(step.node, 'queued');
+        updateDS(step.queue, 'queue');
+      } else if (step.type === 'visit') {
+        currentNode = step.node;
+        renderStates.set(step.node, 'visited');
+        visitedOrder.push(step.node);
+        updateDS(step.queue, 'queue');
+        updateStatus('bfs', visitedOrder.join(' → '));
+      }
+    } else {
+      // DFS
+      if (step.type === 'push') {
+        renderStates.set(step.node, 'queued');
+        updateDS(step.stack, 'stack');
+      } else if (step.type === 'visit') {
+        currentNode = step.node;
+        renderStates.set(step.node, 'visited');
+        visitedOrder.push(step.node);
+        updateDS(step.stack, 'stack');
+        updateStatus('dfs', visitedOrder.join(' → '));
+      } else if (step.type === 'skip') {
+        currentNode = null;
+        updateDS(step.stack, 'stack');
+      }
+    }
+
+    redraw();
+    animTimerId = setTimeout(tick, 600);
+  }
+
+  tick();
+}
+
+// ════════════════════════════════════════════════════════
+//  Event: Buttons
+// ════════════════════════════════════════════════════════
+document.getElementById('btnAddNode').addEventListener('click', () => {
+  if (animRunning) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W   = canvas.width  / dpr;
+  const H   = canvas.height / dpr;
+  const label = nextLabel();
+  const margin = NODE_R + 20;
+  const x = margin + Math.random() * (W - margin * 2);
+  const y = margin + Math.random() * (H - margin * 2);
+
+  if (graph.addNode(label, x, y)) {
+    updateNodeList();
+    redraw();
+    showToast(`노드 "${label}" 추가됨`, 'success');
+  } else {
+    showToast(`노드 "${label}"가 이미 존재합니다.`, 'error');
+  }
+});
+
+document.getElementById('btnAddEdge').addEventListener('click', () => {
+  if (animRunning) return;
+  const a = document.getElementById('edgeFrom').value.trim().toUpperCase();
+  const b = document.getElementById('edgeTo').value.trim().toUpperCase();
+  if (!a || !b) { showToast('노드 이름 두 개를 입력하세요.', 'error'); return; }
+  if (!graph.nodes.has(a)) { showToast(`노드 "${a}"가 없습니다.`, 'error'); return; }
+  if (!graph.nodes.has(b)) { showToast(`노드 "${b}"가 없습니다.`, 'error'); return; }
+  if (graph.hasEdge(a, b)) { showToast(`엣지 ${a}—${b}가 이미 존재합니다.`, 'error'); return; }
+
+  graph.addEdge(a, b);
+  redraw();
+  showToast(`엣지 ${a}—${b} 추가됨`, 'success');
+  document.getElementById('edgeFrom').value = '';
+  document.getElementById('edgeTo').value   = '';
+});
+
+document.getElementById('btnDeleteNode').addEventListener('click', () => {
+  if (animRunning) return;
+  const name = document.getElementById('deleteNode').value.trim().toUpperCase();
+  if (!name) { showToast('삭제할 노드 이름을 입력하세요.', 'error'); return; }
+  if (graph.removeNode(name)) {
+    renderStates.delete(name);
+    if (currentNode === name) currentNode = null;
+    updateNodeList();
+    redraw();
+    showToast(`노드 "${name}" 삭제됨`);
+    document.getElementById('deleteNode').value = '';
+  } else {
+    showToast(`노드 "${name}"를 찾을 수 없습니다.`, 'error');
+  }
+});
+
+document.getElementById('btnResetGraph').addEventListener('click', () => {
+  if (animRunning) { clearTimeout(animTimerId); animRunning = false; setControlsDisabled(false); }
+  buildDefaultGraph();
+  showToast('그래프가 초기화되었습니다.');
+});
+
+document.getElementById('btnBfs').addEventListener('click', () => {
+  if (animRunning) return;
+  const start = document.getElementById('bfsStart').value.trim().toUpperCase();
+  if (!start) { showToast('시작 노드를 입력하세요.', 'error'); return; }
+  if (!graph.nodes.has(start)) { showToast(`노드 "${start}"를 찾을 수 없습니다.`, 'error'); return; }
+  const steps = graph.bfsSteps(start);
+  runAnimation(steps, 'bfs');
+});
+
+document.getElementById('btnDfs').addEventListener('click', () => {
+  if (animRunning) return;
+  const start = document.getElementById('dfsStart').value.trim().toUpperCase();
+  if (!start) { showToast('시작 노드를 입력하세요.', 'error'); return; }
+  if (!graph.nodes.has(start)) { showToast(`노드 "${start}"를 찾을 수 없습니다.`, 'error'); return; }
+  const steps = graph.dfsSteps(start);
+  runAnimation(steps, 'dfs');
+});
+
+// ════════════════════════════════════════════════════════
+//  Drag & Drop
+// ════════════════════════════════════════════════════════
+function getCanvasPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  return {
+    x: clientX - rect.left,
+    y: clientY - rect.top
+  };
+}
+
+function nodeAt(x, y) {
+  for (const [name, node] of graph.nodes) {
+    const dx = x - node.x;
+    const dy = y - node.y;
+    if (dx * dx + dy * dy <= NODE_R * NODE_R) return name;
+  }
+  return null;
+}
+
+canvas.addEventListener('mousedown', e => {
+  if (animRunning) return;
+  const pos = getCanvasPos(e);
+  const name = nodeAt(pos.x, pos.y);
+  if (name) {
+    dragNode = name;
+    const node = graph.nodes.get(name);
+    dragOffX = pos.x - node.x;
+    dragOffY = pos.y - node.y;
+    canvas.classList.add('dragging');
+  }
+});
+
+canvas.addEventListener('mousemove', e => {
+  if (!dragNode) return;
+  const pos  = getCanvasPos(e);
+  const node = graph.nodes.get(dragNode);
+  if (node) {
+    const dpr = window.devicePixelRatio || 1;
+    const W   = canvas.width  / dpr;
+    const H   = canvas.height / dpr;
+    node.x = Math.max(NODE_R + 5, Math.min(W - NODE_R - 5, pos.x - dragOffX));
+    node.y = Math.max(NODE_R + 5, Math.min(H - NODE_R - 5, pos.y - dragOffY));
+    redraw();
+  }
+});
+
+canvas.addEventListener('mouseup',    () => { dragNode = null; canvas.classList.remove('dragging'); });
+canvas.addEventListener('mouseleave', () => { dragNode = null; canvas.classList.remove('dragging'); });
+
+// Cursor hint
+canvas.addEventListener('mousemove', e => {
+  if (dragNode || animRunning) return;
+  const pos = getCanvasPos(e);
+  canvas.style.cursor = nodeAt(pos.x, pos.y) ? 'grab' : 'default';
+});
+
+// ════════════════════════════════════════════════════════
+//  Resize observer
+// ════════════════════════════════════════════════════════
+const ro = new ResizeObserver(() => {
+  resizeCanvas();
+});
+ro.observe(canvas.parentElement);
+
+// ════════════════════════════════════════════════════════
+//  Input helpers — uppercase auto-convert
+// ════════════════════════════════════════════════════════
+['edgeFrom','edgeTo','deleteNode','bfsStart','dfsStart'].forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener('input', () => {
+    el.value = el.value.toUpperCase();
+  });
+  el.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      if (id === 'bfsStart') document.getElementById('btnBfs').click();
+      if (id === 'dfsStart') document.getElementById('btnDfs').click();
+      if (id === 'edgeTo')   document.getElementById('btnAddEdge').click();
+      if (id === 'deleteNode') document.getElementById('btnDeleteNode').click();
+    }
+  });
+});
+
+// ════════════════════════════════════════════════════════
+//  Bootstrap
+// ════════════════════════════════════════════════════════
+window.addEventListener('load', () => {
+  resizeCanvas();
+  buildDefaultGraph();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>브라우저 동작 원리 인터랙티브 데모</title>
+  <style>
+    /* ============================================================
+       Reset & Base
+    ============================================================ */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-primary:   #0f1117;
+      --bg-secondary: #161b27;
+      --bg-card:      #1a2035;
+      --bg-card-hover:#1e2844;
+      --border:       #2a3556;
+      --border-glow:  #3b5bdb;
+      --text-primary: #e8eaf6;
+      --text-secondary:#9aa5c4;
+      --text-muted:   #5a6688;
+      --accent-1:     #4c6ef5;
+      --accent-2:     #7950f2;
+      --accent-3:     #228be6;
+      --accent-4:     #20c997;
+      --accent-5:     #f59f00;
+      --tag-bg:       #1e2d50;
+      --tag-text:     #748ffc;
+      --shadow-card:  0 4px 24px rgba(0,0,0,0.4);
+      --shadow-hover:  0 12px 40px rgba(76,110,245,0.25);
+      --radius-card:  16px;
+      --radius-badge: 10px;
+      --radius-tag:    6px;
+      --font-main:    'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+      --font-mono:    'Consolas', 'Fira Code', 'D2Coding', monospace;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-main);
+      min-height: 100vh;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ============================================================
+       Animated Background Particles
+    ============================================================ */
+    .bg-particles {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .bg-particles span {
+      position: absolute;
+      display: block;
+      border-radius: 50%;
+      opacity: 0.06;
+      animation: floatParticle linear infinite;
+    }
+
+    .bg-particles span:nth-child(1)  { width:200px; height:200px; background:var(--accent-1); top:10%; left:5%;  animation-duration:20s; animation-delay:0s; }
+    .bg-particles span:nth-child(2)  { width:140px; height:140px; background:var(--accent-2); top:60%; left:80%; animation-duration:28s; animation-delay:3s; }
+    .bg-particles span:nth-child(3)  { width:100px; height:100px; background:var(--accent-3); top:80%; left:20%; animation-duration:22s; animation-delay:6s; }
+    .bg-particles span:nth-child(4)  { width:240px; height:240px; background:var(--accent-4); top:30%; left:60%; animation-duration:35s; animation-delay:1s; }
+    .bg-particles span:nth-child(5)  { width: 80px; height: 80px; background:var(--accent-5); top:50%; left:40%; animation-duration:18s; animation-delay:9s; }
+
+    @keyframes floatParticle {
+      0%   { transform: translateY(0) rotate(0deg); }
+      50%  { transform: translateY(-60px) rotate(180deg); }
+      100% { transform: translateY(0) rotate(360deg); }
+    }
+
+    /* ============================================================
+       Layout wrapper
+    ============================================================ */
+    .page-wrapper {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+
+    /* ============================================================
+       Header
+    ============================================================ */
+    .site-header {
+      padding: 72px 0 56px;
+      text-align: center;
+      position: relative;
+    }
+
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(76,110,245,0.12);
+      border: 1px solid rgba(76,110,245,0.3);
+      border-radius: 999px;
+      padding: 6px 18px;
+      font-size: 0.78rem;
+      color: var(--accent-1);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 28px;
+      animation: fadeSlideDown 0.6s ease both;
+    }
+
+    .header-badge::before {
+      content: '';
+      display: block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent-1);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.5; transform: scale(0.7); }
+    }
+
+    .site-header h1 {
+      font-size: clamp(1.8rem, 4vw, 3rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #ffffff 0%, #a5b4fc 40%, #818cf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: fadeSlideDown 0.7s ease 0.1s both;
+      margin-bottom: 16px;
+    }
+
+    .site-header .subtitle {
+      color: var(--text-secondary);
+      font-size: 1.05rem;
+      max-width: 520px;
+      margin: 0 auto 32px;
+      animation: fadeSlideDown 0.7s ease 0.2s both;
+    }
+
+    .header-meta {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      flex-wrap: wrap;
+      animation: fadeSlideDown 0.7s ease 0.3s both;
+    }
+
+    .header-meta-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .header-meta-item .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent-4);
+    }
+
+    @keyframes fadeSlideDown {
+      from { opacity: 0; transform: translateY(-18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* animated underline bar */
+    .header-divider {
+      width: 80px;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
+      border-radius: 999px;
+      margin: 28px auto 0;
+      animation: growWidth 1s ease 0.5s both;
+    }
+
+    @keyframes growWidth {
+      from { width: 0; opacity: 0; }
+      to   { width: 80px; opacity: 1; }
+    }
+
+    /* ============================================================
+       Section titles
+    ============================================================ */
+    .section-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ============================================================
+       Demo Cards Grid
+    ============================================================ */
+    .demos-section {
+      margin-bottom: 56px;
+    }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    .demo-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      padding: 28px 24px 24px;
+      text-decoration: none;
+      color: inherit;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease, background 0.3s ease;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+
+      /* entrance animation */
+      opacity: 0;
+      transform: translateY(24px);
+      animation: cardEntrance 0.5s ease forwards;
+    }
+
+    /* staggered entrance delays */
+    .demo-card:nth-child(1) { animation-delay: 0.05s; }
+    .demo-card:nth-child(2) { animation-delay: 0.12s; }
+    .demo-card:nth-child(3) { animation-delay: 0.19s; }
+    .demo-card:nth-child(4) { animation-delay: 0.26s; }
+    .demo-card:nth-child(5) { animation-delay: 0.33s; }
+
+    @keyframes cardEntrance {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* top-edge accent line */
+    .demo-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--card-accent, linear-gradient(90deg, var(--accent-1), var(--accent-2)));
+      opacity: 0.7;
+      transition: opacity 0.3s ease;
+    }
+
+    /* shine sweep on hover */
+    .demo-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 60%);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .demo-card:hover {
+      transform: translateY(-6px);
+      box-shadow: var(--shadow-hover);
+      border-color: var(--border-glow);
+      background: var(--bg-card-hover);
+    }
+
+    .demo-card:hover::before { opacity: 1; }
+    .demo-card:hover::after  { opacity: 1; }
+
+    /* per-card accent colors */
+    .demo-card[data-idx="1"] { --card-accent: linear-gradient(90deg, #4c6ef5, #7950f2); }
+    .demo-card[data-idx="2"] { --card-accent: linear-gradient(90deg, #7950f2, #e64980); }
+    .demo-card[data-idx="3"] { --card-accent: linear-gradient(90deg, #228be6, #15aabf); }
+    .demo-card[data-idx="4"] { --card-accent: linear-gradient(90deg, #20c997, #94d82d); }
+    .demo-card[data-idx="5"] { --card-accent: linear-gradient(90deg, #f59f00, #f76707); }
+
+    /* ---- card parts ---- */
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+
+    .card-badge {
+      flex-shrink: 0;
+      width: 44px; height: 44px;
+      border-radius: var(--radius-badge);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      font-weight: 900;
+      font-family: var(--font-mono);
+      background: var(--card-accent, linear-gradient(135deg, var(--accent-1), var(--accent-2)));
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(76,110,245,0.3);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .demo-card:hover .card-badge {
+      transform: scale(1.1) rotate(-4deg);
+      box-shadow: 0 6px 20px rgba(76,110,245,0.5);
+    }
+
+    .card-titles {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .card-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 3px;
+      line-height: 1.3;
+    }
+
+    .card-filename {
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      letter-spacing: 0.03em;
+    }
+
+    .card-description {
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+      line-height: 1.65;
+      flex: 1;
+    }
+
+    .card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 4px;
+    }
+
+    .tag {
+      background: var(--tag-bg);
+      color: var(--tag-text);
+      border: 1px solid rgba(116,143,252,0.2);
+      border-radius: var(--radius-tag);
+      padding: 3px 10px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .demo-card:hover .tag {
+      background: rgba(76,110,245,0.18);
+      border-color: rgba(76,110,245,0.4);
+    }
+
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .card-visited {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .visited-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--accent-4);
+      display: none;
+    }
+
+    .visited-dot.active { display: block; }
+
+    .card-arrow {
+      font-size: 1.1rem;
+      transition: transform 0.25s ease;
+      color: var(--accent-1);
+    }
+
+    .demo-card:hover .card-arrow {
+      transform: translateX(4px);
+    }
+
+    /* copy-link button */
+    .copy-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-muted);
+      padding: 3px 9px;
+      font-size: 0.72rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: var(--font-main);
+    }
+
+    .copy-btn:hover {
+      border-color: var(--accent-1);
+      color: var(--accent-1);
+      background: rgba(76,110,245,0.08);
+    }
+
+    .copy-btn.copied {
+      border-color: var(--accent-4);
+      color: var(--accent-4);
+      background: rgba(32,201,151,0.08);
+    }
+
+    /* ============================================================
+       Browser compatibility section
+    ============================================================ */
+    .compat-section {
+      margin-bottom: 56px;
+    }
+
+    .compat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 12px;
+    }
+
+    .compat-item {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+      animation: fadeIn 0.5s ease both;
+    }
+
+    .compat-item:nth-child(1) { animation-delay: 0.5s; }
+    .compat-item:nth-child(2) { animation-delay: 0.55s; }
+    .compat-item:nth-child(3) { animation-delay: 0.60s; }
+    .compat-item:nth-child(4) { animation-delay: 0.65s; }
+    .compat-item:nth-child(5) { animation-delay: 0.70s; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    .compat-item:hover {
+      transform: translateY(-3px);
+      border-color: var(--accent-1);
+    }
+
+    .compat-icon {
+      font-size: 1.8rem;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .compat-name {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+
+    .compat-status {
+      font-size: 0.72rem;
+      color: var(--accent-4);
+      font-weight: 600;
+    }
+
+    /* ============================================================
+       Tips / Footer section
+    ============================================================ */
+    .tips-section {
+      margin-bottom: 56px;
+    }
+
+    .tips-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 14px;
+    }
+
+    .tip-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      animation: fadeIn 0.5s ease 0.7s both;
+    }
+
+    .tip-icon {
+      font-size: 1.4rem;
+      flex-shrink: 0;
+    }
+
+    .tip-text strong {
+      display: block;
+      font-size: 0.88rem;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .tip-text p {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      line-height: 1.55;
+    }
+
+    /* ============================================================
+       Toast notification
+    ============================================================ */
+    .toast {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-glow);
+      border-radius: 10px;
+      padding: 12px 20px;
+      font-size: 0.85rem;
+      color: var(--text-primary);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      transform: translateY(20px);
+      opacity: 0;
+      transition: all 0.3s ease;
+      z-index: 9999;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    /* ============================================================
+       Recently visited bar
+    ============================================================ */
+    .recently-section {
+      margin-bottom: 40px;
+    }
+
+    .recently-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .recently-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+
+    .recently-chip:hover {
+      border-color: var(--accent-1);
+      color: var(--accent-1);
+      background: rgba(76,110,245,0.08);
+    }
+
+    .recently-empty {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    /* ============================================================
+       Site footer
+    ============================================================ */
+    .site-footer {
+      border-top: 1px solid var(--border);
+      padding: 32px 0;
+      text-align: center;
+    }
+
+    .site-footer p {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      line-height: 1.8;
+    }
+
+    .site-footer a {
+      color: var(--accent-1);
+      text-decoration: none;
+    }
+
+    .site-footer a:hover {
+      text-decoration: underline;
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .footer-link {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: color 0.2s;
+    }
+
+    .footer-link:hover { color: var(--text-primary); }
+
+    /* ============================================================
+       Progress bar (scroll indicator)
+    ============================================================ */
+    .scroll-progress {
+      position: fixed;
+      top: 0; left: 0;
+      height: 3px;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
+      z-index: 9998;
+      transition: width 0.1s linear;
+    }
+
+    /* ============================================================
+       Search bar
+    ============================================================ */
+    .search-bar-wrap {
+      max-width: 420px;
+      margin: 0 auto 48px;
+      position: relative;
+      animation: fadeSlideDown 0.7s ease 0.35s both;
+    }
+
+    .search-bar {
+      width: 100%;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 11px 48px 11px 20px;
+      font-size: 0.9rem;
+      color: var(--text-primary);
+      outline: none;
+      font-family: var(--font-main);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .search-bar::placeholder { color: var(--text-muted); }
+
+    .search-bar:focus {
+      border-color: var(--accent-1);
+      box-shadow: 0 0 0 3px rgba(76,110,245,0.15);
+    }
+
+    .search-icon {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+      font-size: 1rem;
+    }
+
+    /* hidden card */
+    .demo-card.hidden {
+      display: none;
+    }
+
+    /* ============================================================
+       Responsive
+    ============================================================ */
+    @media (max-width: 600px) {
+      .page-wrapper { padding: 0 16px 60px; }
+      .site-header { padding: 48px 0 36px; }
+      .cards-grid { grid-template-columns: 1fr; }
+      .compat-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+      .tips-grid { grid-template-columns: 1fr; }
+      .toast { right: 16px; bottom: 16px; left: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- scroll progress indicator -->
+  <div class="scroll-progress" id="scrollProgress"></div>
+
+  <!-- floating background particles -->
+  <div class="bg-particles" aria-hidden="true">
+    <span></span><span></span><span></span><span></span><span></span>
+  </div>
+
+  <!-- toast notification -->
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <div class="page-wrapper">
+
+    <!-- ============================================================
+         HEADER
+    ============================================================ -->
+    <header class="site-header" role="banner">
+      <div class="header-badge">Interactive Browser Internals</div>
+      <h1>브라우저 동작 원리<br/>인터랙티브 데모</h1>
+      <p class="subtitle">
+        자바스크립트 엔진과 브라우저의 내부 동작을 시각적으로 탐구하는<br/>
+        한국어 프론트엔드 학습 시리즈
+      </p>
+      <div class="header-meta">
+        <div class="header-meta-item"><span class="dot"></span>데모 5개</div>
+        <div class="header-meta-item"><span class="dot"></span>순수 HTML / JS</div>
+        <div class="header-meta-item"><span class="dot"></span>외부 라이브러리 없음</div>
+      </div>
+      <div class="header-divider"></div>
+    </header>
+
+    <!-- ============================================================
+         SEARCH
+    ============================================================ -->
+    <div class="search-bar-wrap">
+      <input
+        class="search-bar"
+        id="searchInput"
+        type="search"
+        placeholder="데모 검색 (예: 이벤트, V8, 렌더링 …)"
+        aria-label="데모 검색"
+        autocomplete="off"
+      />
+      <span class="search-icon" aria-hidden="true">⌕</span>
+    </div>
+
+    <!-- ============================================================
+         RECENTLY VISITED
+    ============================================================ -->
+    <section class="recently-section" id="recentlySection" aria-labelledby="recentlyTitle">
+      <h2 class="section-title" id="recentlyTitle">최근 방문</h2>
+      <div class="recently-list" id="recentlyList">
+        <span class="recently-empty">아직 방문한 데모가 없습니다.</span>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         DEMO CARDS
+    ============================================================ -->
+    <section class="demos-section" aria-labelledby="demosTitle">
+      <h2 class="section-title" id="demosTitle">데모 목록</h2>
+      <div class="cards-grid" id="cardsGrid">
+
+        <!-- Card 1 – 이벤트 루프 -->
+        <a
+          class="demo-card"
+          href="01-event-loop.html"
+          data-idx="1"
+          data-key="event-loop"
+          data-search="이벤트 루프 비동기 call stack task queue microtask"
+          aria-label="이벤트 루프 시각화 데모 열기"
+        >
+          <div class="card-header">
+            <div class="card-badge">01</div>
+            <div class="card-titles">
+              <div class="card-title">이벤트 루프 시각화</div>
+              <div class="card-filename">01-event-loop.html</div>
+            </div>
+          </div>
+          <p class="card-description">
+            콜 스택, 태스크 큐, 마이크로태스크 큐의 동작을 단계별로 시각화합니다.
+            <code>setTimeout</code>, <code>Promise</code>, <code>queueMicrotask</code>
+            의 실행 순서를 애니메이션으로 확인하세요.
+          </p>
+          <div class="card-tags">
+            <span class="tag">이벤트 루프</span>
+            <span class="tag">비동기</span>
+            <span class="tag">콜 스택</span>
+            <span class="tag">마이크로태스크</span>
+          </div>
+          <div class="card-footer">
+            <div class="card-visited">
+              <span class="visited-dot" id="visited-event-loop"></span>
+              <span id="visited-text-event-loop">미방문</span>
+            </div>
+            <button class="copy-btn" data-file="01-event-loop.html" onclick="handleCopy(event, this)" aria-label="링크 복사">링크 복사</button>
+            <span class="card-arrow" aria-hidden="true">→</span>
+          </div>
+        </a>
+
+        <!-- Card 2 – Promise 체인 -->
+        <a
+          class="demo-card"
+          href="02-promise-chain.html"
+          data-idx="2"
+          data-key="promise-chain"
+          data-search="Promise 체인 then catch async await 비동기 상태"
+          aria-label="Promise 체인 시각화 데모 열기"
+        >
+          <div class="card-header">
+            <div class="card-badge">02</div>
+            <div class="card-titles">
+              <div class="card-title">Promise 체인 시각화</div>
+              <div class="card-filename">02-promise-chain.html</div>
+            </div>
+          </div>
+          <p class="card-description">
+            Promise의 상태(pending / fulfilled / rejected) 전이와
+            <code>.then()</code> / <code>.catch()</code> 체이닝 흐름을 인터랙티브 다이어그램으로 탐구합니다.
+            <code>async/await</code> 코드와의 대응 관계도 확인할 수 있습니다.
+          </p>
+          <div class="card-tags">
+            <span class="tag">Promise</span>
+            <span class="tag">async/await</span>
+            <span class="tag">체이닝</span>
+            <span class="tag">오류 처리</span>
+          </div>
+          <div class="card-footer">
+            <div class="card-visited">
+              <span class="visited-dot" id="visited-promise-chain"></span>
+              <span id="visited-text-promise-chain">미방문</span>
+            </div>
+            <button class="copy-btn" data-file="02-promise-chain.html" onclick="handleCopy(event, this)" aria-label="링크 복사">링크 복사</button>
+            <span class="card-arrow" aria-hidden="true">→</span>
+          </div>
+        </a>
+
+        <!-- Card 3 – 렌더링 파이프라인 -->
+        <a
+          class="demo-card"
+          href="03-rendering-pipeline.html"
+          data-idx="3"
+          data-key="rendering-pipeline"
+          data-search="렌더링 파이프라인 DOM CSSOM 레이아웃 페인트 컴포지팅"
+          aria-label="렌더링 파이프라인 시각화 데모 열기"
+        >
+          <div class="card-header">
+            <div class="card-badge">03</div>
+            <div class="card-titles">
+              <div class="card-title">렌더링 파이프라인 시각화</div>
+              <div class="card-filename">03-rendering-pipeline.html</div>
+            </div>
+          </div>
+          <p class="card-description">
+            브라우저가 HTML을 화면에 그리기까지의 전 과정 — DOM 파싱,
+            CSSOM 생성, 레이아웃 계산, 페인트, 컴포지팅 — 을 단계별 플로우 차트로 시각화합니다.
+          </p>
+          <div class="card-tags">
+            <span class="tag">렌더링</span>
+            <span class="tag">DOM</span>
+            <span class="tag">CSSOM</span>
+            <span class="tag">컴포지팅</span>
+          </div>
+          <div class="card-footer">
+            <div class="card-visited">
+              <span class="visited-dot" id="visited-rendering-pipeline"></span>
+              <span id="visited-text-rendering-pipeline">미방문</span>
+            </div>
+            <button class="copy-btn" data-file="03-rendering-pipeline.html" onclick="handleCopy(event, this)" aria-label="링크 복사">링크 복사</button>
+            <span class="card-arrow" aria-hidden="true">→</span>
+          </div>
+        </a>
+
+        <!-- Card 4 – Reflow vs Repaint -->
+        <a
+          class="demo-card"
+          href="04-reflow-repaint.html"
+          data-idx="4"
+          data-key="reflow-repaint"
+          data-search="Reflow Repaint 성능 레이아웃 GPU 레이어 최적화"
+          aria-label="Reflow vs Repaint 비교 데모 열기"
+        >
+          <div class="card-header">
+            <div class="card-badge">04</div>
+            <div class="card-titles">
+              <div class="card-title">Reflow vs Repaint 비교</div>
+              <div class="card-filename">04-reflow-repaint.html</div>
+            </div>
+          </div>
+          <p class="card-description">
+            동일한 시각적 결과를 reflow를 유발하는 방식과 repaint만 일으키는 방식으로
+            나란히 비교합니다. FPS 및 레이아웃 비용 차이를 실시간으로 확인하세요.
+          </p>
+          <div class="card-tags">
+            <span class="tag">Reflow</span>
+            <span class="tag">Repaint</span>
+            <span class="tag">성능</span>
+            <span class="tag">GPU 레이어</span>
+          </div>
+          <div class="card-footer">
+            <div class="card-visited">
+              <span class="visited-dot" id="visited-reflow-repaint"></span>
+              <span id="visited-text-reflow-repaint">미방문</span>
+            </div>
+            <button class="copy-btn" data-file="04-reflow-repaint.html" onclick="handleCopy(event, this)" aria-label="링크 복사">링크 복사</button>
+            <span class="card-arrow" aria-hidden="true">→</span>
+          </div>
+        </a>
+
+        <!-- Card 5 – V8 최적화 -->
+        <a
+          class="demo-card"
+          href="05-v8-optimization.html"
+          data-idx="5"
+          data-key="v8-optimization"
+          data-search="V8 최적화 JIT 히든 클래스 인라인 캐싱 GC 가비지 컬렉션"
+          aria-label="V8 최적화 원리 시각화 데모 열기"
+        >
+          <div class="card-header">
+            <div class="card-badge">05</div>
+            <div class="card-titles">
+              <div class="card-title">V8 최적화 원리 시각화</div>
+              <div class="card-filename">05-v8-optimization.html</div>
+            </div>
+          </div>
+          <p class="card-description">
+            V8 엔진의 JIT 컴파일, 히든 클래스(Hidden Class), 인라인 캐싱(IC),
+            가비지 컬렉션 동작을 인터랙티브하게 탐구합니다.
+            최적화 해제(deoptimization) 시나리오도 직접 실험해보세요.
+          </p>
+          <div class="card-tags">
+            <span class="tag">V8</span>
+            <span class="tag">JIT</span>
+            <span class="tag">히든 클래스</span>
+            <span class="tag">GC</span>
+          </div>
+          <div class="card-footer">
+            <div class="card-visited">
+              <span class="visited-dot" id="visited-v8-optimization"></span>
+              <span id="visited-text-v8-optimization">미방문</span>
+            </div>
+            <button class="copy-btn" data-file="05-v8-optimization.html" onclick="handleCopy(event, this)" aria-label="링크 복사">링크 복사</button>
+            <span class="card-arrow" aria-hidden="true">→</span>
+          </div>
+        </a>
+
+      </div><!-- /cards-grid -->
+    </section>
+
+    <!-- ============================================================
+         BROWSER COMPATIBILITY
+    ============================================================ -->
+    <section class="compat-section" aria-labelledby="compatTitle">
+      <h2 class="section-title" id="compatTitle">브라우저 호환성</h2>
+      <div class="compat-grid">
+        <div class="compat-item">
+          <span class="compat-icon">🌐</span>
+          <div class="compat-name">Chrome</div>
+          <div class="compat-status">권장 (최신)</div>
+        </div>
+        <div class="compat-item">
+          <span class="compat-icon">🦊</span>
+          <div class="compat-name">Firefox</div>
+          <div class="compat-status">지원</div>
+        </div>
+        <div class="compat-item">
+          <span class="compat-icon">🧭</span>
+          <div class="compat-name">Safari</div>
+          <div class="compat-status">지원 (v16+)</div>
+        </div>
+        <div class="compat-item">
+          <span class="compat-icon">🔵</span>
+          <div class="compat-name">Edge</div>
+          <div class="compat-status">지원</div>
+        </div>
+        <div class="compat-item">
+          <span class="compat-icon">📱</span>
+          <div class="compat-name">Mobile</div>
+          <div class="compat-status">반응형 지원</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         LEARNING TIPS
+    ============================================================ -->
+    <section class="tips-section" aria-labelledby="tipsTitle">
+      <h2 class="section-title" id="tipsTitle">학습 팁</h2>
+      <div class="tips-grid">
+        <div class="tip-card">
+          <span class="tip-icon">🔬</span>
+          <div class="tip-text">
+            <strong>순서대로 학습하기</strong>
+            <p>01 이벤트 루프 → 02 Promise → 03 렌더링 순으로 학습하면 브라우저 동작의 전체 흐름을 잡을 수 있습니다.</p>
+          </div>
+        </div>
+        <div class="tip-card">
+          <span class="tip-icon">🛠️</span>
+          <div class="tip-text">
+            <strong>DevTools 함께 사용</strong>
+            <p>크롬 DevTools의 Performance 탭을 열어 두고 데모를 실행하면 실제 렌더링 타임라인과 비교할 수 있습니다.</p>
+          </div>
+        </div>
+        <div class="tip-card">
+          <span class="tip-icon">📝</span>
+          <div class="tip-text">
+            <strong>코드 직접 수정</strong>
+            <p>각 데모는 단일 HTML 파일입니다. 인라인 JS를 직접 수정하며 동작 변화를 관찰해보세요.</p>
+          </div>
+        </div>
+        <div class="tip-card">
+          <span class="tip-icon">♻️</span>
+          <div class="tip-text">
+            <strong>반복 실험</strong>
+            <p>최적화 데모(04, 05)는 같은 작업을 서로 다른 방식으로 구현해 성능 차이를 직접 측정해보는 것을 추천합니다.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         FOOTER
+    ============================================================ -->
+    <footer class="site-footer" role="contentinfo">
+      <p>브라우저 동작 원리 인터랙티브 데모 시리즈 &mdash; 한국어 프론트엔드 개발자를 위한 학습 자료</p>
+      <p>외부 라이브러리 없이 순수 HTML · CSS · JavaScript로 제작되었습니다.</p>
+      <div class="footer-links">
+        <a class="footer-link" href="#" onclick="scrollToTop(event)">&#8679; 맨 위로</a>
+        <a class="footer-link" href="01-event-loop.html">이벤트 루프 →</a>
+        <a class="footer-link" href="05-v8-optimization.html">V8 최적화 →</a>
+      </div>
+    </footer>
+
+  </div><!-- /page-wrapper -->
+
+  <!-- ============================================================
+       JAVASCRIPT
+  ============================================================ -->
+  <script>
+    'use strict';
+
+    /* ----------------------------------------------------------------
+       Constants
+    ---------------------------------------------------------------- */
+    const STORAGE_KEY_VISITED  = 'browser-demos:visited';
+    const STORAGE_KEY_RECENT   = 'browser-demos:recently';
+    const MAX_RECENT           = 5;
+
+    const DEMO_META = {
+      'event-loop':          { title: '이벤트 루프',         href: '01-event-loop.html' },
+      'promise-chain':       { title: 'Promise 체인',        href: '02-promise-chain.html' },
+      'rendering-pipeline':  { title: '렌더링 파이프라인',   href: '03-rendering-pipeline.html' },
+      'reflow-repaint':      { title: 'Reflow vs Repaint',   href: '04-reflow-repaint.html' },
+      'v8-optimization':     { title: 'V8 최적화',           href: '05-v8-optimization.html' },
+    };
+
+    /* ----------------------------------------------------------------
+       LocalStorage helpers
+    ---------------------------------------------------------------- */
+    function lsGet(key, fallback) {
+      try {
+        const raw = localStorage.getItem(key);
+        return raw !== null ? JSON.parse(raw) : fallback;
+      } catch (_) { return fallback; }
+    }
+
+    function lsSet(key, value) {
+      try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
+    }
+
+    /* ----------------------------------------------------------------
+       Visited tracking
+    ---------------------------------------------------------------- */
+    function getVisited() { return lsGet(STORAGE_KEY_VISITED, {}); }
+
+    function markVisited(key) {
+      const visited = getVisited();
+      visited[key] = Date.now();
+      lsSet(STORAGE_KEY_VISITED, visited);
+    }
+
+    function applyVisitedUI() {
+      const visited = getVisited();
+      Object.keys(DEMO_META).forEach(key => {
+        const dot  = document.getElementById('visited-' + key);
+        const text = document.getElementById('visited-text-' + key);
+        if (!dot || !text) return;
+        if (visited[key]) {
+          dot.classList.add('active');
+          const date = new Date(visited[key]);
+          const fmt  = `${date.getMonth()+1}/${date.getDate()} 방문`;
+          text.textContent = fmt;
+          text.style.color = 'var(--accent-4)';
+        }
+      });
+    }
+
+    /* ----------------------------------------------------------------
+       Recently visited
+    ---------------------------------------------------------------- */
+    function getRecently() { return lsGet(STORAGE_KEY_RECENT, []); }
+
+    function addToRecently(key) {
+      let list = getRecently().filter(k => k !== key);
+      list.unshift(key);
+      if (list.length > MAX_RECENT) list = list.slice(0, MAX_RECENT);
+      lsSet(STORAGE_KEY_RECENT, list);
+    }
+
+    function renderRecently() {
+      const list = getRecently();
+      const container = document.getElementById('recentlyList');
+      if (!container) return;
+
+      if (list.length === 0) {
+        container.innerHTML = '<span class="recently-empty">아직 방문한 데모가 없습니다.</span>';
+        return;
+      }
+
+      container.innerHTML = list.map(key => {
+        const meta = DEMO_META[key];
+        if (!meta) return '';
+        return `<a class="recently-chip" href="${meta.href}"># ${meta.title}</a>`;
+      }).join('');
+    }
+
+    /* ----------------------------------------------------------------
+       Card click → record visit
+    ---------------------------------------------------------------- */
+    function attachCardClickHandlers() {
+      document.querySelectorAll('.demo-card').forEach(card => {
+        card.addEventListener('click', function (e) {
+          // if copy button was clicked, cancel navigation
+          if (e.target.classList.contains('copy-btn')) {
+            e.preventDefault();
+            return;
+          }
+          const key = card.dataset.key;
+          if (key) {
+            markVisited(key);
+            addToRecently(key);
+          }
+        });
+      });
+    }
+
+    /* ----------------------------------------------------------------
+       Copy link feature
+    ---------------------------------------------------------------- */
+    function handleCopy(event, btn) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const file = btn.dataset.file;
+      const url  = location.href.replace(/index\.html$/, '').replace(/\/$/, '') + '/' + file;
+
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(url).then(() => onCopied(btn, url));
+      } else {
+        // fallback
+        const ta = document.createElement('textarea');
+        ta.value = url;
+        ta.style.position = 'fixed';
+        ta.style.opacity  = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch (_) {}
+        document.body.removeChild(ta);
+        onCopied(btn, url);
+      }
+    }
+
+    function onCopied(btn, url) {
+      btn.textContent = '복사됨 ✓';
+      btn.classList.add('copied');
+      showToast('링크가 클립보드에 복사되었습니다');
+      setTimeout(() => {
+        btn.textContent = '링크 복사';
+        btn.classList.remove('copied');
+      }, 2000);
+    }
+
+    /* ----------------------------------------------------------------
+       Toast notification
+    ---------------------------------------------------------------- */
+    let toastTimer = null;
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      if (!toast) return;
+      toast.textContent = msg;
+      toast.classList.add('show');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 2800);
+    }
+
+    /* ----------------------------------------------------------------
+       Scroll progress bar
+    ---------------------------------------------------------------- */
+    function initScrollProgress() {
+      const bar = document.getElementById('scrollProgress');
+      if (!bar) return;
+      window.addEventListener('scroll', () => {
+        const scrollTop  = window.scrollY || document.documentElement.scrollTop;
+        const docHeight  = document.documentElement.scrollHeight - window.innerHeight;
+        const pct        = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+        bar.style.width  = Math.min(pct, 100) + '%';
+      }, { passive: true });
+    }
+
+    /* ----------------------------------------------------------------
+       Search / filter
+    ---------------------------------------------------------------- */
+    function initSearch() {
+      const input = document.getElementById('searchInput');
+      if (!input) return;
+
+      input.addEventListener('input', () => {
+        const q = input.value.trim().toLowerCase();
+        document.querySelectorAll('.demo-card').forEach(card => {
+          const haystack = (card.dataset.search || '') + ' ' + (card.querySelector('.card-title')?.textContent || '');
+          card.classList.toggle('hidden', q.length > 0 && !haystack.toLowerCase().includes(q));
+        });
+      });
+    }
+
+    /* ----------------------------------------------------------------
+       Scroll to top helper
+    ---------------------------------------------------------------- */
+    function scrollToTop(e) {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    /* ----------------------------------------------------------------
+       Keyboard accessibility: Enter on card = navigate
+    ---------------------------------------------------------------- */
+    function initCardKeyboard() {
+      document.querySelectorAll('.demo-card').forEach(card => {
+        card.setAttribute('tabindex', '0');
+        card.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            const key = card.dataset.key;
+            if (key) { markVisited(key); addToRecently(key); }
+            window.location.href = card.getAttribute('href');
+          }
+        });
+      });
+    }
+
+    /* ----------------------------------------------------------------
+       Auto-detect current page highlight (if navigated back)
+    ---------------------------------------------------------------- */
+    function highlightCurrentIfDemo() {
+      const path = location.pathname;
+      Object.values(DEMO_META).forEach(meta => {
+        if (path.endsWith(meta.href)) {
+          const key = Object.keys(DEMO_META).find(k => DEMO_META[k] === meta);
+          if (key) { markVisited(key); addToRecently(key); }
+        }
+      });
+    }
+
+    /* ----------------------------------------------------------------
+       Init
+    ---------------------------------------------------------------- */
+    document.addEventListener('DOMContentLoaded', () => {
+      highlightCurrentIfDemo();
+      applyVisitedUI();
+      renderRecently();
+      attachCardClickHandlers();
+      initScrollProgress();
+      initSearch();
+      initCardKeyboard();
+    });
+  </script>
+
+</body>
+</html>

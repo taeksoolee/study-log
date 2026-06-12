@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>이벤트 루프 시각화 | Event Loop Visualizer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f1117;
+      --surface:   #1a1d27;
+      --surface2:  #22263a;
+      --border:    #2e3250;
+      --text:      #e2e8f0;
+      --muted:     #7c85a2;
+      --blue:      #3b82f6;
+      --blue-dim:  #1d3a6e;
+      --purple:    #a855f7;
+      --purple-dim:#3b1f6e;
+      --green:     #22c55e;
+      --green-dim: #14422a;
+      --orange:    #f97316;
+      --orange-dim:#5a2a0a;
+      --yellow:    #facc15;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--surface);
+    }
+
+    header h1 {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+
+    header .badge {
+      background: var(--blue-dim);
+      color: var(--blue);
+      border: 1px solid var(--blue);
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .main-layout {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 0;
+      height: calc(100vh - 57px);
+    }
+
+    /* ── Left column ── */
+    .left-col {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-right: 1px solid var(--border);
+    }
+
+    /* Controls bar */
+    .controls-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .controls-bar label {
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    select {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 13px;
+      cursor: pointer;
+      outline: none;
+    }
+
+    select:focus { border-color: var(--blue); }
+
+    .btn {
+      border: none;
+      border-radius: 6px;
+      padding: 7px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      white-space: nowrap;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    .btn-primary  { background: var(--blue);   color: #fff; }
+    .btn-success  { background: var(--green);  color: #0a1a10; }
+    .btn-neutral  { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+
+    .step-counter {
+      margin-left: auto;
+      font-size: 13px;
+      color: var(--yellow);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    /* Zones grid */
+    .zones-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 1px;
+      background: var(--border);
+      flex: 1;
+      min-height: 0;
+    }
+
+    .zone {
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      padding: 12px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .zone-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .zone-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+
+    .zone-callstack  .zone-dot  { background: var(--blue); }
+    .zone-webapis    .zone-dot  { background: var(--purple); }
+    .zone-microtask  .zone-dot  { background: var(--green); }
+    .zone-macrotask  .zone-dot  { background: var(--orange); }
+
+    .zone-callstack  .zone-title { color: var(--blue); }
+    .zone-webapis    .zone-title { color: var(--purple); }
+    .zone-microtask  .zone-title { color: var(--green); }
+    .zone-macrotask  .zone-title { color: var(--orange); }
+
+    /* Stack items inside zones */
+    .zone-items {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end; /* call-stack grows bottom-up */
+      gap: 4px;
+      overflow: hidden;
+    }
+
+    .zone-webapis .zone-items,
+    .zone-microtask .zone-items,
+    .zone-macrotask .zone-items {
+      justify-content: flex-start;
+    }
+
+    .item {
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: 'Consolas', 'Fira Code', monospace;
+      text-align: center;
+      animation: itemEnter 0.3s ease;
+      transition: background 0.2s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    @keyframes itemEnter {
+      from { opacity: 0; transform: scale(0.8) translateY(8px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .item-blue   { background: var(--blue-dim);   color: var(--blue);   border: 1px solid var(--blue); }
+    .item-purple { background: var(--purple-dim); color: var(--purple); border: 1px solid var(--purple); }
+    .item-green  { background: var(--green-dim);  color: var(--green);  border: 1px solid var(--green); }
+    .item-orange { background: var(--orange-dim); color: var(--orange); border: 1px solid var(--orange); }
+
+    .zone-empty {
+      color: var(--muted);
+      font-size: 11px;
+      text-align: center;
+      margin-top: 8px;
+    }
+
+    /* ── Right column ── */
+    .right-col {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .panel {
+      display: flex;
+      flex-direction: column;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .panel-header {
+      padding: 9px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: var(--muted);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    /* Code panel */
+    .code-panel { flex: 0 0 auto; }
+    .code-scroll {
+      overflow: auto;
+      max-height: 180px;
+      padding: 12px 14px;
+      background: var(--bg);
+    }
+
+    pre.code-block {
+      font-family: 'Consolas', 'Fira Code', monospace;
+      font-size: 12px;
+      line-height: 1.7;
+      white-space: pre;
+      tab-size: 2;
+    }
+
+    .tok-kw     { color: #c792ea; }
+    .tok-fn     { color: #82aaff; }
+    .tok-str    { color: #c3e88d; }
+    .tok-num    { color: #f78c6c; }
+    .tok-cmt    { color: #546e7a; font-style: italic; }
+    .tok-punc   { color: #89ddff; }
+    .tok-plain  { color: var(--text); }
+
+    /* Description panel */
+    .desc-panel { flex: 0 0 auto; }
+    #step-desc {
+      padding: 12px 14px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--surface2);
+      min-height: 54px;
+    }
+
+    /* Output panel */
+    .output-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    #output-log {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 14px;
+      background: var(--bg);
+      font-family: 'Consolas', 'Fira Code', monospace;
+      font-size: 12px;
+      line-height: 1.8;
+    }
+
+    .log-line {
+      color: var(--green);
+      animation: logEnter 0.25s ease;
+    }
+
+    .log-prompt { color: var(--muted); margin-right: 4px; }
+
+    @keyframes logEnter {
+      from { opacity: 0; transform: translateX(-6px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    /* Highlight active step arrow */
+    .active-indicator {
+      display: inline-block;
+      width: 6px; height: 6px;
+      background: var(--yellow);
+      border-radius: 50%;
+      margin-right: 6px;
+      animation: pulse 0.9s ease infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+
+    /* Scrollbar style */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* Responsive tiny tweak */
+    @media (max-width: 900px) {
+      .main-layout { grid-template-columns: 1fr; grid-template-rows: auto auto; height: auto; }
+      .left-col { border-right: none; border-bottom: 1px solid var(--border); height: 60vh; }
+      .right-col { height: auto; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>이벤트 루프 시각화</h1>
+  <span class="badge">Browser Internals</span>
+</header>
+
+<div class="main-layout">
+
+  <!-- ═══════════════ LEFT COLUMN ═══════════════ -->
+  <div class="left-col">
+
+    <!-- Controls -->
+    <div class="controls-bar">
+      <label>예제 선택</label>
+      <select id="example-select">
+        <option value="0">예제 1 — setTimeout + Promise</option>
+        <option value="1">예제 2 — async / await</option>
+        <option value="2">예제 3 — 중첩 Promise 체인</option>
+      </select>
+      <button class="btn btn-primary"  id="btn-step">한 단계 실행 ▶</button>
+      <button class="btn btn-success"  id="btn-auto">자동 실행 ⟳</button>
+      <button class="btn btn-neutral"  id="btn-reset">초기화 ↺</button>
+      <span class="step-counter" id="step-counter">0 / 0 단계</span>
+    </div>
+
+    <!-- 4 Zones -->
+    <div class="zones-grid">
+
+      <!-- Call Stack -->
+      <div class="zone zone-callstack">
+        <div class="zone-title"><span class="zone-dot"></span>Call Stack</div>
+        <div class="zone-items" id="zone-callstack"></div>
+      </div>
+
+      <!-- Web APIs -->
+      <div class="zone zone-webapis">
+        <div class="zone-title"><span class="zone-dot"></span>Web APIs</div>
+        <div class="zone-items" id="zone-webapis"></div>
+      </div>
+
+      <!-- Microtask Queue -->
+      <div class="zone zone-microtask">
+        <div class="zone-title"><span class="zone-dot"></span>Microtask Queue</div>
+        <div class="zone-items" id="zone-microtask"></div>
+      </div>
+
+      <!-- Macrotask Queue -->
+      <div class="zone zone-macrotask">
+        <div class="zone-title"><span class="zone-dot"></span>Macrotask Queue</div>
+        <div class="zone-items" id="zone-macrotask"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════ RIGHT COLUMN ═══════════════ -->
+  <div class="right-col">
+
+    <!-- Code display -->
+    <div class="panel code-panel">
+      <div class="panel-header">소스 코드</div>
+      <div class="code-scroll">
+        <pre class="code-block" id="code-display"></pre>
+      </div>
+    </div>
+
+    <!-- Step description -->
+    <div class="panel desc-panel">
+      <div class="panel-header">현재 단계 설명</div>
+      <div id="step-desc">예제를 선택하고 <strong>한 단계 실행</strong> 버튼을 누르세요.</div>
+    </div>
+
+    <!-- Output log -->
+    <div class="panel output-panel">
+      <div class="panel-header">콘솔 출력 (console.log)</div>
+      <div id="output-log"><span style="color:var(--muted)">— 출력 없음 —</span></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   STEP DATA — each step is a full snapshot of the runtime state
+   Fields:
+     description : Korean explanation shown in the desc panel
+     callStack   : array of strings (top = last element)
+     webAPIs     : array of strings
+     microtasks  : array of strings
+     macrotasks  : array of strings
+     output      : array of strings already printed (cumulative)
+   ════════════════════════════════════════════════════════════════ */
+
+var EXAMPLES = [
+
+  /* ── 예제 1 : setTimeout + Promise ─────────────────────────── */
+  {
+    code: [
+      'console.log(1);',
+      '',
+      'setTimeout(() => {',
+      '  console.log(3);',
+      '}, 0);',
+      '',
+      'Promise.resolve()',
+      '  .then(() => {',
+      '    console.log(2);',
+      '  });',
+      '',
+      'console.log(4);'
+    ].join('\n'),
+
+    steps: [
+      {
+        description: '초기 상태입니다. 스크립트 실행이 시작되기 직전입니다. Call Stack, 큐 모두 비어있습니다.',
+        callStack:  [],
+        webAPIs:    [],
+        microtasks: [],
+        macrotasks: [],
+        output:     []
+      },
+      {
+        description: 'Global Execution Context가 Call Stack에 추가됩니다. 스크립트 전체가 하나의 태스크로 실행됩니다.',
+        callStack:  ['Global EC'],
+        webAPIs:    [],
+        microtasks: [],
+        macrotasks: [],
+        output:     []
+      },
+      {
+        description: 'console.log(1) 이 Call Stack에 푸시되어 즉시 실행됩니다. "1"이 콘솔에 출력됩니다.',
+        callStack:  ['Global EC', 'console.log(1)'],
+        webAPIs:    [],
+        microtasks: [],
+        macrotasks: [],
+        output:     ['1']
+      },
+      {
+        description: 'console.log(1) 실행이 완료되어 Call Stack에서 팝됩니다.',
+        callStack:  ['Global EC'],
+        webAPIs:    [],
+        microtasks: [],
+        macrotasks: [],
+        output:     ['1']
+      },
+      {
+        description: 'setTimeout() 이 Call Stack에 추가됩니다. 콜백과 딜레이(0ms)를 Web APIs 타이머에 등록합니다.',
+        callStack:  ['Global EC', 'setTimeout(cb, 0)'],
+        webAPIs:    ['Timer: cb (0ms)'],
+        microtasks: [],
+        macrotasks: [],
+        output:     ['1']
+      },
+      {
+        description: 'setTimeout() 은 Web API 타이머를 예약한 뒤 즉시 반환됩니다. Call Stack에서 팝됩니다. 타이머는 0ms 후 만료 — 콜백이 Macrotask Queue로 이동합니다.',
+        callStack:  ['Global EC'],
+        webAPIs:    [],
+        microtasks: [],
+        macrotasks: ['() => console.log(3)'],
+        output:     ['1']
+      },
+      {
+        description: 'Promise.resolve().then(cb) 이 실행됩니다. Promise는 이미 이행(resolved) 상태이므로 then 콜백이 즉시 Microtask Queue에 등록됩니다.',
+        callStack:  ['Global EC', 'Promise.resolve().then(cb)'],
+        webAPIs:    [],
+        microtasks: ['() => console.log(2)'],
+        macrotasks: ['() => console.log(3)'],
+        output:     ['1']
+      },
+      {
+        description: 'Promise.then() 등록이 완료되어 Call Stack에서 팝됩니다.',
+        callStack:  ['Global EC'],
+        webAPIs:    [],
+        microtasks: ['() => console.log(2)'],
+        macrotasks: ['() => console.log(3)'],
+        output:     ['1']
+      },
+      {
+        description: 'console.log(4) 가 Call Stack에 추가되어 실행됩니다. "4"가 출력됩니다.',
+        callStack:  ['Global EC', 'console.log(4)'],
+        webAPIs:    [],
+        microtasks: ['() => console.log(2)'],
+        macrotasks: ['() => console.log(3)'],
+        output:     ['1', '4']
+      },
+      {
+        description: 'console.log(4) 팝. Global EC 도 반환됩니다. Call Stack이 비었습니다!',
+        callStack:  [],
+        webAPIs:    [],
+        microtasks: ['() => console.log(2)'],
+        macrotasks: ['() => console.log(3)'],
+        output:     ['1', '4']
+      },
+      {
+        description: '이벤트 루프가 Call Stack이 비어있음을 감지합니다. Microtask Queue를 먼저 확인합니다. Promise 콜백이 Call Stack으로 이동합니다.',
+        callStack:  ['() => console.log(2)'],
+        webAPIs:    [],
+        microtasks: [],
+        macrotasks: ['() => console.log(3)'],
+        output:     ['1', '4']
+      },
+      {
+        description: 'Promise 콜백 내부의 console.log(2) 가 실행됩니다. "2"가 출력됩니다. Microtask는 Macrotask보다 항상 먼저 처리됩니다.',
+        callStack:  ['() => console.log(2)', 'console.log(2)'],
+        webAPIs:    [],
+        microtasks: [],
+        macrotasks: ['() => console.log(3)'],
+        output:     ['1', '4', '2']
+      },
+      {
+        description: 'Microtask 콜백 실행 완료. Call Stack에서 팝. Microtask Queue가 비었습니다. 이제 Macrotask Queue를 처리합니다.',
+        callStack:  [],
+        webAPIs:    [],
+        microtasks: [],
+        macrotasks: ['() => console.log(3)'],
+        output:     ['1', '4', '2']
+      },
+      {
+        description: 'Macrotask Queue의 setTimeout 콜백이 Call Stack으로 이동합니다.',
+        callStack:  ['() => console.log(3)'],
+        webAPIs:    [],
+        microtasks: [],
+        macrotasks: [],
+        output:     ['1', '4', '2']
+      },
+      {
+        description: 'setTimeout 콜백 내부의 console.log(3) 이 실행됩니다. "3"이 출력됩니다.',
+        callStack:  ['() => console.log(3)', 'console.log(3)'],
+        webAPIs:    [],
+        microtasks: [],
+        macrotasks: [],
+        output:     ['1', '4', '2', '3']
+      },
+      {
+        description: '모든 실행이 완료되었습니다! 최종 출력 순서: 1 → 4 → 2 → 3. Microtask(Promise)가 Macrotask(setTimeout)보다 먼저 실행됩니다.',
+        callStack:  [],
+        webAPIs:    [],
+        microtasks: [],
+        macrotasks: [],
+        output:     ['1', '4', '2', '3']
+      }
+    ]
+  },
+
+  /* ── 예제 2 : async / await ─────────────────────────────────── */
+  {
+    code: [
+      'async function fetchData() {',
+      '  console.log("A: fetchData 시작");',
+      '  await Promise.resolve("data");',
+      '  console.log("C: await 이후");',
+      '}',
+      '',
+      'console.log("B: 동기 시작");',
+      'fetchData();',
+      'console.log("D: fetchData 호출 후");'
+    ].join('\n'),
+
+    steps: [
+      {
+        description: '초기 상태입니다. async 함수와 동기 코드가 정의되어 있습니다.',
+        callStack:  [],
+        webAPIs:    [],
+        microtasks: [],
+        macrotasks: [],
+        output:     []
+      },
+      {
+        description: 'Global Execution Context가 Call Stack에 올라옵니다. 스크립트 실행을 시작합니다.',
+        callStack:  ['Global EC'],
+        webAPIs:    [],
+        microtasks: [],
+        macrotasks: [],
+        output:     []
+      },
+      {
+        description: 'console.log("B: 동기 시작") 이 실행됩니다. 첫 번째 동기 출력입니다.',
+        callStack:  ['Global EC', 'console.log("B: 동기 시작")'],
+        webAPIs:    [],
+        microtasks: [],
+        macrotasks: [],
+        output:     ['B: 동기 시작']
+      },
+      {
+        description: 'console.log("B") 팝. fetchData() 호출이 Call Stack에 추가됩니다. async 함수가 실행됩니다.',
+        callStack:  ['Global EC', 'fetchData()'],
+        webAPIs:    [],
+        microtasks: [],
+        macrotasks: [],
+        output:     ['B: 동기 시작']
+      },
+      {
+        description: 'fetchData 내부의 console.log("A: fetchData 시작") 이 실행됩니다.',
+        callStack:  ['Global EC', 'fetchData()', 'console.log("A: fetchData 시작")'],
+        webAPIs:    [],
+        microtasks: [],
+        macrotasks: [],
+        output:     ['B: 동기 시작', 'A: fetchData 시작']
+      },
+      {
+        description: 'console.log("A") 팝. await Promise.resolve() 를 만났습니다. await는 내부적으로 .then() 을 사용합니다. 함수 실행이 일시 중단되고 나머지가 Microtask Queue에 등록됩니다.',
+        callStack:  ['Global EC'],
+        webAPIs:    [],
+        microtasks: ['fetchData 재개 (await 이후)'],
+        macrotasks: [],
+        output:     ['B: 동기 시작', 'A: fetchData 시작']
+      },
+      {
+        description: 'fetchData() 가 반환됩니다 (Promise 반환). console.log("D: fetchData 호출 후") 가 실행됩니다.',
+        callStack:  ['Global EC', 'console.log("D: fetchData 호출 후")'],
+        webAPIs:    [],
+        microtasks: ['fetchData 재개 (await 이후)'],
+        macrotasks: [],
+        output:     ['B: 동기 시작', 'A: fetchData 시작', 'D: fetchData 호출 후']
+      },
+      {
+        description: 'console.log("D") 팝. Global EC 도 반환됩니다. Call Stack이 비었습니다!',
+        callStack:  [],
+        webAPIs:    [],
+        microtasks: ['fetchData 재개 (await 이후)'],
+        macrotasks: [],
+        output:     ['B: 동기 시작', 'A: fetchData 시작', 'D: fetchData 호출 후']
+      },
+      {
+        description: '이벤트 루프가 Microtask Queue를 확인합니다. fetchData의 await 이후 코드가 재개됩니다.',
+        callStack:  ['fetchData 재개'],
+        webAPIs:    [],
+        microtasks: [],
+        macrotasks: [],
+        output:     ['B: 동기 시작', 'A: fetchData 시작', 'D: fetchData 호출 후']
+      },
+      {
+        description: 'await 이후의 console.log("C: await 이후") 가 실행됩니다.',
+        callStack:  ['fetchData 재개', 'console.log("C: await 이후")'],
+        webAPIs:    [],
+        microtasks: [],
+        macrotasks: [],
+        output:     ['B: 동기 시작', 'A: fetchData 시작', 'D: fetchData 호출 후', 'C: await 이후']
+      },
+      {
+        description: '모든 실행 완료! 출력 순서: B → A → D → C. await는 함수를 일시 정지시키고, 동기 코드가 먼저 실행된 후 Microtask로 재개됩니다.',
+        callStack:  [],
+        webAPIs:    [],
+        microtasks: [],
+        macrotasks: [],
+        output:     ['B: 동기 시작', 'A: fetchData 시작', 'D: fetchData 호출 후', 'C: await 이후']
+      }
+    ]
+  },
+
+  /* ── 예제 3 : 중첩 Promise 체인 ─────────────────────────────── */
+  {
+    code: [
+      'console.log("시작");',
+      '',
+      'Promise.resolve()',
+      '  .then(() => {',
+      '    console.log("then 1");',
+      '    return Promise.resolve();',
+      '  })',
+      '  .then(() => {',
+      '    console.log("then 2");',
+      '  });',
+      '',
+      'Promise.resolve()',
+      '  .then(() => {',
+      '    console.log("then A");',
+      '  })',
+      '  .then(() => {',
+      '    console.log("then B");',
+      '  });',
+      '',
+      'console.log("끝");'
+    ].join('\n'),
+
+    steps: [
+      {
+        description: '초기 상태. 두 개의 독립적인 Promise 체인이 정의되어 있습니다.',
+        callStack:  [],
+        webAPIs:    [],
+        microtasks: [],
+        macrotasks: [],
+        output:     []
+      },
+      {
+        description: 'Global EC가 Call Stack에 올라옵니다. 동기 코드 실행을 시작합니다.',
+        callStack:  ['Global EC'],
+        webAPIs:    [],
+        microtasks: [],
+        macrotasks: [],
+        output:     []
+      },
+      {
+        description: 'console.log("시작") 이 실행됩니다.',
+        callStack:  ['Global EC', 'console.log("시작")'],
+        webAPIs:    [],
+        microtasks: [],
+        macrotasks: [],
+        output:     ['시작']
+      },
+      {
+        description: '첫 번째 Promise 체인이 설정됩니다. Promise.resolve()는 즉시 이행되므로, 첫 번째 then 콜백("then 1")이 Microtask Queue에 등록됩니다.',
+        callStack:  ['Global EC'],
+        webAPIs:    [],
+        microtasks: ['then 1 콜백'],
+        macrotasks: [],
+        output:     ['시작']
+      },
+      {
+        description: '두 번째 Promise 체인이 설정됩니다. 마찬가지로 첫 번째 then 콜백("then A")이 Microtask Queue에 추가됩니다.',
+        callStack:  ['Global EC'],
+        webAPIs:    [],
+        microtasks: ['then 1 콜백', 'then A 콜백'],
+        macrotasks: [],
+        output:     ['시작']
+      },
+      {
+        description: 'console.log("끝") 이 실행됩니다.',
+        callStack:  ['Global EC', 'console.log("끝")'],
+        webAPIs:    [],
+        microtasks: ['then 1 콜백', 'then A 콜백'],
+        macrotasks: [],
+        output:     ['시작', '끝']
+      },
+      {
+        description: 'Global EC 반환. Call Stack 비었습니다. 이벤트 루프가 Microtask Queue를 처리합니다. 첫 번째 항목 "then 1 콜백" 이 실행됩니다.',
+        callStack:  ['then 1 콜백'],
+        webAPIs:    [],
+        microtasks: ['then A 콜백'],
+        macrotasks: [],
+        output:     ['시작', '끝']
+      },
+      {
+        description: '"then 1" 이 출력됩니다. 하지만 return Promise.resolve() 때문에 다음 then("then 2")은 아직 Microtask Queue에 등록되지 않습니다. 내부 Promise가 먼저 처리되어야 합니다.',
+        callStack:  ['then 1 콜백', 'console.log("then 1")'],
+        webAPIs:    [],
+        microtasks: ['then A 콜백'],
+        macrotasks: [],
+        output:     ['시작', '끝', 'then 1']
+      },
+      {
+        description: '"then 1" 콜백이 return Promise.resolve() 를 반환합니다. 이로 인해 "then 2" 콜백은 두 번의 Microtask 틱 후에 등록됩니다. 일단 중간 처리 태스크가 Queue에 추가됩니다.',
+        callStack:  [],
+        webAPIs:    [],
+        microtasks: ['then A 콜백', 'Promise 래핑 처리'],
+        macrotasks: [],
+        output:     ['시작', '끝', 'then 1']
+      },
+      {
+        description: '"then A 콜백" 이 실행됩니다. "then A"가 출력됩니다.',
+        callStack:  ['then A 콜백', 'console.log("then A")'],
+        webAPIs:    [],
+        microtasks: ['Promise 래핑 처리'],
+        macrotasks: [],
+        output:     ['시작', '끝', 'then 1', 'then A']
+      },
+      {
+        description: '"then A" 콜백 완료. "then B" 콜백이 Microtask Queue에 등록됩니다.',
+        callStack:  [],
+        webAPIs:    [],
+        microtasks: ['Promise 래핑 처리', 'then B 콜백'],
+        macrotasks: [],
+        output:     ['시작', '끝', 'then 1', 'then A']
+      },
+      {
+        description: '"Promise 래핑 처리" 가 완료됩니다. 이제 "then 2 콜백" 이 Queue에 등록됩니다.',
+        callStack:  [],
+        webAPIs:    [],
+        microtasks: ['then B 콜백', 'then 2 콜백'],
+        macrotasks: [],
+        output:     ['시작', '끝', 'then 1', 'then A']
+      },
+      {
+        description: '"then B 콜백" 이 실행됩니다. "then B"가 출력됩니다.',
+        callStack:  ['then B 콜백', 'console.log("then B")'],
+        webAPIs:    [],
+        microtasks: ['then 2 콜백'],
+        macrotasks: [],
+        output:     ['시작', '끝', 'then 1', 'then A', 'then B']
+      },
+      {
+        description: '"then 2 콜백" 이 실행됩니다. "then 2"가 출력됩니다.',
+        callStack:  ['then 2 콜백', 'console.log("then 2")'],
+        webAPIs:    [],
+        microtasks: [],
+        macrotasks: [],
+        output:     ['시작', '끝', 'then 1', 'then A', 'then B', 'then 2']
+      },
+      {
+        description: '모든 실행 완료! 출력 순서: 시작 → 끝 → then 1 → then A → then B → then 2. return Promise.resolve() 때문에 "then 2"가 "then B"보다 늦게 실행됩니다.',
+        callStack:  [],
+        webAPIs:    [],
+        microtasks: [],
+        macrotasks: [],
+        output:     ['시작', '끝', 'then 1', 'then A', 'then B', 'then 2']
+      }
+    ]
+  }
+];
+
+/* ════════════════════════════════════════════════════════════════
+   SYNTAX HIGHLIGHT  (simple token-based, no eval)
+   ════════════════════════════════════════════════════════════════ */
+function highlight(code) {
+  var keywords = ['async', 'await', 'function', 'return', 'const', 'let', 'var', 'new', 'true', 'false', 'null', 'undefined'];
+  var result = '';
+  var i = 0;
+  var len = code.length;
+
+  while (i < len) {
+    // Comment
+    if (code[i] === '/' && code[i+1] === '/') {
+      var end = code.indexOf('\n', i);
+      if (end === -1) end = len;
+      result += '<span class="tok-cmt">' + esc(code.slice(i, end)) + '</span>';
+      i = end;
+      continue;
+    }
+    // String single
+    if (code[i] === '"' || code[i] === "'") {
+      var q = code[i], j = i + 1;
+      while (j < len && code[j] !== q) { if (code[j] === '\\') j++; j++; }
+      j++;
+      result += '<span class="tok-str">' + esc(code.slice(i, j)) + '</span>';
+      i = j;
+      continue;
+    }
+    // Template literal
+    if (code[i] === '`') {
+      var j = i + 1;
+      while (j < len && code[j] !== '`') { if (code[j] === '\\') j++; j++; }
+      j++;
+      result += '<span class="tok-str">' + esc(code.slice(i, j)) + '</span>';
+      i = j;
+      continue;
+    }
+    // Number
+    if (code[i] >= '0' && code[i] <= '9') {
+      var j = i;
+      while (j < len && ((code[j] >= '0' && code[j] <= '9') || code[j] === '.')) j++;
+      result += '<span class="tok-num">' + esc(code.slice(i, j)) + '</span>';
+      i = j;
+      continue;
+    }
+    // Identifier / keyword
+    if ((code[i] >= 'a' && code[i] <= 'z') || (code[i] >= 'A' && code[i] <= 'Z') || code[i] === '_' || code[i] === '$') {
+      var j = i;
+      while (j < len && ((code[j] >= 'a' && code[j] <= 'z') || (code[j] >= 'A' && code[j] <= 'Z') || (code[j] >= '0' && code[j] <= '9') || code[j] === '_' || code[j] === '$')) j++;
+      var word = code.slice(i, j);
+      if (keywords.indexOf(word) !== -1) {
+        result += '<span class="tok-kw">' + esc(word) + '</span>';
+      } else if (j < len && code[j] === '(') {
+        result += '<span class="tok-fn">' + esc(word) + '</span>';
+      } else {
+        result += '<span class="tok-plain">' + esc(word) + '</span>';
+      }
+      i = j;
+      continue;
+    }
+    // Punctuation
+    if ('(){}[];.,=>'.indexOf(code[i]) !== -1) {
+      result += '<span class="tok-punc">' + esc(code[i]) + '</span>';
+      i++;
+      continue;
+    }
+    result += esc(code[i]);
+    i++;
+  }
+  return result;
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ════════════════════════════════════════════════════════════════
+   APP STATE
+   ════════════════════════════════════════════════════════════════ */
+var currentExampleIdx = 0;
+var currentStep = 0;
+var autoTimer = null;
+
+function getExample() { return EXAMPLES[currentExampleIdx]; }
+function getSteps()   { return getExample().steps; }
+
+/* ════════════════════════════════════════════════════════════════
+   RENDER
+   ════════════════════════════════════════════════════════════════ */
+function renderZone(zoneId, items, colorClass) {
+  var el = document.getElementById(zoneId);
+  el.innerHTML = '';
+  if (items.length === 0) {
+    el.innerHTML = '<div class="zone-empty">비어있음</div>';
+    return;
+  }
+  // For call-stack, items[0] is bottom, last is top — render reversed so top is visual top
+  var list = (zoneId === 'zone-callstack') ? items.slice().reverse() : items;
+  list.forEach(function(text) {
+    var div = document.createElement('div');
+    div.className = 'item item-' + colorClass;
+    div.textContent = text;
+    el.appendChild(div);
+  });
+}
+
+function renderOutput(output) {
+  var el = document.getElementById('output-log');
+  if (output.length === 0) {
+    el.innerHTML = '<span style="color:var(--muted)">— 출력 없음 —</span>';
+    return;
+  }
+  el.innerHTML = output.map(function(line) {
+    return '<div class="log-line"><span class="log-prompt">&gt;</span>' + esc(String(line)) + '</div>';
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+function renderStep(stepIdx) {
+  var steps = getSteps();
+  var step  = steps[stepIdx];
+
+  renderZone('zone-callstack', step.callStack,  'blue');
+  renderZone('zone-webapis',   step.webAPIs,    'purple');
+  renderZone('zone-microtask', step.microtasks, 'green');
+  renderZone('zone-macrotask', step.macrotasks, 'orange');
+  renderOutput(step.output);
+
+  var descEl = document.getElementById('step-desc');
+  var indicator = stepIdx > 0 ? '<span class="active-indicator"></span>' : '';
+  descEl.innerHTML = indicator + step.description;
+
+  document.getElementById('step-counter').textContent =
+    stepIdx + ' / ' + (steps.length - 1) + ' 단계';
+
+  var atEnd = (stepIdx >= steps.length - 1);
+  document.getElementById('btn-step').disabled = atEnd;
+  if (atEnd && autoTimer !== null) stopAuto();
+}
+
+function renderCode() {
+  var el = document.getElementById('code-display');
+  el.innerHTML = highlight(getExample().code);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   AUTO-RUN
+   ════════════════════════════════════════════════════════════════ */
+function startAuto() {
+  if (autoTimer !== null) return;
+  document.getElementById('btn-auto').textContent = '정지 ⏹';
+  document.getElementById('btn-auto').className = 'btn btn-neutral';
+  autoTimer = setInterval(function() {
+    var steps = getSteps();
+    if (currentStep >= steps.length - 1) {
+      stopAuto();
+      return;
+    }
+    currentStep++;
+    renderStep(currentStep);
+  }, 700);
+}
+
+function stopAuto() {
+  if (autoTimer === null) return;
+  clearInterval(autoTimer);
+  autoTimer = null;
+  document.getElementById('btn-auto').textContent = '자동 실행 ⟳';
+  document.getElementById('btn-auto').className = 'btn btn-success';
+}
+
+/* ════════════════════════════════════════════════════════════════
+   INIT & EVENTS
+   ════════════════════════════════════════════════════════════════ */
+function resetAll() {
+  stopAuto();
+  currentStep = 0;
+  renderCode();
+  renderStep(0);
+}
+
+document.getElementById('example-select').addEventListener('change', function(e) {
+  currentExampleIdx = parseInt(e.target.value, 10);
+  resetAll();
+});
+
+document.getElementById('btn-step').addEventListener('click', function() {
+  var steps = getSteps();
+  if (currentStep < steps.length - 1) {
+    currentStep++;
+    renderStep(currentStep);
+  }
+});
+
+document.getElementById('btn-auto').addEventListener('click', function() {
+  if (autoTimer !== null) {
+    stopAuto();
+  } else {
+    startAuto();
+  }
+});
+
+document.getElementById('btn-reset').addEventListener('click', resetAll);
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+  if (e.target.tagName === 'SELECT') return;
+  if (e.key === 'ArrowRight' || e.key === ' ') {
+    e.preventDefault();
+    var steps = getSteps();
+    if (currentStep < steps.length - 1) { currentStep++; renderStep(currentStep); }
+  } else if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    if (currentStep > 0) { currentStep--; renderStep(currentStep); }
+  } else if (e.key === 'r' || e.key === 'R') {
+    resetAll();
+  }
+});
+
+// Bootstrap
+resetAll();
+</script>
+</body>
+</html>
