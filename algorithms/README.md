@@ -23,3 +23,21 @@
 - 코딩 테스트 문제 해결 능력 향상
 - 시간/공간 복잡도 분석 능력 배양
 - 주요 알고리즘 패턴 숙지
+
+---
+
+## 참고 자료
+
+### 학습 사이트
+- **Visualgo (알고리즘 시각화)**: https://visualgo.net/ko
+- **LeetCode**: https://leetcode.com/
+- **Programmers**: https://programmers.co.kr/
+- **백준 온라인 저지**: https://www.acmicpc.net/
+- **Neetcode 로드맵**: https://neetcode.io/roadmap
+
+### 추천 도서
+| 책 제목 | 교보문고 |
+|---------|---------|
+| 코딩 인터뷰 완전 분석 | [검색](https://search.kyobobook.co.kr/search?keyword=코딩+인터뷰+완전+분석) |
+| 이것이 코딩 테스트다 | [검색](https://search.kyobobook.co.kr/search?keyword=이것이+코딩+테스트다) |
+| 알고리즘 문제 해결 전략 | [검색](https://search.kyobobook.co.kr/search?keyword=알고리즘+문제+해결+전략) |

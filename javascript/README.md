@@ -18,3 +18,20 @@
 | 10 | [모듈 시스템](./10-modules.md) | ESM vs CJS, 동적 import, Tree Shaking | ⬜ |
 | 11 | [이터레이터 & 제너레이터](./11-iterators-generators.md) | Symbol.iterator, 제너레이터 활용 | ⬜ |
 | 12 | [Proxy & Reflect](./12-proxy-reflect.md) | 메타 프로그래밍, 반응형 시스템 원리 | ⬜ |
+
+---
+
+## 참고 자료
+
+### 공식 문서 & 학습 사이트
+- **MDN JavaScript 가이드**: https://developer.mozilla.org/ko/docs/Web/JavaScript/Guide
+- **javascript.info**: https://javascript.info/ ← 최고의 JS 심화 학습 사이트
+- **ECMAScript 스펙**: https://tc39.es/ecma262/
+- **V8 블로그 (엔진 내부)**: https://v8.dev/blog
+
+### 추천 도서
+| 책 제목 | 교보문고 |
+|---------|---------|
+| 모던 자바스크립트 Deep Dive | [검색](https://search.kyobobook.co.kr/search?keyword=모던+자바스크립트+Deep+Dive) |
+| You Don't Know JS | [검색](https://search.kyobobook.co.kr/search?keyword=You+Dont+Know+JS) |
+| 자바스크립트 완벽 가이드 | [검색](https://search.kyobobook.co.kr/search?keyword=자바스크립트+완벽+가이드) |

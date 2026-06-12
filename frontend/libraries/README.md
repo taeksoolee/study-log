@@ -30,3 +30,19 @@
 - [React](../react/) — 컴포넌트, 훅, 상태 관리
 - [빌드 도구](../build-tools/) — Vite, Webpack, Babel
 - [아키텍처](../architecture/) — 설계 패턴, 클린 아키텍처
+
+---
+
+## 참고 자료
+
+### 공식 문서
+- **TanStack Query**: https://tanstack.com/query/latest
+- **Zod**: https://zod.dev/
+- **React Hook Form**: https://react-hook-form.com/
+- **Playwright**: https://playwright.dev/
+- **Vitest**: https://vitest.dev/
+- **Jest**: https://jestjs.io/
+- **dayjs**: https://day.js.org/
+- **date-fns**: https://date-fns.org/
+- **lodash**: https://lodash.com/
+- **i18next**: https://www.i18next.com/

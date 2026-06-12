@@ -49,3 +49,22 @@
 - [Test Driven Development - Kent Beck](https://www.amazon.com/Test-Driven-Development-Kent-Beck/dp/0321146530)
 - [Agile Manifesto](https://agilemanifesto.org/)
 - [SOLID Principles - Martin Fowler](https://martinfowler.com/tags/object%20oriented%20design.html)
+
+---
+
+## 참고 자료
+
+### 학습 사이트
+- **Scrum Guide (공식)**: https://scrumguides.org/scrum-guide.html
+- **Agile Alliance**: https://www.agilealliance.org/
+- **Conventional Commits**: https://www.conventionalcommits.org/ko/
+
+### 추천 도서
+| 책 제목 | 교보문고 |
+|---------|---------|
+| 클린 코드 | [검색](https://search.kyobobook.co.kr/search?keyword=클린+코드) |
+| 테스트 주도 개발 (TDD) | [검색](https://search.kyobobook.co.kr/search?keyword=테스트+주도+개발) |
+| 도메인 주도 설계 | [검색](https://search.kyobobook.co.kr/search?keyword=도메인+주도+설계) |
+| 클린 아키텍처 | [검색](https://search.kyobobook.co.kr/search?keyword=클린+아키텍처) |
+| 리팩터링 2판 | [검색](https://search.kyobobook.co.kr/search?keyword=리팩터링+2판) |
+| 실용주의 프로그래머 | [검색](https://search.kyobobook.co.kr/search?keyword=실용주의+프로그래머) |

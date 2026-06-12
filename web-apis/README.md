@@ -28,3 +28,15 @@
 - 각 파일은 **개념 → 코드 예제 → 면접 포인트** 순서로 구성
 - 상태: ⬜ 미학습 / 🔄 학습 중 / ✅ 완료
 - 브라우저 호환성은 [MDN Web Docs](https://developer.mozilla.org) 또는 [Can I Use](https://caniuse.com) 참조
+
+---
+
+## 참고 자료
+
+### 공식 문서
+- **MDN Web APIs 전체 목록**: https://developer.mozilla.org/ko/docs/Web/API
+- **MDN IntersectionObserver**: https://developer.mozilla.org/ko/docs/Web/API/IntersectionObserver
+- **MDN MutationObserver**: https://developer.mozilla.org/ko/docs/Web/API/MutationObserver
+- **MDN Fetch API**: https://developer.mozilla.org/ko/docs/Web/API/Fetch_API
+- **MDN Intl API**: https://developer.mozilla.org/ko/docs/Web/JavaScript/Reference/Global_Objects/Intl
+- **Can I use (브라우저 호환성 확인)**: https://caniuse.com/

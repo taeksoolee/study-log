@@ -52,3 +52,10 @@
 ---
 
 [← 전체 목차로](../README.md)
+
+---
+
+## 참고 자료
+
+- **Refactoring Guru (한국어)**: https://refactoring.guru/ko/design-patterns
+- **Head First 디자인 패턴**: https://search.kyobobook.co.kr/search?keyword=Head+First+디자인+패턴

@@ -37,3 +37,17 @@
 - [Clean Architecture - Robert C. Martin](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)
 - [Micro Frontends - Martin Fowler](https://martinfowler.com/articles/micro-frontends.html)
 - [Turborepo 공식 문서](https://turbo.build/repo)
+
+---
+
+## 참고 자료
+
+### 공식 문서 & 학습 사이트
+- **Feature-Sliced Design 공식**: https://feature-sliced.design/
+- **Micro Frontends (Martin Fowler)**: https://martinfowler.com/articles/micro-frontends.html
+
+### 추천 도서
+| 책 제목 | 교보문고 |
+|---------|---------|
+| 클린 아키텍처 | [검색](https://search.kyobobook.co.kr/search?keyword=클린+아키텍처) |
+| 오브젝트 (조영호) | [검색](https://search.kyobobook.co.kr/search?keyword=오브젝트+조영호) |

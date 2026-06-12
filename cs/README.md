@@ -29,3 +29,17 @@
 - [컴퓨터 네트워킹 하향식 접근 (Kurose & Ross)](https://www.amazon.com/Computer-Networking-Top-Down-Approach-7th/dp/0133594149)
 - [HTTP/3 explained](https://http3-explained.haxx.se/)
 - [High Performance Browser Networking (Ilya Grigorik)](https://hpbn.co/)
+
+---
+
+## 참고 자료
+
+### 추천 도서 (전반)
+| 책 제목 | 교보문고 |
+|---------|---------|
+| 컴퓨터 네트워크 하향식 접근 | [검색](https://search.kyobobook.co.kr/search?keyword=컴퓨터+네트워크+하향식+접근) |
+| 운영체제 (공룡책) | [검색](https://search.kyobobook.co.kr/search?keyword=운영체제+공룡책) |
+| Real MySQL 8.0 | [검색](https://search.kyobobook.co.kr/search?keyword=Real+MySQL+8.0) |
+| 혼자 공부하는 컴퓨터 구조+운영체제 | [검색](https://search.kyobobook.co.kr/search?keyword=혼자+공부하는+컴퓨터+구조+운영체제) |
+
+→ 세부 자료는 [RESOURCES.md](../RESOURCES.md) 참고

@@ -37,3 +37,18 @@ TypeScript의 핵심 개념을 체계적으로 정리한 학습 문서입니다.
 - [TypeScript 공식 문서](https://www.typescriptlang.org/docs/)
 - [TypeScript Playground](https://www.typescriptlang.org/play)
 - [타입스크립트 딥다이브 (한국어)](https://radlohead.gitbook.io/typescript-deep-dive/)
+
+---
+
+## 참고 자료
+
+### 공식 문서 & 학습 사이트
+- **TypeScript 공식 핸드북**: https://www.typescriptlang.org/docs/handbook/intro.html
+- **TypeScript Playground**: https://www.typescriptlang.org/play
+- **TypeScript Deep Dive**: https://basarat.gitbook.io/typescript/
+
+### 추천 도서
+| 책 제목 | 교보문고 |
+|---------|---------|
+| 이펙티브 타입스크립트 | [검색](https://search.kyobobook.co.kr/search?keyword=이펙티브+타입스크립트) |
+| 타입스크립트 프로그래밍 | [검색](https://search.kyobobook.co.kr/search?keyword=타입스크립트+프로그래밍) |

@@ -26,3 +26,14 @@
 4. [Hono](./bff/04-hono.md)
 5. [tRPC](./bff/05-trpc.md)
 6. [GraphQL](./bff/06-graphql.md)
+
+---
+
+## 참고 자료
+
+### 학습 사이트
+- **roadmap.sh (프론트엔드 로드맵)**: https://roadmap.sh/frontend
+- **web.dev**: https://web.dev/
+- **MDN Web Docs**: https://developer.mozilla.org/ko/
+
+→ 세부 자료는 [RESOURCES.md](../RESOURCES.md) 참고

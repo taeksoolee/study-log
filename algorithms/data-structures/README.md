@@ -19,3 +19,17 @@
 | 큐 | O(n) | O(n) | O(1) | O(1) |
 | 해시 테이블 | - | O(1) | O(1) | O(1) |
 | BST | O(log n) | O(log n) | O(log n) | O(log n) |
+
+---
+
+## 참고 자료
+
+### 학습 사이트
+- **Visualgo (자료구조 시각화)**: https://visualgo.net/ko
+- **The Algorithms - JavaScript**: https://github.com/TheAlgorithms/JavaScript
+
+### 추천 도서
+| 책 제목 | 교보문고 |
+|---------|---------|
+| 자료구조와 함께 배우는 알고리즘 | [검색](https://search.kyobobook.co.kr/search?keyword=자료구조와+함께+배우는+알고리즘) |
+| 코딩 인터뷰 완전 분석 | [검색](https://search.kyobobook.co.kr/search?keyword=코딩+인터뷰+완전+분석) |

@@ -101,3 +101,18 @@
 - [Refactoring.Guru - Design Patterns](https://refactoring.guru/design-patterns)
 - [MDN Web Docs - JavaScript](https://developer.mozilla.org/ko/docs/Web/JavaScript)
 - GoF 원서: *Design Patterns: Elements of Reusable Object-Oriented Software*
+
+---
+
+## 참고 자료
+
+### 학습 사이트
+- **Refactoring Guru (한국어)**: https://refactoring.guru/ko/design-patterns ← 그림 설명 우수
+- **patterns.dev (JS/React 패턴)**: https://www.patterns.dev/
+
+### 추천 도서
+| 책 제목 | 교보문고 |
+|---------|---------|
+| Head First 디자인 패턴 | [검색](https://search.kyobobook.co.kr/search?keyword=Head+First+디자인+패턴) |
+| 객체지향의 사실과 오해 | [검색](https://search.kyobobook.co.kr/search?keyword=객체지향의+사실과+오해) |
+| 오브젝트 (조영호) | [검색](https://search.kyobobook.co.kr/search?keyword=오브젝트+조영호) |

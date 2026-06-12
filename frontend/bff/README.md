@@ -39,3 +39,15 @@ tRPC 또는 GraphQL — 타입 공유 전략 선택
 - [Hono 공식 문서](https://hono.dev/)
 - [tRPC 공식 문서](https://trpc.io/)
 - [Apollo GraphQL](https://www.apollographql.com/)
+
+---
+
+## 참고 자료
+
+### 공식 문서
+- **NestJS**: https://docs.nestjs.com/
+- **Hono**: https://hono.dev/docs/
+- **Express**: https://expressjs.com/ko/
+- **tRPC**: https://trpc.io/docs/
+- **Apollo GraphQL**: https://www.apollographql.com/docs/
+- **Prisma ORM**: https://www.prisma.io/docs/

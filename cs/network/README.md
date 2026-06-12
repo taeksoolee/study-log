@@ -42,3 +42,19 @@
 - [RFC 7540 - HTTP/2](https://tools.ietf.org/html/rfc7540)
 - [RFC 9114 - HTTP/3](https://tools.ietf.org/html/rfc9114)
 - [MDN - HTTP](https://developer.mozilla.org/ko/docs/Web/HTTP)
+
+---
+
+## 참고 자료
+
+### 공식 문서 & 학습 사이트
+- **MDN HTTP 가이드**: https://developer.mozilla.org/ko/docs/Web/HTTP
+- **Cloudflare Learning Center**: https://www.cloudflare.com/learning/
+- **RFC Editor (HTTP/3 - RFC 9114)**: https://www.rfc-editor.org/rfc/rfc9114
+
+### 추천 도서
+| 책 제목 | 교보문고 |
+|---------|---------|
+| 컴퓨터 네트워크 하향식 접근 | [검색](https://search.kyobobook.co.kr/search?keyword=컴퓨터+네트워크+하향식+접근) |
+| 그림으로 배우는 HTTP & Network Basic | [검색](https://search.kyobobook.co.kr/search?keyword=그림으로+배우는+HTTP) |
+| HTTP 완벽 가이드 | [검색](https://search.kyobobook.co.kr/search?keyword=HTTP+완벽+가이드) |

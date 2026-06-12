@@ -21,3 +21,17 @@
 | 최적 부분 구조 | 동적 프로그래밍 |
 | 지역 최적 → 전역 최적 | 그리디 |
 | 정렬, 분할 문제 | 분할 정복 |
+
+---
+
+## 참고 자료
+
+### 학습 사이트
+- **LeetCode 패턴별 문제**: https://leetcode.com/
+- **Neetcode 150**: https://neetcode.io/roadmap
+
+### 추천 도서
+| 책 제목 | 교보문고 |
+|---------|---------|
+| 이것이 코딩 테스트다 | [검색](https://search.kyobobook.co.kr/search?keyword=이것이+코딩+테스트다) |
+| 알고리즘 문제 해결 전략 | [검색](https://search.kyobobook.co.kr/search?keyword=알고리즘+문제+해결+전략) |

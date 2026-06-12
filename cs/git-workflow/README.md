@@ -70,3 +70,12 @@ Git 관련 기술 면접에서 자주 등장하는 주제와 핵심 키워드입
 - **좋은 커밋 메시지의 조건** — Conventional Commits, 원자적 커밋
 - **squash merge를 사용하는 이유** — 피처 브랜치 커밋 정리, main 히스토리 가독성
 - **git bisect로 버그 도입 커밋 찾기** — 이진 탐색 원리
+
+---
+
+## 참고 자료
+
+### 공식 문서 & 학습 사이트
+- **Pro Git (공식 무료 책, 한국어)**: https://git-scm.com/book/ko/v2
+- **Conventional Commits 스펙**: https://www.conventionalcommits.org/ko/
+- **GitHub Flow 가이드**: https://docs.github.com/ko/get-started/using-github/github-flow

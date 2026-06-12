@@ -12,3 +12,20 @@
 - 코드 예제로 설명 보완
 - "왜?"를 항상 생각하기
 - 관련 트레이드오프 언급
+
+---
+
+## 참고 자료
+
+### 학습 사이트
+- **Frontend Interview Handbook**: https://www.frontendinterviewhandbook.com/
+- **Tech Interview Handbook**: https://www.techinterviewhandbook.org/
+- **roadmap.sh (프론트엔드)**: https://roadmap.sh/frontend
+- **Neetcode 150**: https://neetcode.io/roadmap
+- **LeetCode**: https://leetcode.com/
+
+### 추천 도서
+| 책 제목 | 교보문고 |
+|---------|---------|
+| 코딩 인터뷰 완전 분석 | [검색](https://search.kyobobook.co.kr/search?keyword=코딩+인터뷰+완전+분석) |
+| 가상 면접 사례로 배우는 대규모 시스템 설계 기초 | [검색](https://search.kyobobook.co.kr/search?keyword=가상+면접+사례로+배우는+대규모+시스템+설계) |

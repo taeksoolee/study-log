@@ -38,3 +38,20 @@
 - [Web.dev - Rendering Performance](https://web.dev/rendering-performance/)
 - [V8 Blog](https://v8.dev/blog)
 - [Chrome DevTools - Performance](https://developer.chrome.com/docs/devtools/performance/)
+
+---
+
+## 참고 자료
+
+### 공식 문서 & 학습 사이트
+- **web.dev (Google)**: https://web.dev/
+- **web.dev Learn Performance**: https://web.dev/learn/performance/
+- **Chrome Developers**: https://developer.chrome.com/
+- **MDN Web API**: https://developer.mozilla.org/ko/docs/Web/API
+- **V8 블로그**: https://v8.dev/blog
+
+### 추천 도서
+| 책 제목 | 교보문고 |
+|---------|---------|
+| 웹 성능 최적화 기법 | [검색](https://search.kyobobook.co.kr/search?keyword=웹+성능+최적화) |
+| 고성능 자바스크립트 | [검색](https://search.kyobobook.co.kr/search?keyword=고성능+자바스크립트) |

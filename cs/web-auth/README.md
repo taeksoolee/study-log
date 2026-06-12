@@ -48,3 +48,18 @@
 
 - [네트워크 기초 → HTTP](../network/03-http.md)
 - [네트워크 기초 → HTTPS/TLS](../network/03-http.md)
+
+---
+
+## 참고 자료
+
+### 공식 문서 & 학습 사이트
+- **OWASP Top 10**: https://owasp.org/www-project-top-ten/
+- **jwt.io (JWT 디버거 & 스펙)**: https://jwt.io/
+- **MDN 웹 보안**: https://developer.mozilla.org/ko/docs/Web/Security
+- **OAuth 2.0 스펙 (RFC 6749)**: https://www.rfc-editor.org/rfc/rfc6749
+
+### 추천 도서
+| 책 제목 | 교보문고 |
+|---------|---------|
+| 웹 해킹 & 보안 완벽 가이드 | [검색](https://search.kyobobook.co.kr/search?keyword=웹+해킹+보안+완벽+가이드) |
