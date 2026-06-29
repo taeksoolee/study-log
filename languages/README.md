@@ -2,10 +2,26 @@
 
 ## 학습 목차
 
+### Python
 1. [Python 기초](./python/01-basics.md) - JS 개발자를 위한 Python
-2. [Go 기초](./go/01-basics.md) - 고루틴, 채널
-3. [Rust 기초](./rust/01-basics.md) - 소유권과 메모리 안전성
-4. [C/C++ 기초](./c-cpp/01-basics.md) - 포인터와 메모리 관리
+2. [Python 심화](./python/02-pythonic-advanced.md) - 제너레이터·데코레이터·컨텍스트매니저·async
+
+### Go
+1. [Go 기초](./go/01-basics.md) - 고루틴, 채널
+2. [Go 동시성 패턴 심화](./go/02-concurrency-patterns.md) - context·select·worker pool·errgroup
+
+### Rust
+1. [Rust 기초](./rust/01-basics.md) - 소유권과 메모리 안전성
+2. [Rust 심화](./rust/02-smart-pointers-traits.md) - 스마트 포인터·트레이트·Send/Sync
+
+### C/C++
+1. [C 기초](./c-cpp/01-basics.md) - 포인터와 메모리 관리
+2. [C++ 심화](./c-cpp/02-cpp-raii-stl.md) - RAII·스마트 포인터·이동 시맨틱·STL
+
+### Ruby
+1. [Ruby 기초](./ruby/01-ruby-basics.md)
+2. [Rails 기초](./ruby/02-rails-basics.md)
+3. [Rails 심화](./ruby/03-rails-advanced.md)
 
 ## 학습 목적
 - 코딩 테스트 Python 활용
