@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>두 힙 중앙값 시각화</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0f1117;color:#e0e0e0;font-family:'Segoe UI','Apple SD Gothic Neo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:32px 24px 64px}
+  header{width:100%;max-width:820px;display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px}
+  header h1{font-size:1.3rem;color:#fff}header h1 span{color:#4d8cff}
+  .back-link{font-size:.85rem;color:#888;text-decoration:none;border:1px solid #2a2d3a;padding:6px 14px;border-radius:8px}
+  .back-link:hover{color:#4d8cff;border-color:#4d8cff}
+  .wrap{width:100%;max-width:820px;display:flex;flex-direction:column;gap:20px}
+  .panel{background:#1a1d27;border:1px solid #2a2d3a;border-radius:14px;padding:22px}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  label{font-size:.85rem;color:#aaa}
+  input{background:#0f1117;border:1px solid #2a2d3a;color:#e0e0e0;border-radius:8px;padding:8px 10px;font-size:.9rem;width:220px}
+  button{background:#4d8cff;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:.88rem;font-weight:600;cursor:pointer}
+  button:hover{background:#6aa0ff}button.sec{background:#2a2d3a;color:#cfcfcf}button.sec:hover{background:#3a3e4d}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .heaps{display:flex;gap:16px;justify-content:center;align-items:flex-start;flex-wrap:wrap}
+  .heap{flex:1;min-width:240px;border:1px solid #2a2d3a;border-radius:12px;padding:16px;background:#16181f}
+  .heap h3{font-size:.85rem;margin-bottom:4px}
+  .heap.lo h3{color:#ff7597}.heap.hi h3{color:#3ddc97}
+  .heap .sub{font-size:.72rem;color:#666;margin-bottom:10px}
+  .nums{display:flex;gap:6px;flex-wrap:wrap}
+  .num{min-width:38px;height:38px;padding:0 6px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:#21242f;border:2px solid #2a2d3a;font-weight:700}
+  .num.top{border-width:2px}
+  .heap.lo .num.top{border-color:#ff7597;color:#ff7597}
+  .heap.hi .num.top{border-color:#3ddc97;color:#3ddc97}
+  .num.new{background:#4d8cff;border-color:#6aa0ff;color:#fff}
+  .median{text-align:center;font-size:1.3rem;font-weight:700;color:#ffb454}
+  .stream{font-size:.82rem;color:#888;text-align:center}
+  .stream b{color:#4d8cff}
+  .log{font-size:.9rem;line-height:1.7;color:#cfcfcf;min-height:42px}
+</style>
+</head>
+<body>
+<header>
+  <h1>두 힙으로 중앙값 <span>Median of Stream</span></h1>
+  <a class="back-link" href="./index.html">&larr; 목록</a>
+</header>
+<div class="wrap">
+  <div class="panel controls">
+    <label>스트림</label><input id="stream" value="5,2,8,1,9,3,7,4" />
+    <button id="build">실행</button>
+    <button class="sec" id="step">다음 ▶</button>
+    <button class="sec" id="play">자동 ▶▶</button>
+    <button class="sec" id="reset">↺</button>
+  </div>
+  <div class="panel stream" id="streamView"></div>
+  <div class="panel">
+    <div class="heaps">
+      <div class="heap lo"><h3>최대 힙 (작은 절반)</h3><div class="sub">top = 최댓값</div><div class="nums" id="loHeap"></div></div>
+      <div class="heap hi"><h3>최소 힙 (큰 절반)</h3><div class="sub">top = 최솟값</div><div class="nums" id="hiHeap"></div></div>
+    </div>
+  </div>
+  <div class="panel median" id="median"></div>
+  <div class="panel log" id="log">‘실행’으로 시작하세요.</div>
+</div>
+<script>
+let steps=[],si=0,timer=null,stream=[];
+function build(){
+  stream=document.getElementById('stream').value.split(',').map(s=>+s.trim()).filter(n=>!isNaN(n)).slice(0,16);
+  document.getElementById('stream').value=stream.join(',');
+  // lo = max-heap (store as sorted asc, top=last); hi = min-heap (sorted asc, top=first)
+  const lo=[],hi=[];steps=[];
+  const median=()=>lo.length>hi.length?lo[lo.length-1]:(lo[lo.length-1]+hi[0])/2;
+  const snap=(nv,idx,msg)=>steps.push({lo:[...lo],hi:[...hi],nv,idx,med:lo.length?median():null,msg});
+  for(let idx=0;idx<stream.length;idx++){
+    const x=stream[idx];
+    // push to lo
+    lo.push(x);lo.sort((a,b)=>a-b);
+    snap(x,idx,`${x} 추가 → 작은 절반(최대 힙)에 push.`);
+    // move lo top to hi
+    const t=lo.pop();hi.push(t);hi.sort((a,b)=>a-b);
+    snap(null,idx,`최대 힙의 top ${t}을 큰 절반(최소 힙)으로 이동 → 두 절반의 정렬 보장.`);
+    // rebalance size
+    if(hi.length>lo.length){const u=hi.shift();lo.push(u);lo.sort((a,b)=>a-b);
+      snap(null,idx,`최소 힙이 더 큼 → top ${u}을 다시 최대 힙으로. 크기 균형(lo ≥ hi).`);}
+    snap(null,idx,`현재 중앙값 = ${median()}.`);
+  }
+  si=0;render();
+}
+function render(){
+  const s=steps[si]||{lo:[],hi:[]};
+  const lh=document.getElementById('loHeap');lh.innerHTML='';
+  s.lo.forEach((v,i)=>{const d=document.createElement('div');d.className='num'+(i===s.lo.length-1?' top':'')+(v===s.nv?' new':'');d.textContent=v;lh.appendChild(d);});
+  if(!s.lo.length)lh.innerHTML='<span style="color:#555;font-size:.8rem">(빈)</span>';
+  const hh=document.getElementById('hiHeap');hh.innerHTML='';
+  s.hi.forEach((v,i)=>{const d=document.createElement('div');d.className='num'+(i===0?' top':'');d.textContent=v;hh.appendChild(d);});
+  if(!s.hi.length)hh.innerHTML='<span style="color:#555;font-size:.8rem">(빈)</span>';
+  document.getElementById('median').textContent=s.med!=null?`중앙값: ${s.med}`:'';
+  document.getElementById('streamView').innerHTML='<b>스트림:</b> '+stream.map((v,i)=>i===s.idx?`<b style="color:#4d8cff">[${v}]</b>`:v).join(' ');
+  document.getElementById('log').textContent=s.msg||'';
+  document.getElementById('step').disabled=si>=steps.length-1;
+}
+function next(){if(si<steps.length-1){si++;render();}else stop();}
+function stop(){clearInterval(timer);timer=null;}
+document.getElementById('build').onclick=()=>{stop();build();};
+document.getElementById('step').onclick=()=>{stop();next();};
+document.getElementById('play').onclick=()=>{stop();timer=setInterval(next,800);};
+document.getElementById('reset').onclick=()=>{stop();si=0;render();};
+build();
+</script>
+</body>
+</html>

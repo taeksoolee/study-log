@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>볼록 껍질 시각화</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0f1117;color:#e0e0e0;font-family:'Segoe UI','Apple SD Gothic Neo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:32px 24px 64px}
+  header{width:100%;max-width:880px;display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px}
+  header h1{font-size:1.4rem;color:#fff}header h1 span{color:#4d8cff}
+  .back-link{font-size:.85rem;color:#888;text-decoration:none;border:1px solid #2a2d3a;padding:6px 14px;border-radius:8px}
+  .back-link:hover{color:#4d8cff;border-color:#4d8cff}
+  .wrap{width:100%;max-width:880px;display:flex;flex-direction:column;gap:20px}
+  .panel{background:#1a1d27;border:1px solid #2a2d3a;border-radius:14px;padding:22px}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  button{background:#4d8cff;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:.88rem;font-weight:600;cursor:pointer}
+  button:hover{background:#6aa0ff}button.sec{background:#2a2d3a;color:#cfcfcf}button.sec:hover{background:#3a3e4d}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  svg{width:100%;height:380px;display:block;background:#0f1117;border-radius:10px}
+  .log{font-size:.9rem;line-height:1.7;color:#cfcfcf;min-height:48px}
+  .legend{font-size:.78rem;color:#888;display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:middle;margin-right:5px}
+  .hint{font-size:.8rem;color:#777}
+</style>
+</head>
+<body>
+<header>
+  <h1>볼록 껍질 <span>Convex Hull (Monotone Chain)</span></h1>
+  <a class="back-link" href="./index.html">&larr; 목록</a>
+</header>
+<div class="wrap">
+  <div class="panel controls">
+    <button id="rand">새 점 생성</button>
+    <button id="build">실행</button>
+    <button class="sec" id="step">다음 ▶</button>
+    <button class="sec" id="play">자동 ▶▶</button>
+    <button class="sec" id="reset">↺</button>
+    <span class="hint">CCW ≤ 0(우회전/일직선)이면 스택에서 제거</span>
+  </div>
+  <div class="panel">
+    <div class="legend"><span><span class="dot" style="background:#4d8cff"></span>현재 점</span><span><span class="dot" style="background:#3ddc97"></span>껍질 후보</span><span><span class="dot" style="background:#ff7597"></span>제거(우회전)</span></div>
+    <svg id="svg" viewBox="0 0 860 380"></svg>
+  </div>
+  <div class="panel log" id="log">‘실행’으로 시작하세요.</div>
+</div>
+<script>
+let pts=[],steps=[],si=0,timer=null;
+const W=860,H=380,M=40;
+function rand(){pts=[];const k=10;for(let i=0;i<k;i++)pts.push({x:M+Math.floor(Math.random()*(W-2*M)),y:M+Math.floor(Math.random()*(H-2*M))});build();}
+function ccw(o,a,b){return (a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x);}
+function build(){
+  const P=[...pts].sort((a,b)=>a.x-b.x||a.y-b.y);
+  steps=[];const snap=(hull,cur,removed,phase,msg)=>steps.push({P,hull:hull.map(p=>P.indexOf(p)),cur:cur!=null?P.indexOf(cur):-1,removed:removed!=null?P.indexOf(removed):-1,phase,msg});
+  snap([],null,null,'init',`점 ${P.length}개를 x좌표(동률 시 y) 순으로 정렬했습니다.`);
+  const hull=[];
+  // lower
+  for(let i=0;i<P.length;i++){
+    snap(hull,P[i],null,'lower',`아래 껍질: 점 ${i} 추가 시도.`);
+    while(hull.length>=2&&ccw(hull[hull.length-2],hull[hull.length-1],P[i])<=0){
+      const rm=hull.pop();snap(hull,P[i],rm,'lower',`우회전/일직선(CCW ≤ 0) → 직전 점 제거.`);
+    }
+    hull.push(P[i]);snap(hull,P[i],null,'lower',`점 ${i}를 아래 껍질에 추가.`);
+  }
+  const lower=hull.length+1;
+  for(let i=P.length-2;i>=0;i--){
+    snap(hull,P[i],null,'upper',`위 껍질: 점 ${i} 추가 시도.`);
+    while(hull.length>=lower&&ccw(hull[hull.length-2],hull[hull.length-1],P[i])<=0){
+      const rm=hull.pop();snap(hull,P[i],rm,'upper',`우회전/일직선 → 제거.`);
+    }
+    hull.push(P[i]);snap(hull,P[i],null,'upper',`점 ${i}를 위 껍질에 추가.`);
+  }
+  hull.pop();
+  snap(hull,null,null,'done',`완료! 볼록 껍질 정점 ${hull.length}개. 모든 점을 감싸는 최소 볼록 다각형.`);
+  si=0;render();
+}
+function render(){
+  const s=steps[si];if(!s)return;const P=s.P;const svg=document.getElementById('svg');let g='';
+  // hull polyline
+  if(s.hull.length>=2){const d=s.hull.map((idx,k)=>`${k?'L':'M'}${P[idx].x} ${P[idx].y}`).join(' ')+(s.phase==='done'?' Z':'');
+    g+=`<path d="${d}" fill="${s.phase==='done'?'#3ddc9722':'none'}" stroke="#3ddc97" stroke-width="2.5"/>`;}
+  P.forEach((p,i)=>{let fill='#5a5e6d',r=6;
+    if(s.hull.includes(i)){fill='#3ddc97';r=7;}
+    if(i===s.cur){fill='#4d8cff';r=9;}
+    if(i===s.removed){fill='#ff7597';r=9;}
+    g+=`<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${fill}"/>`;
+    g+=`<text x="${p.x+9}" y="${p.y-8}" fill="#666" font-size="10">${i}</text>`;});
+  svg.innerHTML=g;
+  document.getElementById('log').textContent=s.msg||'';
+  document.getElementById('step').disabled=si>=steps.length-1;
+}
+function next(){if(si<steps.length-1){si++;render();}else stop();}
+function stop(){clearInterval(timer);timer=null;}
+document.getElementById('rand').onclick=()=>{stop();rand();};
+document.getElementById('build').onclick=()=>{stop();build();};
+document.getElementById('step').onclick=()=>{stop();next();};
+document.getElementById('play').onclick=()=>{stop();timer=setInterval(next,750);};
+document.getElementById('reset').onclick=()=>{stop();si=0;render();};
+// fixed initial points for determinism
+pts=[{x:120,y:300},{x:200,y:120},{x:330,y:250},{x:420,y:90},{x:500,y:320},{x:560,y:180},{x:680,y:260},{x:740,y:130},{x:300,y:200},{x:620,y:330}];
+build();
+</script>
+</body>
+</html>

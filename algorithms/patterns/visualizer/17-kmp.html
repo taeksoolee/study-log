@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>KMP 시각화</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0f1117;color:#e0e0e0;font-family:'Segoe UI','Apple SD Gothic Neo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:32px 24px 64px}
+  header{width:100%;max-width:880px;display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px}
+  header h1{font-size:1.4rem;color:#fff}header h1 span{color:#4d8cff}
+  .back-link{font-size:.85rem;color:#888;text-decoration:none;border:1px solid #2a2d3a;padding:6px 14px;border-radius:8px}
+  .back-link:hover{color:#4d8cff;border-color:#4d8cff}
+  .wrap{width:100%;max-width:880px;display:flex;flex-direction:column;gap:20px}
+  .panel{background:#1a1d27;border:1px solid #2a2d3a;border-radius:14px;padding:22px}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  label{font-size:.85rem;color:#aaa}
+  input{background:#0f1117;border:1px solid #2a2d3a;color:#e0e0e0;border-radius:8px;padding:8px 10px;font-size:.9rem}
+  button{background:#4d8cff;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:.88rem;font-weight:600;cursor:pointer}
+  button:hover{background:#6aa0ff}button.sec{background:#2a2d3a;color:#cfcfcf}button.sec:hover{background:#3a3e4d}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .lab{font-size:.8rem;color:#888;margin-bottom:6px}
+  .row{display:flex;gap:4px;flex-wrap:wrap}
+  .ch{width:34px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:7px;background:#21242f;border:2px solid #2a2d3a;font-weight:700;font-family:monospace;position:relative}
+  .ch .idx{position:absolute;top:-16px;font-size:.62rem;color:#666}
+  .ch.cmp{background:#4d8cff;border-color:#6aa0ff;color:#fff}
+  .ch.match{background:#143a2a;border-color:#3ddc97}
+  .ch.bad{background:#3a1820;border-color:#ff7597}
+  .ch.found{background:#3ddc97;color:#06281b;border-color:#3ddc97}
+  .lps .ch.cmp{background:#ffb454;border-color:#ffb454;color:#1a1a1a}
+  .log{font-size:.9rem;line-height:1.7;color:#cfcfcf;min-height:48px}
+</style>
+</head>
+<body>
+<header>
+  <h1>KMP <span>문자열 매칭</span></h1>
+  <a class="back-link" href="./index.html">&larr; 목록</a>
+</header>
+<div class="wrap">
+  <div class="panel controls">
+    <label>텍스트</label><input id="text" value="ABABABCABABABCAB" size="22" />
+    <label>패턴</label><input id="pat" value="ABABC" size="10" />
+    <button id="build">실행</button>
+    <button class="sec" id="step">다음 ▶</button>
+    <button class="sec" id="play">자동 ▶▶</button>
+    <button class="sec" id="reset">↺</button>
+  </div>
+  <div class="panel">
+    <div class="lab">텍스트 (i = 현재 위치)</div><div class="row" id="text-row"></div>
+    <div class="lab" style="margin-top:14px">패턴 (j칸 시프트, j = 매칭된 길이)</div><div class="row" id="pat-row"></div>
+  </div>
+  <div class="panel">
+    <div class="lab">실패 함수 LPS (불일치 시 j ← LPS[j-1] 로 점프)</div><div class="row lps" id="lps-row"></div>
+  </div>
+  <div class="panel log" id="log">‘실행’으로 시작하세요.</div>
+</div>
+<script>
+let steps=[],si=0,timer=null,T='',P='',lps=[];
+function buildLPS(P){const pi=new Array(P.length).fill(0);let len=0;for(let i=1;i<P.length;i++){while(len>0&&P[i]!==P[len])len=pi[len-1];if(P[i]===P[len])len++;pi[i]=len;}return pi;}
+function build(){
+  T=document.getElementById('text').value;P=document.getElementById('pat').value;
+  if(!P){return;}
+  lps=buildLPS(P);steps=[];
+  const snap=(i,j,shift,kind,lpsHi,msg)=>steps.push({i,j,shift,kind,lpsHi,msg});
+  snap(-1,-1,0,'init',-1,`패턴 실패 함수 LPS = [${lps.join(', ')}] 계산 완료. 매칭 시작.`);
+  let j=0;
+  for(let i=0;i<T.length;i++){
+    while(j>0&&T[i]!==P[j]){snap(i,j,i-j,'bad',j-1,`T[${i}]='${T[i]}' ≠ P[${j}]='${P[j]}' → j를 LPS[${j-1}]=${lps[j-1]}로 점프(처음으로 안 돌아감).`);j=lps[j-1];}
+    if(T[i]===P[j]){snap(i,j,i-j,'match',-1,`T[${i}]='${T[i]}' = P[${j}] → 일치. j 증가 → ${j+1}.`);j++;}
+    else{snap(i,j,i-j,'bad',-1,`T[${i}]='${T[i]}' ≠ P[${j}]='${P[j]}' (j=0이라 i만 전진).`);}
+    if(j===P.length){snap(i,j,i-P.length+1,'found',-1,`패턴 전체 일치! 위치 ${i-P.length+1} 에서 발견. j ← LPS[${j-1}]=${lps[j-1]}로 다음 탐색.`);j=lps[j-1];}
+  }
+  snap(-1,-1,0,'done',-1,'텍스트 끝까지 탐색 완료. (i는 절대 되돌아가지 않아 O(n+m))');
+  si=0;render();
+}
+function render(){
+  const s=steps[si]||{};
+  const tr=document.getElementById('text-row');tr.innerHTML='';
+  [...T].forEach((c,k)=>{const d=document.createElement('div');d.className='ch';
+    if(s.kind==='found'&&k>=s.shift&&k<s.shift+P.length)d.classList.add('found');
+    else if(k===s.i&&s.kind==='match')d.classList.add('match');
+    else if(k===s.i&&s.kind==='bad')d.classList.add('bad');
+    else if(k===s.i)d.classList.add('cmp');
+    d.innerHTML=`<span class="idx">${k}</span>${c}`;tr.appendChild(d);});
+  const pr=document.getElementById('pat-row');pr.innerHTML='';
+  // shift pattern under text
+  const pad=document.createElement('div');pad.style.width=(s.shift>0?s.shift*38:0)+'px';pr.appendChild(pad);
+  [...P].forEach((c,k)=>{const d=document.createElement('div');d.className='ch';
+    if(s.kind==='found')d.classList.add('found');
+    else if(k<s.j)d.classList.add('match');
+    else if(k===s.j&&s.kind==='match')d.classList.add('match');
+    else if(k===s.j&&s.kind==='bad')d.classList.add('bad');
+    else if(k===s.j)d.classList.add('cmp');
+    d.innerHTML=`<span class="idx">${k}</span>${c}`;pr.appendChild(d);});
+  const lr=document.getElementById('lps-row');lr.innerHTML='';
+  lps.forEach((v,k)=>{const d=document.createElement('div');d.className='ch'+(k===s.lpsHi?' cmp':'');
+    d.innerHTML=`<span class="idx">${k}</span>${v}`;lr.appendChild(d);});
+  document.getElementById('log').textContent=s.msg||'';
+  document.getElementById('step').disabled=si>=steps.length-1;
+}
+function next(){if(si<steps.length-1){si++;render();}else stop();}
+function stop(){clearInterval(timer);timer=null;}
+document.getElementById('build').onclick=()=>{stop();build();};
+document.getElementById('step').onclick=()=>{stop();next();};
+document.getElementById('play').onclick=()=>{stop();timer=setInterval(next,1000);};
+document.getElementById('reset').onclick=()=>{stop();si=0;render();};
+build();
+</script>
+</body>
+</html>

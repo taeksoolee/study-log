@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>다익스트라 시각화</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0f1117;color:#e0e0e0;font-family:'Segoe UI','Apple SD Gothic Neo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:32px 24px 64px}
+  header{width:100%;max-width:880px;display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px}
+  header h1{font-size:1.5rem;color:#fff}header h1 span{color:#4d8cff}
+  .back-link{font-size:.85rem;color:#888;text-decoration:none;border:1px solid #2a2d3a;padding:6px 14px;border-radius:8px}
+  .back-link:hover{color:#4d8cff;border-color:#4d8cff}
+  .wrap{width:100%;max-width:880px;display:flex;flex-direction:column;gap:20px}
+  .panel{background:#1a1d27;border:1px solid #2a2d3a;border-radius:14px;padding:22px}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  label{font-size:.85rem;color:#aaa}
+  select,input{background:#0f1117;border:1px solid #2a2d3a;color:#e0e0e0;border-radius:8px;padding:8px 10px;font-size:.9rem}
+  button{background:#4d8cff;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:.88rem;font-weight:600;cursor:pointer}
+  button:hover{background:#6aa0ff}button.sec{background:#2a2d3a;color:#cfcfcf}button.sec:hover{background:#3a3e4d}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  svg{width:100%;height:360px;display:block}
+  .log{font-size:.9rem;line-height:1.7;color:#cfcfcf;min-height:48px}
+  .legend{font-size:.78rem;color:#888;display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:middle;margin-right:5px}
+  .pq{font-size:.82rem;color:#9aa}
+  .pq b{color:#4d8cff}
+</style>
+</head>
+<body>
+<header>
+  <h1>다익스트라 <span>Dijkstra</span></h1>
+  <a class="back-link" href="./index.html">&larr; 목록</a>
+</header>
+<div class="wrap">
+  <div class="panel controls">
+    <label>시작 노드</label>
+    <select id="start"></select>
+    <button id="build">실행</button>
+    <button class="sec" id="step">다음 ▶</button>
+    <button class="sec" id="play">자동 ▶▶</button>
+    <button class="sec" id="reset">↺</button>
+  </div>
+  <div class="panel">
+    <div class="legend"><span><span class="dot" style="background:#4d8cff"></span>현재 확정</span><span><span class="dot" style="background:#3ddc97"></span>확정 완료</span><span><span class="dot" style="background:#ffb454"></span>완화됨</span></div>
+    <svg id="svg" viewBox="0 0 860 360"></svg>
+  </div>
+  <div class="panel pq" id="pq"></div>
+  <div class="panel log" id="log">‘실행’으로 시작하세요.</div>
+</div>
+<script>
+const nodes=[ {id:0,x:90,y:180,n:'A'},{id:1,x:260,y:80,n:'B'},{id:2,x:260,y:280,n:'C'},
+  {id:3,x:450,y:180,n:'D'},{id:4,x:640,y:90,n:'E'},{id:5,x:640,y:270,n:'F'},{id:6,x:800,y:180,n:'G'} ];
+const E=[[0,1,4],[0,2,2],[2,1,1],[1,3,5],[2,3,8],[3,4,3],[3,5,6],[4,6,2],[5,6,4],[2,5,10]];
+const adj={};nodes.forEach(n=>adj[n.id]=[]);E.forEach(([u,v,w])=>{adj[u].push([v,w]);adj[v].push([u,w]);});
+let steps=[],si=0,timer=null;
+function build(){
+  const s=+document.getElementById('start').value;
+  const dist=Object.fromEntries(nodes.map(n=>[n.id,Infinity]));dist[s]=0;
+  const done={};steps=[];
+  const snap=(cur,relaxed,edge,msg)=>steps.push({dist:{...dist},done:{...done},cur,relaxed:relaxed?[...relaxed]:[],edge,pq:pqStr(),msg});
+  let pq=[[0,s]];
+  function pqStr(){return pq.slice().sort((a,b)=>a[0]-b[0]).map(([d,v])=>`(${d},${nodes[v].n})`).join(' ');}
+  snap(null,[],null,`시작 노드 ${nodes[s].n} 거리 0. 최소 힙에 (0,${nodes[s].n}) 삽입.`);
+  while(pq.length){
+    pq.sort((a,b)=>a[0]-b[0]);const [d,u]=pq.shift();
+    if(done[u])continue;
+    if(d>dist[u])continue;
+    done[u]=true;
+    snap(u,[],null,`힙에서 가장 가까운 ${nodes[u].n} (거리 ${d}) 확정.`);
+    const relaxed=[];
+    for(const [v,w] of adj[u]){
+      if(done[v])continue;
+      if(dist[u]+w<dist[v]){dist[v]=dist[u]+w;pq.push([dist[v],v]);relaxed.push(v);}
+    }
+    if(relaxed.length) snap(u,relaxed,null,`${nodes[u].n}의 이웃 완화: ${relaxed.map(v=>nodes[v].n+'='+dist[v]).join(', ')}`);
+  }
+  snap(null,[],null,'모든 노드 확정 완료. 최단 거리 계산 끝.');
+  si=0;render();
+}
+function render(){
+  const s=steps[si]||{dist:{},done:{}};const svg=document.getElementById('svg');
+  let e='',nd='';
+  E.forEach(([u,v,w])=>{const a=nodes[u],b=nodes[v];
+    e+=`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="#3a3e4d" stroke-width="2"/>`;
+    e+=`<rect x="${(a.x+b.x)/2-12}" y="${(a.y+b.y)/2-11}" width="24" height="20" rx="5" fill="#0f1117" stroke="#2a2d3a"/><text x="${(a.x+b.x)/2}" y="${(a.y+b.y)/2+3}" text-anchor="middle" fill="#9aa" font-size="12">${w}</text>`;});
+  nodes.forEach(n=>{let fill='#21242f',stroke='#2a2d3a';
+    if(s.done&&s.done[n.id])  {fill='#143a2a';stroke='#3ddc97';}
+    if(s.relaxed&&s.relaxed.includes(n.id)){stroke='#ffb454';}
+    if(s.cur===n.id){fill='#4d8cff';stroke='#6aa0ff';}
+    const dv=s.dist&&s.dist[n.id]!=null?(s.dist[n.id]===Infinity?'∞':s.dist[n.id]):'∞';
+    nd+=`<circle cx="${n.x}" cy="${n.y}" r="22" fill="${fill}" stroke="${stroke}" stroke-width="2.5"/>`;
+    nd+=`<text x="${n.x}" y="${n.y-1}" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">${n.n}</text>`;
+    nd+=`<text x="${n.x}" y="${n.y+13}" text-anchor="middle" fill="#7fd" font-size="10">${dv}</text>`;});
+  svg.innerHTML=e+nd;
+  document.getElementById('pq').innerHTML='<b>우선순위 큐:</b> '+(s.pq||'(빈)');
+  document.getElementById('log').textContent=s.msg||'';
+  document.getElementById('step').disabled=si>=steps.length-1;
+}
+function next(){if(si<steps.length-1){si++;render();}else stop();}
+function stop(){clearInterval(timer);timer=null;}
+const sel=document.getElementById('start');nodes.forEach(n=>{const o=document.createElement('option');o.value=n.id;o.textContent=n.n;sel.appendChild(o);});
+document.getElementById('build').onclick=()=>{stop();build();};
+document.getElementById('step').onclick=()=>{stop();next();};
+document.getElementById('play').onclick=()=>{stop();timer=setInterval(next,1100);};
+document.getElementById('reset').onclick=()=>{stop();si=0;render();};
+build();
+</script>
+</body>
+</html>

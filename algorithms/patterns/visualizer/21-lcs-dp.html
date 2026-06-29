@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LCS DP 시각화</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0f1117;color:#e0e0e0;font-family:'Segoe UI','Apple SD Gothic Neo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:32px 24px 64px}
+  header{width:100%;max-width:760px;display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px}
+  header h1{font-size:1.35rem;color:#fff}header h1 span{color:#4d8cff}
+  .back-link{font-size:.85rem;color:#888;text-decoration:none;border:1px solid #2a2d3a;padding:6px 14px;border-radius:8px}
+  .back-link:hover{color:#4d8cff;border-color:#4d8cff}
+  .wrap{width:100%;max-width:760px;display:flex;flex-direction:column;gap:20px}
+  .panel{background:#1a1d27;border:1px solid #2a2d3a;border-radius:14px;padding:22px}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  label{font-size:.85rem;color:#aaa}
+  input{background:#0f1117;border:1px solid #2a2d3a;color:#e0e0e0;border-radius:8px;padding:8px 10px;font-size:.9rem;width:120px}
+  button{background:#4d8cff;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:.88rem;font-weight:600;cursor:pointer}
+  button:hover{background:#6aa0ff}button.sec{background:#2a2d3a;color:#cfcfcf}button.sec:hover{background:#3a3e4d}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  table{border-collapse:collapse;margin:0 auto}
+  td{width:40px;height:40px;text-align:center;border:1px solid #2a2d3a;background:#21242f;font-weight:700;font-size:.9rem}
+  td.hdr{background:#16181f;color:#7aa;font-size:.85rem}
+  td.cur{background:#4d8cff;border-color:#6aa0ff;color:#fff}
+  td.dep{background:#2a2440;border-color:#8a6dff}
+  td.path{background:#143a2a;border-color:#3ddc97;color:#3ddc97}
+  td.match{box-shadow:inset 0 0 0 2px #ffb454}
+  .log{font-size:.9rem;line-height:1.7;color:#cfcfcf;min-height:48px}
+  .res{font-size:.95rem;color:#3ddc97;font-weight:700}
+  .legend{font-size:.76rem;color:#888;display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:middle;margin-right:4px}
+</style>
+</head>
+<body>
+<header>
+  <h1>최장 공통 부분 수열 <span>LCS DP</span></h1>
+  <a class="back-link" href="./index.html">&larr; 목록</a>
+</header>
+<div class="wrap">
+  <div class="panel controls">
+    <label>A</label><input id="a" value="ABCBDAB" />
+    <label>B</label><input id="b" value="BDCAB" />
+    <button id="build">실행</button>
+    <button class="sec" id="step">다음 ▶</button>
+    <button class="sec" id="play">자동 ▶▶</button>
+    <button class="sec" id="reset">↺</button>
+    <span class="res" id="res"></span>
+  </div>
+  <div class="panel">
+    <div class="legend"><span><span class="dot" style="background:#4d8cff"></span>계산 중</span><span><span class="dot" style="background:#8a6dff"></span>참조 셀</span><span><span class="dot" style="background:#ffb454"></span>글자 일치</span><span><span class="dot" style="background:#3ddc97"></span>역추적 경로</span></div>
+    <div id="table"></div>
+  </div>
+  <div class="panel log" id="log">‘실행’으로 시작하세요.</div>
+</div>
+<script>
+let steps=[],si=0,timer=null,A='',B='';
+function build(){
+  A=document.getElementById('a').value.toUpperCase().slice(0,9);
+  B=document.getElementById('b').value.toUpperCase().slice(0,9);
+  document.getElementById('a').value=A;document.getElementById('b').value=B;
+  const m=A.length,n=B.length;
+  const dp=Array.from({length:m+1},()=>new Array(n+1).fill(0));
+  steps=[];
+  const snap=(cur,dep,path,msg)=>steps.push({dp:dp.map(r=>[...r]),cur,dep:dep||[],path:path||[],msg});
+  snap(null,[],[],`dp[i][j] = A[0..i), B[0..j)의 LCS 길이. 0행·0열은 0으로 초기화.`);
+  for(let i=1;i<=m;i++)for(let j=1;j<=n;j++){
+    if(A[i-1]===B[j-1]){dp[i][j]=dp[i-1][j-1]+1;
+      snap([i,j],[[i-1,j-1]],[],`A[${i-1}]=B[${j-1}]='${A[i-1]}' 일치 → 대각 +1 = ${dp[i][j]}.`);}
+    else{dp[i][j]=Math.max(dp[i-1][j],dp[i][j-1]);
+      snap([i,j],[[i-1,j],[i,j-1]],[],`'${A[i-1]}'≠'${B[j-1]}' → max(위 ${dp[i-1][j]}, 왼 ${dp[i][j-1]}) = ${dp[i][j]}.`);}
+  }
+  // backtrack
+  let i=m,j=n;const path=[];const chars=[];
+  while(i>0&&j>0){
+    if(A[i-1]===B[j-1]){path.push([i,j]);chars.push(A[i-1]);i--;j--;}
+    else if(dp[i-1][j]>=dp[i][j-1])i--;else j--;
+  }
+  snap(null,[],path.slice(),`역추적: 대각(일치) 칸을 따라가며 LCS 복원 → "${chars.reverse().join('')}" (길이 ${dp[m][n]}).`);
+  si=0;render();
+}
+function render(){
+  const s=steps[si]||{dp:[]};const m=A.length,n=B.length;
+  let t='<table><tr><td class="hdr"></td><td class="hdr">∅</td>';
+  for(let j=0;j<n;j++)t+=`<td class="hdr">${B[j]}</td>`;t+='</tr>';
+  for(let i=0;i<=m;i++){t+='<tr>';t+=`<td class="hdr">${i===0?'∅':A[i-1]}</td>`;
+    for(let j=0;j<=n;j++){let cls='';
+      if(s.cur&&s.cur[0]===i&&s.cur[1]===j)cls='cur';
+      else if(s.dep&&s.dep.some(d=>d[0]===i&&d[1]===j))cls='dep';
+      else if(s.path&&s.path.some(d=>d[0]===i&&d[1]===j))cls='path';
+      if(i>0&&j>0&&A[i-1]===B[j-1]&&s.cur&&s.cur[0]===i&&s.cur[1]===j)cls+=' match';
+      t+=`<td class="${cls}">${s.dp[i]?s.dp[i][j]:0}</td>`;}
+    t+='</tr>';}
+  t+='</table>';document.getElementById('table').innerHTML=t;
+  document.getElementById('res').textContent=s.dp[m]?`LCS 길이: ${s.dp[m][n]}`:'';
+  document.getElementById('log').textContent=s.msg||'';
+  document.getElementById('step').disabled=si>=steps.length-1;
+}
+function next(){if(si<steps.length-1){si++;render();}else stop();}
+function stop(){clearInterval(timer);timer=null;}
+document.getElementById('build').onclick=()=>{stop();build();};
+document.getElementById('step').onclick=()=>{stop();next();};
+document.getElementById('play').onclick=()=>{stop();timer=setInterval(next,500);};
+document.getElementById('reset').onclick=()=>{stop();si=0;render();};
+build();
+</script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>위상 정렬 시각화</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0f1117;color:#e0e0e0;font-family:'Segoe UI','Apple SD Gothic Neo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:32px 24px 64px}
+  header{width:100%;max-width:880px;display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px}
+  header h1{font-size:1.5rem;color:#fff}header h1 span{color:#4d8cff}
+  .back-link{font-size:.85rem;color:#888;text-decoration:none;border:1px solid #2a2d3a;padding:6px 14px;border-radius:8px}
+  .back-link:hover{color:#4d8cff;border-color:#4d8cff}
+  .wrap{width:100%;max-width:880px;display:flex;flex-direction:column;gap:20px}
+  .panel{background:#1a1d27;border:1px solid #2a2d3a;border-radius:14px;padding:22px}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  button{background:#4d8cff;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:.88rem;font-weight:600;cursor:pointer}
+  button:hover{background:#6aa0ff}button.sec{background:#2a2d3a;color:#cfcfcf}button.sec:hover{background:#3a3e4d}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  svg{width:100%;height:340px;display:block}
+  .log{font-size:.9rem;line-height:1.7;color:#cfcfcf;min-height:48px}
+  .legend{font-size:.78rem;color:#888;display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:middle;margin-right:5px}
+  .row{font-size:.85rem;color:#9aa;margin-top:6px}.row b{color:#4d8cff}
+  .chip{display:inline-block;background:#21242f;border:1px solid #2a2d3a;border-radius:6px;padding:3px 9px;margin:2px}
+  .chip.q{border-color:#ffb454;color:#ffb454}.chip.o{border-color:#3ddc97;color:#3ddc97}
+</style>
+</head>
+<body>
+<header>
+  <h1>위상 정렬 <span>Topological Sort (Kahn)</span></h1>
+  <a class="back-link" href="./index.html">&larr; 목록</a>
+</header>
+<div class="wrap">
+  <div class="panel controls">
+    <button id="build">실행</button>
+    <button class="sec" id="step">다음 ▶</button>
+    <button class="sec" id="play">자동 ▶▶</button>
+    <button class="sec" id="reset">↺</button>
+    <span style="font-size:.8rem;color:#777">진입차수 0인 노드부터 처리</span>
+  </div>
+  <div class="panel">
+    <div class="legend"><span><span class="dot" style="background:#ffb454"></span>큐(진입차수 0)</span><span><span class="dot" style="background:#4d8cff"></span>처리 중</span><span><span class="dot" style="background:#3ddc97"></span>정렬 완료</span></div>
+    <svg id="svg" viewBox="0 0 860 340"></svg>
+  </div>
+  <div class="panel">
+    <div class="row" id="queue"></div>
+    <div class="row" id="order"></div>
+  </div>
+  <div class="panel log" id="log">‘실행’으로 시작하세요.</div>
+</div>
+<script>
+const nodes=[ {id:0,x:90,y:90,n:'A'},{id:1,x:90,y:250,n:'B'},{id:2,x:300,y:90,n:'C'},
+ {id:3,x:300,y:250,n:'D'},{id:4,x:520,y:170,n:'E'},{id:5,x:720,y:90,n:'F'},{id:6,x:720,y:250,n:'G'} ];
+const E=[[0,2],[1,2],[2,3],[2,4],[3,4],[4,5],[4,6]];
+const adj={};nodes.forEach(n=>adj[n.id]=[]);E.forEach(([u,v])=>adj[u].push(v));
+let steps=[],si=0,timer=null;
+function build(){
+  const indeg=Object.fromEntries(nodes.map(n=>[n.id,0]));E.forEach(([,v])=>indeg[v]++);
+  const order=[];let q=nodes.filter(n=>indeg[n.id]===0).map(n=>n.id);
+  steps=[];const done={};
+  const snap=(cur,msg)=>steps.push({indeg:{...indeg},q:[...q],order:[...order],done:{...done},cur,msg});
+  snap(null,`각 노드의 진입차수 계산. 진입차수 0인 노드 [${q.map(i=>nodes[i].n)}]를 큐에 넣음.`);
+  while(q.length){
+    const u=q.shift();order.push(u);done[u]=true;
+    snap(u,`큐에서 ${nodes[u].n} 꺼내 결과에 추가. 이웃의 진입차수를 1씩 감소.`);
+    const newly=[];
+    for(const v of adj[u]){indeg[v]--;if(indeg[v]===0){q.push(v);newly.push(v);}}
+    if(newly.length)snap(u,`${nodes[u].n} 처리 후 진입차수가 0이 된 [${newly.map(i=>nodes[i].n)}]를 큐에 추가.`);
+  }
+  snap(null, order.length===nodes.length?`완료! 위상 순서: ${order.map(i=>nodes[i].n).join(' → ')}`:'사이클 존재 — 일부 노드를 처리할 수 없음.');
+  si=0;render();
+}
+function render(){
+  const s=steps[si]||{};const svg=document.getElementById('svg');
+  let e='',nd='';
+  e+=`<defs><marker id="ar" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L9,3 L0,6 Z" fill="#5a5e6d"/></marker></defs>`;
+  E.forEach(([u,v])=>{const a=nodes[u],b=nodes[v];const dx=b.x-a.x,dy=b.y-a.y,L=Math.hypot(dx,dy);const ux=dx/L,uy=dy/L;
+    const x1=a.x+ux*24,y1=a.y+uy*24,x2=b.x-ux*26,y2=b.y-uy*26;
+    e+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#5a5e6d" stroke-width="2" marker-end="url(#ar)"/>`;});
+  nodes.forEach(n=>{let fill='#21242f',stroke='#2a2d3a';
+    if(s.q&&s.q.includes(n.id)){stroke='#ffb454';}
+    if(s.done&&s.done[n.id]){fill='#143a2a';stroke='#3ddc97';}
+    if(s.cur===n.id){fill='#4d8cff';stroke='#6aa0ff';}
+    const ind=s.indeg?s.indeg[n.id]:'';
+    nd+=`<circle cx="${n.x}" cy="${n.y}" r="23" fill="${fill}" stroke="${stroke}" stroke-width="2.5"/>`;
+    nd+=`<text x="${n.x}" y="${n.y-1}" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">${n.n}</text>`;
+    nd+=`<text x="${n.x}" y="${n.y+13}" text-anchor="middle" fill="#ffb454" font-size="10">in:${ind}</text>`;});
+  svg.innerHTML=e+nd;
+  document.getElementById('queue').innerHTML='<b>큐:</b> '+((s.q||[]).map(i=>`<span class="chip q">${nodes[i].n}</span>`).join('')||'(빈)');
+  document.getElementById('order').innerHTML='<b>결과:</b> '+((s.order||[]).map(i=>`<span class="chip o">${nodes[i].n}</span>`).join('')||'(없음)');
+  document.getElementById('log').textContent=s.msg||'';
+  document.getElementById('step').disabled=si>=steps.length-1;
+}
+function next(){if(si<steps.length-1){si++;render();}else stop();}
+function stop(){clearInterval(timer);timer=null;}
+document.getElementById('build').onclick=()=>{stop();build();};
+document.getElementById('step').onclick=()=>{stop();next();};
+document.getElementById('play').onclick=()=>{stop();timer=setInterval(next,1100);};
+document.getElementById('reset').onclick=()=>{stop();si=0;render();};
+build();
+</script>
+</body>
+</html>

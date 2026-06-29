@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>이진 탐색 시각화</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0f1117;color:#e0e0e0;font-family:'Segoe UI','Apple SD Gothic Neo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:32px 24px 64px}
+  header{width:100%;max-width:880px;display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px}
+  header h1{font-size:1.5rem;color:#fff}
+  header h1 span{color:#4d8cff}
+  .back-link{font-size:.85rem;color:#888;text-decoration:none;border:1px solid #2a2d3a;padding:6px 14px;border-radius:8px}
+  .back-link:hover{color:#4d8cff;border-color:#4d8cff}
+  .wrap{width:100%;max-width:880px;display:flex;flex-direction:column;gap:20px}
+  .panel{background:#1a1d27;border:1px solid #2a2d3a;border-radius:14px;padding:22px}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  label{font-size:.85rem;color:#aaa}
+  input{background:#0f1117;border:1px solid #2a2d3a;color:#e0e0e0;border-radius:8px;padding:8px 10px;font-size:.9rem}
+  input#target{width:80px}
+  button{background:#4d8cff;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:.88rem;font-weight:600;cursor:pointer;transition:background .15s}
+  button:hover{background:#6aa0ff}
+  button.sec{background:#2a2d3a;color:#cfcfcf}
+  button.sec:hover{background:#3a3e4d}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .array{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:8px 0}
+  .cell{width:52px;height:52px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:#21242f;border:2px solid #2a2d3a;font-weight:700;position:relative;transition:all .25s}
+  .cell .idx{position:absolute;top:-18px;font-size:.7rem;color:#666}
+  .cell.range{background:#1e2a44;border-color:#35508a}
+  .cell.mid{background:#4d8cff;border-color:#6aa0ff;color:#fff;transform:scale(1.08)}
+  .cell.lo{border-color:#3ddc97}
+  .cell.hi{border-color:#ff7597}
+  .cell.dead{opacity:.25}
+  .cell.found{background:#3ddc97;border-color:#3ddc97;color:#06281b}
+  .ptrs{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;font-size:.78rem;color:#888}
+  .badge{padding:2px 8px;border-radius:6px;border:1px solid #2a2d3a}
+  .badge.lo{color:#3ddc97;border-color:#3ddc97}.badge.hi{color:#ff7597;border-color:#ff7597}.badge.mid{color:#4d8cff;border-color:#4d8cff}
+  .log{font-size:.9rem;line-height:1.7;color:#cfcfcf;min-height:48px}
+  .log b{color:#4d8cff}
+  .meta{display:flex;gap:18px;font-size:.8rem;color:#777}
+  pre{background:#0f1117;border:1px solid #2a2d3a;border-radius:10px;padding:14px;font-size:.8rem;line-height:1.6;overflow:auto;color:#9aa}
+  .hl{background:#4d8cff22;display:block}
+</style>
+</head>
+<body>
+<header>
+  <h1>이진 탐색 <span>Binary Search</span></h1>
+  <a class="back-link" href="./index.html">&larr; 목록</a>
+</header>
+<div class="wrap">
+  <div class="panel controls">
+    <label>배열(정렬됨)</label>
+    <input id="arr" value="1,3,5,7,9,11,13,15,17,19" size="34" />
+    <label>찾을 값</label>
+    <input id="target" type="number" value="13" />
+    <button id="build">설정</button>
+    <button class="sec" id="step">다음 ▶</button>
+    <button class="sec" id="play">자동 ▶▶</button>
+    <button class="sec" id="reset">↺</button>
+  </div>
+  <div class="panel">
+    <div class="array" id="array"></div>
+    <div class="ptrs" id="ptrs"></div>
+  </div>
+  <div class="panel log" id="log">‘설정’으로 시작하세요.</div>
+  <div class="panel meta"><span id="cmp">비교: 0회</span><span>최악 O(log n)</span></div>
+  <div class="panel"><pre id="code"></pre></div>
+</div>
+<script>
+const CODE=[
+"function binarySearch(a, target) {",
+"  let lo = 0, hi = a.length - 1;",
+"  while (lo <= hi) {",
+"    const mid = lo + ((hi - lo) >> 1);",
+"    if (a[mid] === target) return mid;",
+"    if (a[mid] < target) lo = mid + 1;",
+"    else hi = mid - 1;",
+"  }",
+"  return -1;",
+"}"];
+let steps=[],si=0,timer=null,arr=[],cmp=0;
+
+function build(){
+  arr=document.getElementById('arr').value.split(',').map(s=>+s.trim()).filter(n=>!isNaN(n)).sort((a,b)=>a-b);
+  document.getElementById('arr').value=arr.join(',');
+  const t=+document.getElementById('target').value;
+  steps=[];cmp=0;
+  let lo=0,hi=arr.length-1;
+  steps.push({lo,hi,mid:null,line:1,msg:`lo=0, hi=${hi} 로 초기화. 닫힌 구간 [lo, hi] 탐색.`});
+  while(lo<=hi){
+    const mid=lo+((hi-lo)>>1);cmp++;
+    steps.push({lo,hi,mid,line:3,msg:`mid=${mid} (값 ${arr[mid]}) 와 target ${t} 비교.`,cmp});
+    if(arr[mid]===t){steps.push({lo,hi,mid,line:4,found:mid,msg:`a[${mid}]=${arr[mid]} = target → 인덱스 ${mid} 반환!`,cmp});break;}
+    if(arr[mid]<t){steps.push({lo,hi,mid,line:5,msg:`a[${mid}]=${arr[mid]} < ${t} → 왼쪽 절반 버림. lo=${mid+1}`,cmp});lo=mid+1;}
+    else{steps.push({lo,hi,mid,line:6,msg:`a[${mid}]=${arr[mid]} > ${t} → 오른쪽 절반 버림. hi=${mid-1}`,cmp});hi=mid-1;}
+  }
+  if(!steps.some(s=>s.found!=null)&&!(lo<=hi)) steps.push({lo,hi,mid:null,line:8,fail:true,msg:`lo > hi → 탐색 실패. target ${t} 없음 (-1 반환).`,cmp});
+  si=0;render();
+}
+function render(){
+  const s=steps[si]||{};
+  const box=document.getElementById('array');box.innerHTML='';
+  arr.forEach((v,i)=>{
+    const c=document.createElement('div');c.className='cell';
+    if(s.lo!=null&&(i<s.lo||i>s.hi))c.classList.add('dead');
+    else if(s.found!=null&&i===s.found)c.classList.add('found');
+    else if(i===s.mid)c.classList.add('mid');
+    else if(s.lo!=null&&i>=s.lo&&i<=s.hi)c.classList.add('range');
+    if(i===s.lo)c.classList.add('lo');if(i===s.hi)c.classList.add('hi');
+    c.innerHTML=`<span class="idx">${i}</span>${v}`;box.appendChild(c);
+  });
+  document.getElementById('ptrs').innerHTML=
+    `<span class="badge lo">lo=${s.lo??'-'}</span><span class="badge mid">mid=${s.mid??'-'}</span><span class="badge hi">hi=${s.hi??'-'}</span>`;
+  document.getElementById('log').innerHTML=s.msg||'';
+  document.getElementById('cmp').textContent=`비교: ${s.cmp||0}회`;
+  document.getElementById('code').innerHTML=CODE.map((l,i)=>i===s.line?`<span class="hl">${esc(l)}</span>`:esc(l)).join('\n');
+  document.getElementById('step').disabled=si>=steps.length-1;
+}
+function esc(t){return t.replace(/</g,'&lt;')}
+function next(){if(si<steps.length-1){si++;render();}else stop();}
+function play(){stop();timer=setInterval(next,900);}
+function stop(){clearInterval(timer);timer=null;}
+document.getElementById('build').onclick=()=>{stop();build();};
+document.getElementById('step').onclick=()=>{stop();next();};
+document.getElementById('play').onclick=play;
+document.getElementById('reset').onclick=()=>{stop();si=0;render();};
+build();
+</script>
+</body>
+</html>

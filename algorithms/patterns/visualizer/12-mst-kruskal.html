@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MST 크루스칼 시각화</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0f1117;color:#e0e0e0;font-family:'Segoe UI','Apple SD Gothic Neo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:32px 24px 64px}
+  header{width:100%;max-width:880px;display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px}
+  header h1{font-size:1.5rem;color:#fff}header h1 span{color:#4d8cff}
+  .back-link{font-size:.85rem;color:#888;text-decoration:none;border:1px solid #2a2d3a;padding:6px 14px;border-radius:8px}
+  .back-link:hover{color:#4d8cff;border-color:#4d8cff}
+  .wrap{width:100%;max-width:880px;display:flex;flex-direction:column;gap:20px}
+  .panel{background:#1a1d27;border:1px solid #2a2d3a;border-radius:14px;padding:22px}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  button{background:#4d8cff;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:.88rem;font-weight:600;cursor:pointer}
+  button:hover{background:#6aa0ff}button.sec{background:#2a2d3a;color:#cfcfcf}button.sec:hover{background:#3a3e4d}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  svg{width:100%;height:340px;display:block}
+  .log{font-size:.9rem;line-height:1.7;color:#cfcfcf;min-height:48px}
+  .legend{font-size:.78rem;color:#888;display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px}
+  .dot{display:inline-block;width:18px;height:3px;vertical-align:middle;margin-right:5px}
+  .edges{display:flex;gap:6px;flex-wrap:wrap}
+  .ec{font-size:.8rem;border:1px solid #2a2d3a;border-radius:6px;padding:4px 9px;background:#21242f}
+  .ec.cur{border-color:#4d8cff;color:#4d8cff}.ec.acc{border-color:#3ddc97;color:#3ddc97}.ec.rej{border-color:#ff7597;color:#ff7597;text-decoration:line-through;opacity:.6}
+  .total{font-size:.9rem;color:#3ddc97;font-weight:700}
+</style>
+</head>
+<body>
+<header>
+  <h1>MST <span>Kruskal</span></h1>
+  <a class="back-link" href="./index.html">&larr; 목록</a>
+</header>
+<div class="wrap">
+  <div class="panel controls">
+    <button id="build">실행</button>
+    <button class="sec" id="step">다음 ▶</button>
+    <button class="sec" id="play">자동 ▶▶</button>
+    <button class="sec" id="reset">↺</button>
+    <span class="total" id="total">합: 0</span>
+  </div>
+  <div class="panel">
+    <div class="legend"><span><span class="dot" style="background:#3ddc97"></span>MST 채택</span><span><span class="dot" style="background:#4d8cff"></span>검토 중</span><span><span class="dot" style="background:#ff7597"></span>사이클 거부</span></div>
+    <svg id="svg" viewBox="0 0 860 340"></svg>
+  </div>
+  <div class="panel"><div class="edges" id="elist"></div></div>
+  <div class="panel log" id="log">‘실행’으로 시작하세요.</div>
+</div>
+<script>
+const nodes=[ {id:0,x:110,y:90,n:'A'},{id:1,x:330,y:60,n:'B'},{id:2,x:120,y:270,n:'C'},
+ {id:3,x:360,y:250,n:'D'},{id:4,x:580,y:110,n:'E'},{id:5,x:600,y:290,n:'F'},{id:6,x:790,y:200,n:'G'} ];
+const E=[[0,1,7],[0,2,5],[1,2,8],[1,3,9],[2,3,7],[1,4,6],[3,4,8],[3,5,5],[4,5,9],[4,6,4],[5,6,6]];
+let steps=[],si=0,timer=null;
+function build(){
+  const sorted=E.map((e,i)=>({u:e[0],v:e[1],w:e[2],i})).sort((a,b)=>a.w-b.w);
+  const parent=nodes.map((_,i)=>i);const find=x=>{while(parent[x]!==x)x=parent[x];return x;};
+  const status={};E.forEach((_,i)=>status[i]='idle');
+  let total=0,used=0;steps=[];
+  const snap=(msg,cur)=>steps.push({status:{...status},total,cur,msg,order:sorted.map(s=>s.i)});
+  snap('간선을 가중치 오름차순으로 정렬했습니다. 작은 것부터 검토합니다.',null);
+  for(const {u,v,w,i} of sorted){
+    status[i]='cur';snap(`간선 ${nodes[u].n}-${nodes[v].n} (가중치 ${w}) 검토.`,i);
+    if(find(u)!==find(v)){parent[find(u)]=find(v);total+=w;used++;status[i]='acc';
+      snap(`두 끝이 다른 집합 → 채택. 누적 ${total}. (${used}/${nodes.length-1}개)`,i);
+      if(used===nodes.length-1){snap(`간선 ${nodes.length-1}개 완성 → MST 종료. 최소 비용 ${total}.`,null);break;}
+    }else{status[i]='rej';snap(`두 끝이 이미 같은 집합 → 사이클 발생, 거부.`,i);}
+  }
+  si=0;render();
+}
+function render(){
+  const s=steps[si]||{status:{}};const svg=document.getElementById('svg');let e='',nd='';
+  E.forEach(([u,v,w],i)=>{const a=nodes[u],b=nodes[v];const st=s.status[i]||'idle';
+    let col='#3a3e4d',wd=2;
+    if(st==='cur'){col='#4d8cff';wd=4;}else if(st==='acc'){col='#3ddc97';wd=4;}else if(st==='rej'){col='#ff7597';wd=2;}
+    e+=`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${col}" stroke-width="${wd}" ${st==='rej'?'stroke-dasharray="5,4"':''}/>`;
+    e+=`<rect x="${(a.x+b.x)/2-11}" y="${(a.y+b.y)/2-11}" width="22" height="19" rx="5" fill="#0f1117" stroke="#2a2d3a"/><text x="${(a.x+b.x)/2}" y="${(a.y+b.y)/2+3}" text-anchor="middle" fill="#9aa" font-size="11">${w}</text>`;});
+  nodes.forEach(n=>{nd+=`<circle cx="${n.x}" cy="${n.y}" r="21" fill="#21242f" stroke="#2a2d3a" stroke-width="2.5"/><text x="${n.x}" y="${n.y+5}" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">${n.n}</text>`;});
+  svg.innerHTML=e+nd;
+  const el=document.getElementById('elist');el.innerHTML='';
+  (s.order||[]).forEach(i=>{const [u,v,w]=E[i];const st=s.status[i]||'idle';
+    const d=document.createElement('span');d.className='ec'+(st==='cur'?' cur':st==='acc'?' acc':st==='rej'?' rej':'');
+    d.textContent=`${nodes[u].n}-${nodes[v].n}:${w}`;el.appendChild(d);});
+  document.getElementById('total').textContent='합: '+(s.total||0);
+  document.getElementById('log').textContent=s.msg||'';
+  document.getElementById('step').disabled=si>=steps.length-1;
+}
+function next(){if(si<steps.length-1){si++;render();}else stop();}
+function stop(){clearInterval(timer);timer=null;}
+document.getElementById('build').onclick=()=>{stop();build();};
+document.getElementById('step').onclick=()=>{stop();next();};
+document.getElementById('play').onclick=()=>{stop();timer=setInterval(next,1000);};
+document.getElementById('reset').onclick=()=>{stop();si=0;render();};
+build();
+</script>
+</body>
+</html>

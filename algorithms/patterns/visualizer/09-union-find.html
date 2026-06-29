@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>유니온 파인드 시각화</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0f1117;color:#e0e0e0;font-family:'Segoe UI','Apple SD Gothic Neo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:32px 24px 64px}
+  header{width:100%;max-width:880px;display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px}
+  header h1{font-size:1.5rem;color:#fff}header h1 span{color:#4d8cff}
+  .back-link{font-size:.85rem;color:#888;text-decoration:none;border:1px solid #2a2d3a;padding:6px 14px;border-radius:8px}
+  .back-link:hover{color:#4d8cff;border-color:#4d8cff}
+  .wrap{width:100%;max-width:880px;display:flex;flex-direction:column;gap:20px}
+  .panel{background:#1a1d27;border:1px solid #2a2d3a;border-radius:14px;padding:22px}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  label{font-size:.85rem;color:#aaa}
+  input{background:#0f1117;border:1px solid #2a2d3a;color:#e0e0e0;border-radius:8px;padding:8px 10px;font-size:.9rem;width:260px}
+  button{background:#4d8cff;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:.88rem;font-weight:600;cursor:pointer}
+  button:hover{background:#6aa0ff}button.sec{background:#2a2d3a;color:#cfcfcf}button.sec:hover{background:#3a3e4d}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  svg{width:100%;height:280px;display:block}
+  .log{font-size:.9rem;line-height:1.7;color:#cfcfcf;min-height:48px}
+  .arr{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:10px}
+  .pc{width:46px;text-align:center;font-size:.8rem}
+  .pc .k{color:#666}.pc .v{background:#21242f;border:1px solid #2a2d3a;border-radius:6px;padding:4px 0;margin-top:2px}
+  .legend{font-size:.78rem;color:#888;display:flex;gap:16px;flex-wrap:wrap}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:middle;margin-right:5px}
+</style>
+</head>
+<body>
+<header>
+  <h1>유니온 파인드 <span>Union-Find</span></h1>
+  <a class="back-link" href="./index.html">&larr; 목록</a>
+</header>
+<div class="wrap">
+  <div class="panel controls">
+    <label>노드 수</label><input id="n" value="8" style="width:60px" />
+    <label>연산</label><input id="ops" value="union(1,2) union(3,4) union(2,4) union(5,6) find(1) union(6,7) find(3)" />
+    <button id="build">설정</button>
+    <button class="sec" id="step">다음 ▶</button>
+    <button class="sec" id="play">자동 ▶▶</button>
+    <button class="sec" id="reset">↺</button>
+  </div>
+  <div class="panel"><svg id="svg" viewBox="0 0 860 280"></svg></div>
+  <div class="panel">
+    <div class="legend"><span><span class="dot" style="background:#3ddc97"></span>루트</span><span><span class="dot" style="background:#4d8cff"></span>현재 연산 대상</span><span><span class="dot" style="background:#ffb454"></span>경로 압축</span></div>
+    <div class="arr" id="parr"></div>
+  </div>
+  <div class="panel log" id="log">‘설정’으로 시작하세요.</div>
+</div>
+<script>
+let steps=[],si=0,timer=null,N=8;
+function parse(str){const re=/(union|find)\s*\(\s*(\d+)\s*(?:,\s*(\d+))?\s*\)/g;const o=[];let m;while((m=re.exec(str)))o.push({op:m[1],a:+m[2],b:m[3]!=null?+m[3]:null});return o;}
+function build(){
+  N=Math.max(2,Math.min(14,+document.getElementById('n').value||8));
+  const ops=parse(document.getElementById('ops').value);
+  const parent=Array.from({length:N},(_,i)=>i);
+  const size=Array(N).fill(1);
+  steps=[];
+  const snap=(hi,pc,msg)=>steps.push({parent:[...parent],hi:hi?[...hi]:[],pc:pc?[...pc]:[],msg});
+  function find(x,trace){const path=[];while(parent[x]!==x){path.push(x);x=parent[x];}
+    if(trace){for(const p of path){parent[p]=x;} return {root:x,path};} return {root:x,path};}
+  snap([], [], `노드 ${N}개를 각자 독립 집합으로 초기화 (parent[i]=i).`);
+  for(const {op,a,b} of ops){
+    if(op==='find'){
+      const before=find(a,false);
+      snap([a],before.path,`find(${a}): 루트 ${before.root} 까지 따라 올라감.`);
+      find(a,true);
+      snap([a],before.path,`경로 압축: 거친 노드들을 루트 ${before.root}에 직접 연결.`);
+    }else{
+      const ra=find(a,false).root, rb=find(b,false).root;
+      if(ra===rb){snap([a,b],[],`union(${a},${b}): 이미 같은 집합(루트 ${ra}) → 사이클, 건너뜀.`);continue;}
+      let r1=ra,r2=rb;if(size[r1]<size[r2]){[r1,r2]=[r2,r1];}
+      parent[r2]=r1;size[r1]+=size[r2];
+      snap([a,b],[],`union(${a},${b}): 루트 ${ra},${rb} 합침. 작은 트리(${r2})를 큰 트리(${r1}) 밑에.`);
+    }
+  }
+  si=0;render();
+}
+function roots(parent){return parent.map((p,i)=>p===i);}
+function depthOf(parent,x){let d=0;while(parent[x]!==x){x=parent[x];d++;if(d>50)break;}return d;}
+function render(){
+  const s=steps[si]||{parent:[],hi:[],pc:[]};const p=s.parent;
+  const svg=document.getElementById('svg');const W=860;const gap=W/(N+1);
+  const isRoot=roots(p);
+  const pos=p.map((_,i)=>({x:gap*(i+1),y:60+depthOf(p,i)*64}));
+  let edges='',nodes='';
+  p.forEach((par,i)=>{if(par!==i){const a=pos[i],b=pos[par];
+    edges+=`<path d="M${a.x} ${a.y} C ${a.x} ${a.y-30}, ${b.x} ${b.y+30}, ${b.x} ${b.y}" fill="none" stroke="${s.pc.includes(i)?'#ffb454':'#3a3e4d'}" stroke-width="2"/>`;}});
+  p.forEach((_,i)=>{let fill='#21242f',stroke='#2a2d3a';
+    if(isRoot[i]){stroke='#3ddc97';}
+    if(s.pc.includes(i)){stroke='#ffb454';}
+    if(s.hi.includes(i)){fill='#4d8cff';stroke='#6aa0ff';}
+    nodes+=`<circle cx="${pos[i].x}" cy="${pos[i].y}" r="20" fill="${fill}" stroke="${stroke}" stroke-width="2.5"/><text x="${pos[i].x}" y="${pos[i].y+5}" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">${i}</text>`;});
+  svg.innerHTML=edges+nodes;
+  const box=document.getElementById('parr');box.innerHTML='';
+  p.forEach((par,i)=>{const d=document.createElement('div');d.className='pc';d.innerHTML=`<div class="k">${i}</div><div class="v" style="${isRoot[i]?'color:#3ddc97;border-color:#3ddc97':''}">${par}</div>`;box.appendChild(d);});
+  document.getElementById('log').innerHTML=s.msg||'';
+  document.getElementById('step').disabled=si>=steps.length-1;
+}
+function next(){if(si<steps.length-1){si++;render();}else stop();}
+function stop(){clearInterval(timer);timer=null;}
+document.getElementById('build').onclick=()=>{stop();build();};
+document.getElementById('step').onclick=()=>{stop();next();};
+document.getElementById('play').onclick=()=>{stop();timer=setInterval(next,1100);};
+document.getElementById('reset').onclick=()=>{stop();si=0;render();};
+build();
+</script>
+</body>
+</html>

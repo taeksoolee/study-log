@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>플로이드-워셜 시각화</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0f1117;color:#e0e0e0;font-family:'Segoe UI','Apple SD Gothic Neo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:32px 24px 64px}
+  header{width:100%;max-width:680px;display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px}
+  header h1{font-size:1.3rem;color:#fff}header h1 span{color:#4d8cff}
+  .back-link{font-size:.85rem;color:#888;text-decoration:none;border:1px solid #2a2d3a;padding:6px 14px;border-radius:8px}
+  .back-link:hover{color:#4d8cff;border-color:#4d8cff}
+  .wrap{width:100%;max-width:680px;display:flex;flex-direction:column;gap:20px}
+  .panel{background:#1a1d27;border:1px solid #2a2d3a;border-radius:14px;padding:22px}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  button{background:#4d8cff;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:.88rem;font-weight:600;cursor:pointer}
+  button:hover{background:#6aa0ff}button.sec{background:#2a2d3a;color:#cfcfcf}button.sec:hover{background:#3a3e4d}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  table{border-collapse:collapse;margin:0 auto}
+  td{width:48px;height:44px;text-align:center;border:1px solid #2a2d3a;background:#21242f;font-weight:700;font-size:.9rem}
+  td.hdr{background:#16181f;color:#7aa;font-size:.85rem}
+  td.krow,td.kcol{background:#241f33}
+  td.via{background:#2a2440;border-color:#8a6dff}
+  td.cur{background:#4d8cff;border-color:#6aa0ff;color:#fff}
+  td.upd{background:#143a2a;border-color:#3ddc97;color:#3ddc97}
+  .log{font-size:.9rem;line-height:1.7;color:#cfcfcf;min-height:48px}
+  .kbox{font-size:.95rem;color:#8a6dff;font-weight:700}
+  .legend{font-size:.76rem;color:#888;display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:middle;margin-right:4px}
+</style>
+</head>
+<body>
+<header>
+  <h1>플로이드-워셜 <span>모든 쌍 최단경로</span></h1>
+  <a class="back-link" href="./index.html">&larr; 목록</a>
+</header>
+<div class="wrap">
+  <div class="panel controls">
+    <button id="build">실행</button>
+    <button class="sec" id="step">다음 ▶</button>
+    <button class="sec" id="play">자동 ▶▶</button>
+    <button class="sec" id="reset">↺</button>
+    <span class="kbox" id="kbox"></span>
+  </div>
+  <div class="panel">
+    <div class="legend"><span><span class="dot" style="background:#241f33"></span>경유지 k 행/열</span><span><span class="dot" style="background:#8a6dff"></span>i→k, k→j 참조</span><span><span class="dot" style="background:#4d8cff"></span>검사 중 (i,j)</span><span><span class="dot" style="background:#3ddc97"></span>갱신됨</span></div>
+    <div id="table"></div>
+  </div>
+  <div class="panel log" id="log">‘실행’으로 시작하세요.</div>
+</div>
+<script>
+const INF=1e9,V=4,names=['A','B','C','D'];
+const init=[[0,3,INF,7],[8,0,2,INF],[5,INF,0,1],[2,INF,INF,0]];
+let steps=[],si=0,timer=null;
+function build(){
+  const d=init.map(r=>[...r]);steps=[];
+  const push=(k,i,j,upd,msg)=>steps.push({d:d.map(r=>[...r]),k,i,j,upd,msg});
+  push(-1,-1,-1,false,'초기 거리 행렬(직접 간선). ∞는 경로 없음. k를 0→V-1로 늘리며 경유를 허용합니다.');
+  for(let k=0;k<V;k++){
+    push(k,-1,-1,false,`경유지 k=${names[k]} 허용. 모든 (i,j)에 대해 i→${names[k]}→j 가 더 짧은지 검사.`);
+    for(let i=0;i<V;i++)for(let j=0;j<V;j++){
+      if(d[i][k]+d[k][j]<d[i][j]){
+        const old=d[i][j];d[i][j]=d[i][k]+d[k][j];
+        push(k,i,j,true,`${names[i]}→${names[j]}: ${fmt(old)} > ${fmt(d[i][k])}+${fmt(d[k][j])} → ${d[i][j]} 갱신!`);
+      }
+    }
+  }
+  push(-1,-1,-1,false,'완료! 모든 쌍 최단 거리. 시간 O(V³). k 루프가 가장 바깥이어야 정확.');
+  si=0;render();
+}
+function fmt(x){return x>=INF?'∞':x;}
+function render(){
+  const s=steps[si]||{d:init};
+  let t='<table><tr><td class="hdr"></td>';
+  for(let j=0;j<V;j++)t+=`<td class="hdr">${names[j]}</td>`;t+='</tr>';
+  for(let i=0;i<V;i++){t+=`<tr><td class="hdr">${names[i]}</td>`;
+    for(let j=0;j<V;j++){let cls='';
+      if(s.k>=0&&i===s.k)cls='krow';if(s.k>=0&&j===s.k)cls='kcol';
+      if(s.k>=0&&s.i>=0&&((i===s.i&&j===s.k)||(i===s.k&&j===s.j)))cls='via';
+      if(i===s.i&&j===s.j)cls=s.upd?'upd':'cur';
+      t+=`<td class="${cls}">${fmt(s.d[i][j])}</td>`;}
+    t+='</tr>';}
+  t+='</table>';document.getElementById('table').innerHTML=t;
+  document.getElementById('kbox').textContent=s.k>=0?`k = ${names[s.k]}`:'';
+  document.getElementById('log').textContent=s.msg||'';
+  document.getElementById('step').disabled=si>=steps.length-1;
+}
+function next(){if(si<steps.length-1){si++;render();}else stop();}
+function stop(){clearInterval(timer);timer=null;}
+document.getElementById('build').onclick=()=>{stop();build();};
+document.getElementById('step').onclick=()=>{stop();next();};
+document.getElementById('play').onclick=()=>{stop();timer=setInterval(next,700);};
+document.getElementById('reset').onclick=()=>{stop();si=0;render();};
+build();
+</script>
+</body>
+</html>

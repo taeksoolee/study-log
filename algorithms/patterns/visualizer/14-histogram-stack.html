@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>히스토그램 최대 직사각형 시각화</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0f1117;color:#e0e0e0;font-family:'Segoe UI','Apple SD Gothic Neo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:32px 24px 64px}
+  header{width:100%;max-width:880px;display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px}
+  header h1{font-size:1.4rem;color:#fff}header h1 span{color:#4d8cff}
+  .back-link{font-size:.85rem;color:#888;text-decoration:none;border:1px solid #2a2d3a;padding:6px 14px;border-radius:8px}
+  .back-link:hover{color:#4d8cff;border-color:#4d8cff}
+  .wrap{width:100%;max-width:880px;display:flex;flex-direction:column;gap:20px}
+  .panel{background:#1a1d27;border:1px solid #2a2d3a;border-radius:14px;padding:22px}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  label{font-size:.85rem;color:#aaa}
+  input{background:#0f1117;border:1px solid #2a2d3a;color:#e0e0e0;border-radius:8px;padding:8px 10px;font-size:.9rem;width:240px}
+  button{background:#4d8cff;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:.88rem;font-weight:600;cursor:pointer}
+  button:hover{background:#6aa0ff}button.sec{background:#2a2d3a;color:#cfcfcf}button.sec:hover{background:#3a3e4d}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  svg{width:100%;height:300px;display:block}
+  .log{font-size:.9rem;line-height:1.7;color:#cfcfcf;min-height:48px}
+  .legend{font-size:.78rem;color:#888;display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px}
+  .dot{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:middle;margin-right:5px}
+  .row{font-size:.85rem;color:#9aa}.row b{color:#4d8cff}
+  .best{color:#ffb454;font-weight:700}
+</style>
+</head>
+<body>
+<header>
+  <h1>히스토그램 최대 직사각형 <span>Monotonic Stack</span></h1>
+  <a class="back-link" href="./index.html">&larr; 목록</a>
+</header>
+<div class="wrap">
+  <div class="panel controls">
+    <label>막대 높이</label><input id="arr" value="2,1,5,6,2,3" />
+    <button id="build">실행</button>
+    <button class="sec" id="step">다음 ▶</button>
+    <button class="sec" id="play">자동 ▶▶</button>
+    <button class="sec" id="reset">↺</button>
+    <span class="best" id="best">최대: 0</span>
+  </div>
+  <div class="panel">
+    <div class="legend"><span><span class="dot" style="background:#4d8cff"></span>현재 막대</span><span><span class="dot" style="background:#2e6f57"></span>스택 안</span><span><span class="dot" style="background:#ffb454"></span>면적 계산</span></div>
+    <svg id="svg" viewBox="0 0 860 300"></svg>
+  </div>
+  <div class="panel"><div class="row" id="stack"></div></div>
+  <div class="panel log" id="log">‘실행’으로 시작하세요.</div>
+</div>
+<script>
+let steps=[],si=0,timer=null,arr=[];
+function build(){
+  arr=document.getElementById('arr').value.split(',').map(s=>+s.trim()).filter(n=>!isNaN(n)&&n>=0).slice(0,12);
+  document.getElementById('arr').value=arr.join(',');
+  const h=[...arr,0];const st=[];let max=0,bestRect=null;steps=[];
+  const snap=(i,popped,rect,msg)=>steps.push({i,stack:[...st],popped,rect,max,best:bestRect,msg});
+  snap(-1,null,null,'끝에 높이 0을 추가해 마지막에 스택을 모두 비웁니다.');
+  for(let i=0;i<h.length;i++){
+    snap(i,null,null,`막대 ${i}${i<arr.length?` (높이 ${h[i]})`:' (감시용 0)'} 검토.`);
+    while(st.length&&h[st[st.length-1]]>=h[i]){
+      const top=st.pop();const height=h[top];
+      const width=st.length?i-st[st.length-1]-1:i;
+      const area=height*width;
+      const rect={l:st.length?st[st.length-1]+1:0,r:i-1,h:height,area};
+      if(area>max){max=area;bestRect=rect;}
+      snap(i,top,rect,`막대 ${i} 높이 ${h[i]}가 더 낮음 → 막대 ${top}(높이 ${height}) pop. 폭 ${width} → 면적 ${area}.${area===max?' ★ 최대 갱신':''}`);
+    }
+    st.push(i);snap(i,null,null,`막대 ${i}를 스택에 push (단조 증가 유지).`);
+  }
+  snap(-1,null,bestRect,`완료! 최대 직사각형 면적 = ${max}.`);
+  si=0;render();
+}
+function render(){
+  const s=steps[si]||{stack:[]};const svg=document.getElementById('svg');
+  const n=arr.length;const W=860,H=300,pad=30;const bw=(W-pad*2)/Math.max(n,1);
+  const maxH=Math.max(...arr,1);const scale=(H-70)/maxH;
+  let g='';
+  // best rectangle highlight
+  const rect=s.best;
+  if(rect&&rect.r>=rect.l){const x=pad+rect.l*bw;const w=(rect.r-rect.l+1)*bw;const hh=rect.h*scale;
+    g+=`<rect x="${x}" y="${H-30-hh}" width="${w}" height="${hh}" fill="#ffb45422" stroke="#ffb454" stroke-width="2" stroke-dasharray="5,4"/>`;}
+  arr.forEach((v,i)=>{const x=pad+i*bw+3;const w=bw-6;const hh=v*scale;
+    let fill='#2a2d3a';
+    if(s.stack&&s.stack.includes(i))fill='#2e6f57';
+    if(s.i===i)fill='#4d8cff';
+    if(s.popped===i)fill='#ffb454';
+    g+=`<rect x="${x}" y="${H-30-hh}" width="${w}" height="${hh}" rx="4" fill="${fill}"/>`;
+    g+=`<text x="${x+w/2}" y="${H-30-hh-6}" text-anchor="middle" fill="#cfcfcf" font-size="12">${v}</text>`;
+    g+=`<text x="${x+w/2}" y="${H-12}" text-anchor="middle" fill="#666" font-size="10">${i}</text>`;});
+  svg.innerHTML=g;
+  document.getElementById('stack').innerHTML='<b>스택(인덱스):</b> '+((s.stack||[]).map(i=>`[${i}]→${arr[i]}`).join(' ')||'(빈)');
+  document.getElementById('best').textContent='최대: '+(s.max||0);
+  document.getElementById('log').textContent=s.msg||'';
+  document.getElementById('step').disabled=si>=steps.length-1;
+}
+function next(){if(si<steps.length-1){si++;render();}else stop();}
+function stop(){clearInterval(timer);timer=null;}
+document.getElementById('build').onclick=()=>{stop();build();};
+document.getElementById('step').onclick=()=>{stop();next();};
+document.getElementById('play').onclick=()=>{stop();timer=setInterval(next,950);};
+document.getElementById('reset').onclick=()=>{stop();si=0;render();};
+build();
+</script>
+</body>
+</html>

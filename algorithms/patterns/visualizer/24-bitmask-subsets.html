@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>비트마스크 부분집합 시각화</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0f1117;color:#e0e0e0;font-family:'Segoe UI','Apple SD Gothic Neo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:32px 24px 64px}
+  header{width:100%;max-width:820px;display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px}
+  header h1{font-size:1.3rem;color:#fff}header h1 span{color:#4d8cff}
+  .back-link{font-size:.85rem;color:#888;text-decoration:none;border:1px solid #2a2d3a;padding:6px 14px;border-radius:8px}
+  .back-link:hover{color:#4d8cff;border-color:#4d8cff}
+  .wrap{width:100%;max-width:820px;display:flex;flex-direction:column;gap:20px}
+  .panel{background:#1a1d27;border:1px solid #2a2d3a;border-radius:14px;padding:22px}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  label{font-size:.85rem;color:#aaa}
+  input{background:#0f1117;border:1px solid #2a2d3a;color:#e0e0e0;border-radius:8px;padding:8px 10px;font-size:.9rem;width:160px}
+  button{background:#4d8cff;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:.88rem;font-weight:600;cursor:pointer}
+  button:hover{background:#6aa0ff}button.sec{background:#2a2d3a;color:#cfcfcf}button.sec:hover{background:#3a3e4d}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .bits{display:flex;gap:8px;justify-content:center;margin:6px 0}
+  .bit{width:56px;height:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:10px;background:#21242f;border:2px solid #2a2d3a;font-weight:700}
+  .bit .el{font-size:.72rem;color:#888}
+  .bit .b{font-size:1.4rem;font-family:monospace}
+  .bit.on{background:#143a2a;border-color:#3ddc97;color:#3ddc97}
+  .maskval{font-family:monospace;font-size:1rem;color:#4d8cff;text-align:center;margin-top:6px}
+  .subset{text-align:center;font-size:1.05rem;color:#fff;font-weight:700;margin-top:6px}
+  .grid{display:grid;grid-template-columns:repeat(8,1fr);gap:5px;margin-top:8px}
+  .mc{padding:7px 0;text-align:center;border-radius:6px;background:#21242f;border:1px solid #2a2d3a;font-family:monospace;font-size:.78rem;color:#888}
+  .mc.done{color:#3ddc97;border-color:#234}
+  .mc.cur{background:#4d8cff;border-color:#6aa0ff;color:#fff}
+  .log{font-size:.9rem;line-height:1.7;color:#cfcfcf;min-height:30px}
+</style>
+</head>
+<body>
+<header>
+  <h1>비트마스크 부분집합 <span>Subset Enumeration</span></h1>
+  <a class="back-link" href="./index.html">&larr; 목록</a>
+</header>
+<div class="wrap">
+  <div class="panel controls">
+    <label>원소(쉼표)</label><input id="els" value="A,B,C,D" />
+    <button id="build">열거 시작</button>
+    <button class="sec" id="step">다음 ▶</button>
+    <button class="sec" id="play">자동 ▶▶</button>
+    <button class="sec" id="reset">↺</button>
+  </div>
+  <div class="panel">
+    <div class="bits" id="bits"></div>
+    <div class="maskval" id="mask"></div>
+    <div class="subset" id="subset"></div>
+  </div>
+  <div class="panel"><div class="grid" id="all"></div></div>
+  <div class="panel log" id="log">모든 부분집합을 0 ~ 2ⁿ−1 정수로 열거합니다.</div>
+</div>
+<script>
+let els=[],n=0,cur=0,timer=null,total=0;
+function build(){
+  els=document.getElementById('els').value.split(',').map(s=>s.trim()).filter(Boolean).slice(0,6);
+  document.getElementById('els').value=els.join(',');
+  n=els.length;total=1<<n;cur=0;
+  const all=document.getElementById('all');all.innerHTML='';
+  for(let m=0;m<total;m++){const d=document.createElement('div');d.className='mc';d.id='mc'+m;
+    d.textContent=m.toString(2).padStart(n,'0');all.appendChild(d);}
+  render();
+}
+function render(){
+  const m=cur;
+  const bits=document.getElementById('bits');bits.innerHTML='';
+  for(let i=n-1;i>=0;i--){const on=(m>>i)&1;const d=document.createElement('div');d.className='bit'+(on?' on':'');
+    d.innerHTML=`<span class="el">${els[i]}</span><span class="b">${on}</span><span class="el">2^${i}</span>`;bits.appendChild(d);}
+  document.getElementById('mask').textContent=`mask = ${m} = 0b${m.toString(2).padStart(n,'0')}`;
+  const sub=els.filter((_,i)=>(m>>i)&1);
+  document.getElementById('subset').textContent='{ '+(sub.join(', ')||'∅')+' }  ('+sub.length+'개 원소)';
+  for(let k=0;k<total;k++){const c=document.getElementById('mc'+k);if(!c)continue;c.className='mc'+(k<cur?' done':k===cur?' cur':'');}
+  document.getElementById('log').innerHTML=`정수 ${m} 의 각 비트 = 원소 포함 여부. 합집합 <code>|</code>, 교집합 <code>&amp;</code>, 원소 추가 <code>m|(1&lt;&lt;i)</code>, 제거 <code>m&amp;~(1&lt;&lt;i)</code>.`;
+  document.getElementById('step').disabled=cur>=total-1;
+}
+function next(){if(cur<total-1){cur++;render();}else stop();}
+function stop(){clearInterval(timer);timer=null;}
+document.getElementById('build').onclick=()=>{stop();build();};
+document.getElementById('step').onclick=()=>{stop();next();};
+document.getElementById('play').onclick=()=>{stop();timer=setInterval(next,650);};
+document.getElementById('reset').onclick=()=>{stop();cur=0;render();};
+build();
+</script>
+</body>
+</html>

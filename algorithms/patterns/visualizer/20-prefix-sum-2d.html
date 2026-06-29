@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>2D 누적합 시각화</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0f1117;color:#e0e0e0;font-family:'Segoe UI','Apple SD Gothic Neo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:32px 24px 64px}
+  header{width:100%;max-width:760px;display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px}
+  header h1{font-size:1.35rem;color:#fff}header h1 span{color:#4d8cff}
+  .back-link{font-size:.85rem;color:#888;text-decoration:none;border:1px solid #2a2d3a;padding:6px 14px;border-radius:8px}
+  .back-link:hover{color:#4d8cff;border-color:#4d8cff}
+  .wrap{width:100%;max-width:760px;display:flex;flex-direction:column;gap:20px}
+  .panel{background:#1a1d27;border:1px solid #2a2d3a;border-radius:14px;padding:22px}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  label{font-size:.82rem;color:#aaa}
+  input.sm{background:#0f1117;border:1px solid #2a2d3a;color:#e0e0e0;border-radius:8px;padding:6px 8px;width:48px}
+  button{background:#4d8cff;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:.88rem;font-weight:600;cursor:pointer}
+  button:hover{background:#6aa0ff}button.sec{background:#2a2d3a;color:#cfcfcf}button.sec:hover{background:#3a3e4d}
+  .two{display:flex;gap:24px;flex-wrap:wrap;justify-content:center}
+  .lab{font-size:.8rem;color:#888;margin-bottom:8px;text-align:center}
+  table{border-collapse:collapse}
+  td{width:42px;height:42px;text-align:center;border:1px solid #2a2d3a;background:#21242f;font-weight:700;font-size:.9rem}
+  td.hdr{background:#16181f;color:#555;font-size:.72rem;font-weight:400}
+  td.add{background:#143a2a;border-color:#3ddc97;color:#3ddc97}
+  td.sub{background:#3a1820;border-color:#ff7597;color:#ff7597}
+  td.rect{background:#1e2a44;border-color:#35508a}
+  .log{font-size:.9rem;line-height:1.7;color:#cfcfcf;min-height:48px}
+  .res{font-size:.95rem;color:#3ddc97;font-weight:700}
+  .formula{font-family:monospace;font-size:.85rem;color:#9aa}
+</style>
+</head>
+<body>
+<header>
+  <h1>2D 누적합 <span>포함-배제</span></h1>
+  <a class="back-link" href="./index.html">&larr; 목록</a>
+</header>
+<div class="wrap">
+  <div class="panel controls">
+    <label>직사각형 (r1</label><input class="sm" id="r1" type="number" value="1"><label>c1</label><input class="sm" id="c1" type="number" value="1">
+    <label>r2</label><input class="sm" id="r2" type="number" value="3"><label>c2)</label><input class="sm" id="c2" type="number" value="3">
+    <button id="build">합 질의</button>
+    <button class="sec" id="step">다음 ▶</button>
+    <button class="sec" id="reset">↺</button>
+    <span class="res" id="res"></span>
+  </div>
+  <div class="panel">
+    <div class="two">
+      <div><div class="lab">원본 grid</div><div id="grid"></div></div>
+      <div><div class="lab">누적합 P (1-indexed)</div><div id="pref"></div></div>
+    </div>
+  </div>
+  <div class="panel formula" id="formula"></div>
+  <div class="panel log" id="log">직사각형을 정하고 ‘합 질의’를 누르세요.</div>
+</div>
+<script>
+const G=[[1,2,3,4],[5,6,7,8],[9,1,2,3],[4,5,6,7]];
+const R=G.length,C=G[0].length;
+const P=Array.from({length:R+1},()=>new Array(C+1).fill(0));
+for(let i=1;i<=R;i++)for(let j=1;j<=C;j++)P[i][j]=G[i-1][j-1]+P[i-1][j]+P[i][j-1]-P[i-1][j-1];
+let steps=[],si=0;
+function build(){
+  const r1=clamp(+document.getElementById('r1').value,0,R-1);
+  const c1=clamp(+document.getElementById('c1').value,0,C-1);
+  const r2=clamp(Math.max(r1,+document.getElementById('r2').value),0,R-1);
+  const c2=clamp(Math.max(c1,+document.getElementById('c2').value),0,C-1);
+  document.getElementById('r1').value=r1;document.getElementById('c1').value=c1;document.getElementById('r2').value=r2;document.getElementById('c2').value=c2;
+  const big=P[r2+1][c2+1],top=P[r1][c2+1],left=P[r2+1][c1],corner=P[r1][c1];
+  const ans=big-top-left+corner;
+  steps=[
+    {rect:[r1,c1,r2,c2],hi:{},msg:`구간 (${r1},${c1})~(${r2},${c2}) 합을 누적합 P로 O(1)에 구합니다.`,res:null},
+    {rect:[r1,c1,r2,c2],hi:{[`${r2+1},${c2+1}`]:'add'},msg:`① 큰 직사각형 P[${r2+1}][${c2+1}] = ${big} (원점~우하단 전체).`,res:null},
+    {rect:[r1,c1,r2,c2],hi:{[`${r2+1},${c2+1}`]:'add',[`${r1},${c2+1}`]:'sub'},msg:`② 위쪽 띠 P[${r1}][${c2+1}] = ${top} 빼기.`,res:null},
+    {rect:[r1,c1,r2,c2],hi:{[`${r2+1},${c2+1}`]:'add',[`${r1},${c2+1}`]:'sub',[`${r2+1},${c1}`]:'sub'},msg:`③ 왼쪽 띠 P[${r2+1}][${c1}] = ${left} 빼기.`,res:null},
+    {rect:[r1,c1,r2,c2],hi:{[`${r2+1},${c2+1}`]:'add',[`${r1},${c2+1}`]:'sub',[`${r2+1},${c1}`]:'sub',[`${r1},${c1}`]:'add'},msg:`④ 두 번 뺀 좌상단 P[${r1}][${c1}] = ${corner} 더하기(보정).`,res:null},
+    {rect:[r1,c1,r2,c2],hi:{[`${r2+1},${c2+1}`]:'add',[`${r1},${c2+1}`]:'sub',[`${r2+1},${c1}`]:'sub',[`${r1},${c1}`]:'add'},msg:`합 = ${big} - ${top} - ${left} + ${corner} = ${ans}.`,res:ans},
+  ];
+  si=0;render();
+}
+function clamp(v,a,b){return Math.max(a,Math.min(b,isNaN(v)?a:v));}
+function render(){
+  const s=steps[si]||{rect:[],hi:{}};
+  // grid
+  let g='<table>';for(let i=0;i<R;i++){g+='<tr>';for(let j=0;j<C;j++){const [r1,c1,r2,c2]=s.rect;
+    const inR=r1!=null&&i>=r1&&i<=r2&&j>=c1&&j<=c2;g+=`<td class="${inR?'rect':''}">${G[i][j]}</td>`;}g+='</tr>';}g+='</table>';
+  document.getElementById('grid').innerHTML=g;
+  // prefix
+  let p='<table>';for(let i=0;i<=R;i++){p+='<tr>';for(let j=0;j<=C;j++){const cls=s.hi[`${i},${j}`];
+    p+=`<td class="${i===0||j===0?'hdr ':''}${cls||''}">${P[i][j]}</td>`;}p+='</tr>';}p+='</table>';
+  document.getElementById('pref').innerHTML=p;
+  document.getElementById('formula').textContent='sum2D(r1,c1,r2,c2) = P[r2+1][c2+1] − P[r1][c2+1] − P[r2+1][c1] + P[r1][c1]';
+  document.getElementById('res').textContent=s.res!=null?`합: ${s.res}`:'';
+  document.getElementById('log').textContent=s.msg||'';
+  document.getElementById('step').disabled=si>=steps.length-1;
+}
+function next(){if(si<steps.length-1){si++;render();}}
+document.getElementById('build').onclick=build;
+document.getElementById('step').onclick=next;
+document.getElementById('reset').onclick=()=>{si=0;render();};
+build();
+</script>
+</body>
+</html>

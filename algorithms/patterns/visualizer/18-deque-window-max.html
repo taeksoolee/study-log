@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>슬라이딩 윈도우 최댓값 시각화</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0f1117;color:#e0e0e0;font-family:'Segoe UI','Apple SD Gothic Neo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:32px 24px 64px}
+  header{width:100%;max-width:880px;display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px}
+  header h1{font-size:1.35rem;color:#fff}header h1 span{color:#4d8cff}
+  .back-link{font-size:.85rem;color:#888;text-decoration:none;border:1px solid #2a2d3a;padding:6px 14px;border-radius:8px}
+  .back-link:hover{color:#4d8cff;border-color:#4d8cff}
+  .wrap{width:100%;max-width:880px;display:flex;flex-direction:column;gap:20px}
+  .panel{background:#1a1d27;border:1px solid #2a2d3a;border-radius:14px;padding:22px}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  label{font-size:.85rem;color:#aaa}
+  input{background:#0f1117;border:1px solid #2a2d3a;color:#e0e0e0;border-radius:8px;padding:8px 10px;font-size:.9rem}
+  input.sm{width:54px}
+  button{background:#4d8cff;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:.88rem;font-weight:600;cursor:pointer}
+  button:hover{background:#6aa0ff}button.sec{background:#2a2d3a;color:#cfcfcf}button.sec:hover{background:#3a3e4d}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .lab{font-size:.8rem;color:#888;margin-bottom:6px}
+  .row{display:flex;gap:6px;flex-wrap:wrap}
+  .cell{width:46px;height:46px;display:flex;align-items:center;justify-content:center;border-radius:9px;background:#21242f;border:2px solid #2a2d3a;font-weight:700;position:relative}
+  .cell .idx{position:absolute;top:-16px;font-size:.66rem;color:#666}
+  .cell.win{background:#1e2a44;border-color:#35508a}
+  .cell.cur{background:#4d8cff;border-color:#6aa0ff;color:#fff}
+  .cell.dq{border-color:#ffb454}
+  .cell.maxv{background:#143a2a;border-color:#3ddc97}
+  .log{font-size:.9rem;line-height:1.7;color:#cfcfcf;min-height:48px}
+  .out{font-size:.85rem;color:#9aa}.out b{color:#3ddc97}
+</style>
+</head>
+<body>
+<header>
+  <h1>슬라이딩 윈도우 최댓값 <span>Monotonic Deque</span></h1>
+  <a class="back-link" href="./index.html">&larr; 목록</a>
+</header>
+<div class="wrap">
+  <div class="panel controls">
+    <label>배열</label><input id="arr" value="1,3,-1,-3,5,3,6,7" size="22" />
+    <label>k</label><input class="sm" id="k" type="number" value="3" />
+    <button id="build">실행</button>
+    <button class="sec" id="step">다음 ▶</button>
+    <button class="sec" id="play">자동 ▶▶</button>
+    <button class="sec" id="reset">↺</button>
+  </div>
+  <div class="panel"><div class="lab">배열 (파랑=현재, 음영=윈도우, 주황 테두리=덱에 있음)</div><div class="row" id="arr-row"></div></div>
+  <div class="panel"><div class="lab">덱 (인덱스, 값 내림차순 — 앞이 최댓값)</div><div class="row" id="dq-row"></div></div>
+  <div class="panel out" id="out"></div>
+  <div class="panel log" id="log">‘실행’으로 시작하세요.</div>
+</div>
+<script>
+let steps=[],si=0,timer=null,arr=[],K=3;
+function build(){
+  arr=document.getElementById('arr').value.split(',').map(s=>+s.trim()).filter(n=>!isNaN(n)).slice(0,14);
+  document.getElementById('arr').value=arr.join(',');
+  K=Math.max(1,Math.min(arr.length,+document.getElementById('k').value||3));
+  const dq=[],res=[];steps=[];
+  const snap=(i,msg)=>steps.push({i,dq:[...dq],res:[...res],msg});
+  for(let i=0;i<arr.length;i++){
+    snap(i,`인덱스 ${i} (값 ${arr[i]}) 처리 시작.`);
+    if(dq.length&&dq[0]<=i-K){const f=dq.shift();snap(i,`덱 앞 인덱스 ${f}가 윈도우[${i-K+1}..${i}] 밖 → 제거.`);}
+    while(dq.length&&arr[dq[dq.length-1]]<=arr[i]){const b=dq.pop();snap(i,`덱 뒤 값 ${arr[b]} ≤ 현재 ${arr[i]} → 쓸모없어 제거(단조 유지).`);}
+    dq.push(i);snap(i,`인덱스 ${i}를 덱 뒤에 추가.`);
+    if(i>=K-1){res.push(arr[dq[0]]);snap(i,`윈도우 완성 → 최댓값 = arr[${dq[0]}] = ${arr[dq[0]]} 기록.`);}
+  }
+  snap(-1,`완료! 모든 윈도우 최댓값: [${res.join(', ')}]. 각 인덱스 최대 1회 push/pop → O(n).`);
+  si=0;render();
+}
+function render(){
+  const s=steps[si]||{dq:[],res:[]};
+  const ar=document.getElementById('arr-row');ar.innerHTML='';
+  arr.forEach((v,k)=>{const d=document.createElement('div');d.className='cell';
+    if(s.i>=0&&k>=s.i-K+1&&k<=s.i)d.classList.add('win');
+    if(s.dq.includes(k))d.classList.add('dq');
+    if(k===s.i)d.classList.add('cur');
+    if(s.dq.length&&k===s.dq[0]&&s.i>=K-1)d.classList.add('maxv');
+    d.innerHTML=`<span class="idx">${k}</span>${v}`;ar.appendChild(d);});
+  const dr=document.getElementById('dq-row');dr.innerHTML='';
+  if(!s.dq.length)dr.innerHTML='<span style="color:#666;font-size:.85rem">(빈 덱)</span>';
+  s.dq.forEach((idx,p)=>{const d=document.createElement('div');d.className='cell dq'+(p===0?' maxv':'');
+    d.innerHTML=`<span class="idx">i${idx}</span>${arr[idx]}`;dr.appendChild(d);});
+  document.getElementById('out').innerHTML='<b>결과:</b> ['+(s.res||[]).join(', ')+']';
+  document.getElementById('log').textContent=s.msg||'';
+  document.getElementById('step').disabled=si>=steps.length-1;
+}
+function next(){if(si<steps.length-1){si++;render();}else stop();}
+function stop(){clearInterval(timer);timer=null;}
+document.getElementById('build').onclick=()=>{stop();build();};
+document.getElementById('step').onclick=()=>{stop();next();};
+document.getElementById('play').onclick=()=>{stop();timer=setInterval(next,850);};
+document.getElementById('reset').onclick=()=>{stop();si=0;render();};
+build();
+</script>
+</body>
+</html>

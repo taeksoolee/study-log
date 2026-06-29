@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>세그먼트 트리 시각화</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0f1117;color:#e0e0e0;font-family:'Segoe UI','Apple SD Gothic Neo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:32px 24px 64px}
+  header{width:100%;max-width:920px;display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px}
+  header h1{font-size:1.5rem;color:#fff}header h1 span{color:#4d8cff}
+  .back-link{font-size:.85rem;color:#888;text-decoration:none;border:1px solid #2a2d3a;padding:6px 14px;border-radius:8px}
+  .back-link:hover{color:#4d8cff;border-color:#4d8cff}
+  .wrap{width:100%;max-width:920px;display:flex;flex-direction:column;gap:20px}
+  .panel{background:#1a1d27;border:1px solid #2a2d3a;border-radius:14px;padding:22px}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  label{font-size:.85rem;color:#aaa}
+  input{background:#0f1117;border:1px solid #2a2d3a;color:#e0e0e0;border-radius:8px;padding:8px 10px;font-size:.9rem}
+  input.sm{width:54px}
+  button{background:#4d8cff;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:.88rem;font-weight:600;cursor:pointer}
+  button:hover{background:#6aa0ff}button.sec{background:#2a2d3a;color:#cfcfcf}button.sec:hover{background:#3a3e4d}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  svg{width:100%;height:420px;display:block}
+  .log{font-size:.9rem;line-height:1.7;color:#cfcfcf;min-height:48px}
+  .legend{font-size:.78rem;color:#888;display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:middle;margin-right:5px}
+  .res{font-size:.9rem;color:#3ddc97;font-weight:700}
+</style>
+</head>
+<body>
+<header>
+  <h1>세그먼트 트리 <span>Segment Tree</span></h1>
+  <a class="back-link" href="./index.html">&larr; 목록</a>
+</header>
+<div class="wrap">
+  <div class="panel controls">
+    <label>배열</label><input id="arr" value="3,1,4,1,5,9,2,6" size="22" />
+    <label>구간 [l</label><input class="sm" id="l" type="number" value="2" />
+    <label>r]</label><input class="sm" id="r" type="number" value="5" />
+    <button id="build">구간 합 질의</button>
+    <button class="sec" id="step">다음 ▶</button>
+    <button class="sec" id="play">자동 ▶▶</button>
+    <button class="sec" id="reset">↺</button>
+    <span class="res" id="res"></span>
+  </div>
+  <div class="panel">
+    <div class="legend"><span><span class="dot" style="background:#4d8cff"></span>방문 중</span><span><span class="dot" style="background:#3ddc97"></span>구간에 완전 포함(채택)</span><span><span class="dot" style="background:#ff7597"></span>범위 밖(가지치기)</span></div>
+    <svg id="svg" viewBox="0 0 920 420"></svg>
+  </div>
+  <div class="panel log" id="log">구간을 정하고 ‘질의’를 누르세요.</div>
+</div>
+<script>
+let steps=[],si=0,timer=null,tree=[],arr=[];
+// build tree as objects {l,r,sum,x,y,children}
+function buildTree(a){
+  const leaves=a.length;const nodes=[];
+  let id=0;
+  function rec(l,r,depth){
+    const node={id:id++,l,r,sum:0,depth,left:null,right:null};
+    if(l===r){node.sum=a[l];}
+    else{const m=(l+r)>>1;node.left=rec(l,m,depth+1);node.right=rec(m+1,r,depth+1);node.sum=node.left.sum+node.right.sum;}
+    nodes.push(node);return node;
+  }
+  const root=rec(0,leaves-1,0);
+  // assign x by leaf order (in-order), y by depth
+  let leafX=0;const W=920;const slot=W/leaves;
+  function layout(n){if(!n.left){n.x=slot*(leafX+0.5);leafX++;}else{layout(n.left);layout(n.right);n.x=(n.left.x+n.right.x)/2;}n.y=40+n.depth*70;}
+  layout(root);
+  return {root,nodes};
+}
+function build(){
+  arr=document.getElementById('arr').value.split(',').map(s=>+s.trim()).filter(n=>!isNaN(n)).slice(0,8);
+  document.getElementById('arr').value=arr.join(',');
+  const T=buildTree(arr);tree=T.nodes;
+  let ql=Math.max(0,Math.min(arr.length-1,+document.getElementById('l').value));
+  let qr=Math.max(ql,Math.min(arr.length-1,+document.getElementById('r').value));
+  document.getElementById('l').value=ql;document.getElementById('r').value=qr;
+  steps=[];const state={};
+  const snap=(msg,res)=>steps.push({state:{...state},msg,res});
+  snap(`세그먼트 트리 구축 완료(각 노드 = 구간 합). 구간 [${ql}, ${qr}] 합을 질의합니다.`,null);
+  let total=0;
+  function query(n){
+    state[n.id]='visit';snap(`노드 [${n.l},${n.r}] 방문.`,null);
+    if(qr<n.l||n.r<ql){state[n.id]='out';snap(`[${n.l},${n.r}]는 질의 범위 밖 → 가지치기(0 반환).`,null);return 0;}
+    if(ql<=n.l&&n.r<=qr){state[n.id]='in';total+=n.sum;snap(`[${n.l},${n.r}]가 질의 구간에 완전히 포함 → 합 ${n.sum} 채택. 누적 ${total}.`,null);return n.sum;}
+    state[n.id]='partial';snap(`[${n.l},${n.r}] 부분 겹침 → 양쪽 자식 재귀.`,null);
+    const s=query(n.left)+query(n.right);state[n.id]='done';return s;
+  }
+  const ans=query(T.root);
+  snap(`구간 [${ql}, ${qr}] 합 = ${ans}. 방문 노드 O(log n).`,ans);
+  si=0;render();
+}
+function render(){
+  const s=steps[si]||{state:{}};const svg=document.getElementById('svg');let e='',nd='';
+  tree.forEach(n=>{if(n.left){e+=edge(n,n.left);e+=edge(n,n.right);}});
+  function edge(a,b){return `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="#3a3e4d" stroke-width="1.5"/>`;}
+  tree.forEach(n=>{const st=s.state[n.id];let fill='#21242f',stroke='#2a2d3a';
+    if(st==='visit'){fill='#1e2a44';stroke='#4d8cff';}
+    if(st==='partial'){stroke='#4d8cff';}
+    if(st==='in'){fill='#143a2a';stroke='#3ddc97';}
+    if(st==='out'){stroke='#ff7597';}
+    const w=n.l===n.r?30:Math.min(70,(n.r-n.l+1)*14+20);
+    nd+=`<rect x="${n.x-w/2}" y="${n.y-14}" width="${w}" height="28" rx="7" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
+    nd+=`<text x="${n.x}" y="${n.y-1}" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">${n.sum}</text>`;
+    nd+=`<text x="${n.x}" y="${n.y+10}" text-anchor="middle" fill="#888" font-size="8">[${n.l},${n.r}]</text>`;});
+  svg.innerHTML=e+nd;
+  document.getElementById('log').textContent=s.msg||'';
+  document.getElementById('res').textContent=s.res!=null?`결과: ${s.res}`:'';
+  document.getElementById('step').disabled=si>=steps.length-1;
+}
+function next(){if(si<steps.length-1){si++;render();}else stop();}
+function stop(){clearInterval(timer);timer=null;}
+document.getElementById('build').onclick=()=>{stop();build();};
+document.getElementById('step').onclick=()=>{stop();next();};
+document.getElementById('play').onclick=()=>{stop();timer=setInterval(next,950);};
+document.getElementById('reset').onclick=()=>{stop();si=0;render();};
+build();
+</script>
+</body>
+</html>

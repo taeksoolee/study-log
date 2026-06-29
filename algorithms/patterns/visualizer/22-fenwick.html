@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>펜윅 트리(BIT) 시각화</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0f1117;color:#e0e0e0;font-family:'Segoe UI','Apple SD Gothic Neo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:32px 24px 64px}
+  header{width:100%;max-width:820px;display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px}
+  header h1{font-size:1.35rem;color:#fff}header h1 span{color:#4d8cff}
+  .back-link{font-size:.85rem;color:#888;text-decoration:none;border:1px solid #2a2d3a;padding:6px 14px;border-radius:8px}
+  .back-link:hover{color:#4d8cff;border-color:#4d8cff}
+  .wrap{width:100%;max-width:820px;display:flex;flex-direction:column;gap:20px}
+  .panel{background:#1a1d27;border:1px solid #2a2d3a;border-radius:14px;padding:22px}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  label{font-size:.85rem;color:#aaa}
+  input.sm{background:#0f1117;border:1px solid #2a2d3a;color:#e0e0e0;border-radius:8px;padding:7px 9px;width:54px}
+  button{background:#4d8cff;color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:.86rem;font-weight:600;cursor:pointer}
+  button:hover{background:#6aa0ff}button.sec{background:#2a2d3a;color:#cfcfcf}button.sec:hover{background:#3a3e4d}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .lab{font-size:.8rem;color:#888;margin-bottom:6px}
+  .row{display:flex;gap:6px;flex-wrap:wrap}
+  .cell{width:50px;height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:9px;background:#21242f;border:2px solid #2a2d3a;font-weight:700;position:relative}
+  .cell .idx{font-size:.62rem;color:#777}
+  .cell .lsb{font-size:.58rem;color:#555}
+  .cell.cur{background:#4d8cff;border-color:#6aa0ff;color:#fff}
+  .cell.touch{background:#143a2a;border-color:#3ddc97}
+  .log{font-size:.9rem;line-height:1.7;color:#cfcfcf;min-height:48px}
+  .res{font-size:.92rem;color:#3ddc97;font-weight:700}
+</style>
+</head>
+<body>
+<header>
+  <h1>펜윅 트리 <span>BIT — i &amp; -i 점프</span></h1>
+  <a class="back-link" href="./index.html">&larr; 목록</a>
+</header>
+<div class="wrap">
+  <div class="panel controls">
+    <label>update(i</label><input class="sm" id="ui" type="number" value="3"><label>+</label><input class="sm" id="uv" type="number" value="5">
+    <button id="upd">update ▶</button>
+    <label style="margin-left:10px">prefix(i</label><input class="sm" id="qi" type="number" value="6"><label>)</label>
+    <button id="qry">prefix ▶</button>
+    <button class="sec" id="step">다음 ▶</button>
+    <button class="sec" id="reset">초기화</button>
+    <span class="res" id="res"></span>
+  </div>
+  <div class="panel"><div class="lab">BIT 배열 (1-indexed) — 각 칸은 i&-i 길이 구간의 합을 담음</div><div class="row" id="bit"></div></div>
+  <div class="panel log" id="log">update / prefix 를 실행하세요.</div>
+</div>
+<script>
+const N=8;let tree=new Array(N+1).fill(0);let steps=[],si=0;
+function build(){renderStatic();}
+function update(){tree=tree.slice();let i=Math.max(1,Math.min(N,+document.getElementById('ui').value||1));const d=+document.getElementById('uv').value||0;
+  steps=[];const touched=[];
+  const snap=(cur,msg)=>steps.push({cur,touched:[...touched],tree:[...tree],msg,mode:'u'});
+  snap(i,`update(${i}, +${d}) 시작. i부터 i += (i&-i) 로 위로 점프하며 갱신.`);
+  while(i<=N){tree[i]+=d;touched.push(i);const lsb=i&-i;snap(i,`tree[${i}] += ${d} → ${tree[i]}. 다음 i = ${i} + (${i}&-${i}=${lsb}) = ${i+lsb}.`);i+=lsb;}
+  snap(-1,`update 완료. 영향받은 칸 ${touched.length}개 = O(log n).`);si=0;render();}
+function query(){let i=Math.max(0,Math.min(N,+document.getElementById('qi').value||0));let sum=0;
+  steps=[];const touched=[];
+  const snap=(cur,msg)=>steps.push({cur,touched:[...touched],tree:[...tree],msg,mode:'q',sum});
+  snap(i,`prefix(${i}) = [1..${i}] 합. i부터 i -= (i&-i) 로 0까지 내려가며 누적.`);
+  while(i>0){sum+=tree[i];touched.push(i);const lsb=i&-i;snap(i,`sum += tree[${i}] = ${tree[i]} → ${sum}. 다음 i = ${i} - (${lsb}) = ${i-lsb}.`);i-=lsb;}
+  snap(-1,`prefix 합 = ${sum}. 방문 칸 ${touched.length}개 = O(log n).`);si=0;render();}
+function render(){
+  const s=steps[si]||{tree,touched:[],cur:-1};
+  const box=document.getElementById('bit');box.innerHTML='';
+  for(let k=1;k<=N;k++){const d=document.createElement('div');d.className='cell';
+    if(k===s.cur)d.classList.add('cur');else if(s.touched.includes(k))d.classList.add('touch');
+    d.innerHTML=`<span class="idx">${k}</span><span>${(s.tree||tree)[k]}</span><span class="lsb">cov ${k&-k}</span>`;box.appendChild(d);}
+  document.getElementById('log').textContent=s.msg||'';
+  document.getElementById('res').textContent=s.mode==='q'&&s.sum!=null?`합: ${s.sum}`:'';
+  document.getElementById('step').disabled=si>=steps.length-1;
+}
+function renderStatic(){const box=document.getElementById('bit');box.innerHTML='';
+  for(let k=1;k<=N;k++){const d=document.createElement('div');d.className='cell';
+    d.innerHTML=`<span class="idx">${k}</span><span>${tree[k]}</span><span class="lsb">cov ${k&-k}</span>`;box.appendChild(d);}}
+function next(){if(si<steps.length-1){si++;render();}}
+document.getElementById('upd').onclick=update;
+document.getElementById('qry').onclick=query;
+document.getElementById('step').onclick=next;
+document.getElementById('reset').onclick=()=>{tree=new Array(N+1).fill(0);steps=[];si=0;renderStatic();document.getElementById('log').textContent='초기화 완료. 모든 칸 0.';document.getElementById('res').textContent='';};
+build();
+</script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LIS 시각화</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0f1117;color:#e0e0e0;font-family:'Segoe UI','Apple SD Gothic Neo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:32px 24px 64px}
+  header{width:100%;max-width:880px;display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px}
+  header h1{font-size:1.4rem;color:#fff}header h1 span{color:#4d8cff}
+  .back-link{font-size:.85rem;color:#888;text-decoration:none;border:1px solid #2a2d3a;padding:6px 14px;border-radius:8px}
+  .back-link:hover{color:#4d8cff;border-color:#4d8cff}
+  .wrap{width:100%;max-width:880px;display:flex;flex-direction:column;gap:20px}
+  .panel{background:#1a1d27;border:1px solid #2a2d3a;border-radius:14px;padding:22px}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  label{font-size:.85rem;color:#aaa}
+  input{background:#0f1117;border:1px solid #2a2d3a;color:#e0e0e0;border-radius:8px;padding:8px 10px;font-size:.9rem;width:260px}
+  button{background:#4d8cff;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:.88rem;font-weight:600;cursor:pointer}
+  button:hover{background:#6aa0ff}button.sec{background:#2a2d3a;color:#cfcfcf}button.sec:hover{background:#3a3e4d}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .lab{font-size:.8rem;color:#888;margin-bottom:8px}
+  .arr{display:flex;gap:8px;flex-wrap:wrap}
+  .cell{width:46px;height:46px;display:flex;align-items:center;justify-content:center;border-radius:9px;background:#21242f;border:2px solid #2a2d3a;font-weight:700;position:relative;transition:all .2s}
+  .cell .idx{position:absolute;top:-17px;font-size:.68rem;color:#666}
+  .cell.cur{background:#4d8cff;border-color:#6aa0ff;color:#fff;transform:scale(1.08)}
+  .cell.slot{border-color:#ffb454}
+  .cell.append{background:#143a2a;border-color:#3ddc97}
+  .log{font-size:.9rem;line-height:1.7;color:#cfcfcf;min-height:48px}
+  .len{font-size:.95rem;color:#3ddc97;font-weight:700}
+</style>
+</head>
+<body>
+<header>
+  <h1>최장 증가 부분 수열 <span>LIS — O(n log n)</span></h1>
+  <a class="back-link" href="./index.html">&larr; 목록</a>
+</header>
+<div class="wrap">
+  <div class="panel controls">
+    <label>수열</label><input id="arr" value="10,9,2,5,3,7,101,18" />
+    <button id="build">실행</button>
+    <button class="sec" id="step">다음 ▶</button>
+    <button class="sec" id="play">자동 ▶▶</button>
+    <button class="sec" id="reset">↺</button>
+    <span class="len" id="len"></span>
+  </div>
+  <div class="panel">
+    <div class="lab">입력 수열</div><div class="arr" id="input"></div>
+  </div>
+  <div class="panel">
+    <div class="lab">tails (각 길이의 LIS 마지막 원소 최솟값) — 이진 탐색으로 교체/추가</div>
+    <div class="arr" id="tails"></div>
+  </div>
+  <div class="panel log" id="log">‘실행’으로 시작하세요.</div>
+</div>
+<script>
+let steps=[],si=0,timer=null,arr=[];
+function build(){
+  arr=document.getElementById('arr').value.split(',').map(s=>+s.trim()).filter(n=>!isNaN(n)).slice(0,14);
+  document.getElementById('arr').value=arr.join(',');
+  const tails=[];steps=[];
+  const snap=(cur,slot,append,msg)=>steps.push({tails:[...tails],cur,slot,append,len:tails.length,msg});
+  snap(-1,-1,false,'tails는 비어 있음. 원소를 하나씩 lower-bound 위치에 교체/추가합니다.');
+  for(let i=0;i<arr.length;i++){
+    const x=arr[i];
+    let lo=0,hi=tails.length;
+    while(lo<hi){const m=(lo+hi)>>1;if(tails[m]<x)lo=m+1;else hi=m;}
+    if(lo===tails.length){tails.push(x);snap(i,lo,true,`${x}: tails의 모든 원소보다 큼 → 맨 뒤에 추가. LIS 길이 ${tails.length}로 증가.`);}
+    else{const old=tails[lo];tails[lo]=x;snap(i,lo,false,`${x}: tails[${lo}]=${old} 를 ${x}로 교체(더 작은 끝값 유지 → 향후 확장 여지↑). 길이 불변.`);}
+  }
+  snap(-1,-1,false,`완료! LIS 길이 = ${tails.length}. (tails 배열은 길이만 정확하며 실제 수열은 아님)`);
+  si=0;render();
+}
+function render(){
+  const s=steps[si]||{tails:[]};
+  const inp=document.getElementById('input');inp.innerHTML='';
+  arr.forEach((v,i)=>{const c=document.createElement('div');c.className='cell'+(i===s.cur?' cur':'');
+    c.innerHTML=`<span class="idx">${i}</span>${v}`;inp.appendChild(c);});
+  const tl=document.getElementById('tails');tl.innerHTML='';
+  s.tails.forEach((v,i)=>{const c=document.createElement('div');
+    c.className='cell'+(i===s.slot?(s.append?' append':' slot'):'');
+    c.innerHTML=`<span class="idx">${i}</span>${v}`;tl.appendChild(c);});
+  if(s.tails.length===0){tl.innerHTML='<span style="color:#666;font-size:.85rem">(빈 배열)</span>';}
+  document.getElementById('len').textContent=s.len!=null?`LIS 길이: ${s.len}`:'';
+  document.getElementById('log').textContent=s.msg||'';
+  document.getElementById('step').disabled=si>=steps.length-1;
+}
+function next(){if(si<steps.length-1){si++;render();}else stop();}
+function stop(){clearInterval(timer);timer=null;}
+document.getElementById('build').onclick=()=>{stop();build();};
+document.getElementById('step').onclick=()=>{stop();next();};
+document.getElementById('play').onclick=()=>{stop();timer=setInterval(next,1000);};
+document.getElementById('reset').onclick=()=>{stop();si=0;render();};
+build();
+</script>
+</body>
+</html>
