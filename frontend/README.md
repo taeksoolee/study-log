@@ -7,6 +7,30 @@
 2. [Flexbox & Grid](./html-css/02-flexbox-grid.md)
 3. [애니메이션](./html-css/03-animations.md)
 4. [반응형 웹](./html-css/04-responsive.md)
+5. [모던 CSS](./html-css/05-modern-css.md)
+6. [CSS 아키텍처](./html-css/06-css-architecture.md)
+
+### 접근성 (a11y)
+1. [WCAG · 시맨틱 HTML · 키보드 네비게이션](./accessibility/01-wcag-semantic.md)
+2. [ARIA · 스크린리더 · 포커스 관리](./accessibility/02-aria-focus.md)
+
+### 관측성 (Observability)
+1. [에러 추적 · RUM · Web Vitals 수집](./observability/01-error-tracking-rum.md)
+
+### 테스트 (Testing)
+1. [테스트 전략 · 피라미드/트로피](./testing/01-strategy.md)
+2. [테스트 더블 · 모킹 · MSW](./testing/02-mocking-msw.md)
+3. [E2E · 시각 회귀 · CI](./testing/03-e2e-ci.md)
+
+### SEO
+1. [SEO 기초 (크롤링·렌더링·인덱싱)](./seo/01-fundamentals.md)
+2. [구조화 데이터 · 렌더링 전략](./seo/02-structured-data-rendering.md)
+3. [사이트맵 · 국제화 · 소셜](./seo/03-sitemap-i18n-social.md)
+
+### PWA
+1. [매니페스트 · 서비스 워커 생명주기](./pwa/01-service-worker.md)
+2. [캐싱 전략 · 오프라인](./pwa/02-caching-offline.md)
+3. [백그라운드 동기화 · 푸시 · 설치](./pwa/03-background-push-install.md)
 
 ### React
 1. [기본 개념](./react/01-fundamentals.md)

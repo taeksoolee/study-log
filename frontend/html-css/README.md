@@ -6,6 +6,8 @@
 2. [Flexbox & Grid](./02-flexbox-grid.md)
 3. [애니메이션](./03-animations.md)
 4. [반응형 웹](./04-responsive.md)
+5. [모던 CSS (Container Queries, :has(), @layer, Subgrid)](./05-modern-css.md)
+6. [CSS 아키텍처 (BEM, CSS Modules, CSS-in-JS, Tailwind)](./06-css-architecture.md)
 
 ---
 
