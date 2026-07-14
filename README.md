@@ -229,6 +229,22 @@ URL 입력부터 화면 출력까지 모든 과정
 | behavioral-questions-2.md | 행동 면접 심화 (STAR) | ⬜ |
 | mock-interview-guide.md | 모의 면접 가이드 | ⬜ |
 
+### 10. [셀프호스팅 & 인프라](./umami/README.md)
+직접 서비스를 띄우고 운영하며 배우는 실전 인프라
+
+| 파일 | 내용 | 상태 |
+|------|------|------|
+| umami/README.md | Umami 웹 분석 셀프호스팅 (Vercel + Supabase) | ⬜ |
+| umami/supabase-setup.sql | 전용 스키마 + 최소권한 역할 격리 SQL | ⬜ |
+| umami/frontend-integration.md | 프런트엔드(SPA) 트래킹 & 로그인 연동 설계 | ⬜ |
+
+### 11. [AI & 에이전트 도구](./ai/mcp-setup.md)
+AI 에이전트(Claude Code 등)를 개발·운영 워크플로에 붙이기
+
+| 파일 | 내용 | 상태 |
+|------|------|------|
+| ai/mcp-setup.md | Supabase · Vercel MCP 연결 가이드 | ⬜ |
+
 ---
 
 ## 학습 순서 추천
