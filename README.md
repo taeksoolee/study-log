@@ -168,6 +168,19 @@ URL 입력부터 화면 출력까지 모든 과정
 | 02 | 캐싱 전략 · 오프라인 · 업데이트 | ⬜ |
 | 03 | 백그라운드 동기화 · 푸시 · 설치 UX | ⬜ |
 
+#### 6-1-F. [프론트엔드 심화 (Advanced)](./frontend/advanced/README.md)
+| # | 주제 | 상태 |
+|---|------|------|
+| 01 | React Server Components & Next.js App Router 심화 | ⬜ |
+| 02 | 웹 성능 실전 측정 & 최적화 전략 (INP/LCP/CLS) | ⬜ |
+| 03 | 상태관리 실전 판단 기준 | ⬜ |
+| 04 | CI/CD & 프론트엔드 배포 파이프라인 | ⬜ |
+| 05 | 에러 바운더리 & 에러 리포팅 체계 | ⬜ |
+| 06 | 인증/인가 프론트엔드 구현 패턴 | ⬜ |
+| 07 | AI 활용 개발 워크플로 심화 | ⬜ |
+| 08 | 웹 보안 실전 (프론트엔드 관점) | ⬜ |
+| 09 | 디자인 시스템 구축 | ⬜ |
+
 #### 6-2. [React](./frontend/react/README.md)
 | # | 주제 | 상태 |
 |---|------|------|
@@ -244,6 +257,50 @@ AI 에이전트(Claude Code 등)를 개발·운영 워크플로에 붙이기
 | 파일 | 내용 | 상태 |
 |------|------|------|
 | ai/mcp-setup.md | Supabase · Vercel MCP 연결 가이드 | ⬜ |
+
+### 12. [실전 사례 (Case Studies)](./case-studies/README.md)
+실제 프로덕션 SPA를 개발·운영하며 마주친 버그와 판단을 "왜 그렇게 됐고 왜 그렇게 고쳤는가"까지 정리한 트러블슈팅 로그
+
+| # | 주제 | 연결 커리큘럼 | 상태 |
+|---|------|--------------|------|
+| 01 | TanStack Query 캐시 무효화 & 로그아웃 세션 정리 | React 상태관리 · 성능 · 스토리지 | ✅ |
+| 02 | 회귀를 실제로 잡는 테스트 (복제본 함정 · E2E 3대 함정) | 테스트 전략 · E2E/CI | ✅ |
+| 03 | moment → dayjs 마이그레이션 (불변성 · 호환성 스펙) | 날짜 유틸 · 리팩터링 | ✅ |
+| 04 | `env node` shebang · PATH · MCP가 안 붙던 이유 | 빌드 도구 · AI/MCP · OS PATH | ✅ |
+| 05 | `position: sticky` 투명 배경 겹침 & CSS 변수 테마 | 모던 CSS · Reflow/Repaint | ✅ |
+| 06 | 스코프·레이어링 판단 (opt-in 플래그 · 순환참조 · 의존 방향) | 아키텍처 · 모듈 시스템 | ✅ |
+| 07 | HTTP 파일 다운로드 (`Content-Disposition` 파싱 · Blob) | CS 네트워크 · File API | ✅ |
+| 08 | 로딩 UX (`keepPreviousData` · `isLoading` vs `isFetching`) | React 성능 · 상태관리 | ✅ |
+| 09 | URL을 상태의 원천으로 (딥링크 · 필터 영속화) | 라우팅 · SPA 상태관리 | ✅ |
+| 10 | 디자인 시스템 테마 (토큰 상속 vs CSS 오버라이드) | 모던 CSS · 아키텍처 | ✅ |
+| 11 | Path Alias 일괄 마이그레이션 & 대규모 변경 검증 | 빌드 도구 · 리팩터링 | ✅ |
+| 12 | AI 에이전트와 협업하는 개발 워크플로 | AI/MCP · 방법론 | ✅ |
+
+### 13. [보안 취약점 (CVE)](./security/cve/README.md)
+프론트엔드 개발자가 반드시 알아야 할 크리티컬 CVE 이슈 20선
+
+| # | CVE | 취약점 | 패키지 | CVSS |
+|---|-----|--------|--------|------|
+| 01 | CVE-2021-44228 | Log4Shell RCE | Log4j 2 | 10.0 |
+| 02 | CVE-2021-23369 | Prototype Pollution → RCE | Handlebars | 9.8 |
+| 03 | CVE-2022-46175 | Prototype Pollution | JSON5 | 8.8 |
+| 04 | CVE-2022-37601 | Prototype Pollution → RCE | loader-utils | 9.8 |
+| 05 | CVE-2021-3807 | ReDoS | ansi-regex | 7.5 |
+| 06 | CVE-2022-25883 | ReDoS | semver | 7.5 |
+| 07 | CVE-2023-44270 | CSS Injection | PostCSS | 5.3 |
+| 08 | CVE-2024-4067 | ReDoS | micromatch | 7.5 |
+| 09 | CVE-2024-21538 | ReDoS | cross-spawn | 7.5 |
+| 10 | CVE-2023-26159 | SSRF | follow-redirects | 7.4 |
+| 11 | CVE-2021-23337 | Command Injection | lodash | 7.2 |
+| 12 | CVE-2022-0691 | Auth Bypass | url-parse | 9.8 |
+| 13 | CVE-2022-24999 | Prototype Pollution | qs (Express) | 7.5 |
+| 14 | CVE-2023-42282 | SSRF | ip | 9.8 |
+| 15 | CVE-2024-29041 | Open Redirect | Express.js | 6.1 |
+| 16 | CVE-2023-45133 | 임의 코드 실행 | @babel/traverse | 8.8 |
+| 17 | CVE-2023-36665 | Prototype Pollution | protobuf.js | 9.8 |
+| 18 | CVE-2024-28849 | Auth 헤더 노출 | follow-redirects | 6.5 |
+| 19 | CVE-2024-39338 | SSRF | axios | 7.5 |
+| 20 | CVE-2024-34351 | SSRF (Host header) | Next.js | 7.5 |
 
 ---
 
