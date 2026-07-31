@@ -17,6 +17,11 @@
 | 07 | [AI 활용 개발 워크플로 심화](./07-ai-dev-workflow.md) | ⬜ |
 | 08 | [웹 보안 실전 (프론트엔드 관점)](./08-web-security-frontend.md) | ⬜ |
 | 09 | [디자인 시스템 구축](./09-design-system.md) | ⬜ |
+| 10 | [WebAssembly (Wasm) 프론트엔드 활용](./10-webassembly.md) | ⬜ |
+| 11 | [Edge Computing & Edge Runtime](./11-edge-computing.md) | ⬜ |
+| 12 | [프론트엔드 모니터링 & SRE](./12-frontend-monitoring-sre.md) | ⬜ |
+| 13 | [React Native & 크로스플랫폼 전략](./13-react-native-cross-platform.md) | ⬜ |
+| 14 | [GraphQL & 데이터 페칭 아키텍처](./14-graphql-data-fetching.md) | ⬜ |
 
 ---
 
