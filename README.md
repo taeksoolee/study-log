@@ -302,6 +302,31 @@ AI 에이전트(Claude Code 등)를 개발·운영 워크플로에 붙이기
 | 19 | CVE-2024-39338 | SSRF | axios | 7.5 |
 | 20 | CVE-2024-34351 | SSRF (Host header) | Next.js | 7.5 |
 
+백엔드 & 인프라 크리티컬 CVE 20선
+
+| # | CVE | 취약점 | 소프트웨어 | CVSS |
+|---|-----|--------|-----------|------|
+| 21 | CVE-2021-45046 | Log4Shell 패치 우회 | Log4j 2 | 9.0 |
+| 22 | CVE-2022-22965 | Spring4Shell RCE | Spring Framework | 9.8 |
+| 23 | CVE-2021-41773 | 경로 순회 → RCE | Apache HTTP Server | 7.5 |
+| 24 | CVE-2021-44832 | JDBC Appender RCE | Log4j 2 | 6.6 |
+| 25 | CVE-2022-22947 | SpEL Injection RCE | Spring Cloud Gateway | 10.0 |
+| 26 | CVE-2023-34362 | SQL Injection | MOVEit Transfer | 9.8 |
+| 27 | CVE-2023-44487 | HTTP/2 Rapid Reset DDoS | Nginx/Apache | 7.5 |
+| 28 | CVE-2024-3094 | 공급망 백도어 | xz-utils | 10.0 |
+| 29 | CVE-2023-32233 | 커널 UAF 권한 상승 | Linux Kernel | 7.8 |
+| 30 | CVE-2023-23397 | Zero-Click NTLM 탈취 | Microsoft Outlook | 9.8 |
+| 31 | CVE-2022-42889 | Text4Shell RCE | Apache Commons Text | 9.8 |
+| 32 | CVE-2022-1388 | 인증 우회 → RCE | F5 BIG-IP | 9.8 |
+| 33 | CVE-2021-26855 | ProxyLogon SSRF → RCE | Microsoft Exchange | 9.8 |
+| 34 | CVE-2023-22515 | 관리자 계정 탈취 | Atlassian Confluence | 10.0 |
+| 35 | CVE-2024-6387 | regreSSHion root RCE | OpenSSH | 8.1 |
+| 36 | CVE-2023-25136 | Double Free DoS | OpenSSH | 6.5 |
+| 37 | CVE-2023-38545 | SOCKS5 힙 오버플로우 | curl/libcurl | 9.8 |
+| 38 | CVE-2022-3602 | X.509 버퍼 오버플로우 | OpenSSL 3.x | 7.5 |
+| 39 | CVE-2024-21626 | 컨테이너 탈출 | runc (Docker/K8s) | 8.6 |
+| 40 | CVE-2022-29078 | SSTI → RCE | EJS | 9.8 |
+
 ---
 
 ## 학습 순서 추천

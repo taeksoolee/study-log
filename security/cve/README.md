@@ -85,6 +85,74 @@
 
 ---
 
+## 백엔드 & 인프라 (21~40)
+
+### Critical (CVSS 9.0+)
+
+| # | CVE | 취약점 | 소프트웨어 | CVSS |
+|---|-----|--------|-----------|------|
+| 25 | [CVE-2022-22947](./25-spring-cloud-gateway-rce.md) | SpEL Injection RCE | Spring Cloud Gateway | 10.0 |
+| 28 | [CVE-2024-3094](./28-xz-utils-backdoor.md) | 공급망 백도어 (SSH RCE) | xz-utils | 10.0 |
+| 34 | [CVE-2023-22515](./34-confluence-access-control.md) | 관리자 계정 생성 | Atlassian Confluence | 10.0 |
+| 22 | [CVE-2022-22965](./22-spring4shell.md) | Spring4Shell RCE | Spring Framework | 9.8 |
+| 26 | [CVE-2023-34362](./26-moveit-sqli.md) | SQL Injection | MOVEit Transfer | 9.8 |
+| 30 | [CVE-2023-23397](./30-outlook-ntlm-relay.md) | Zero-Click NTLM 탈취 | Microsoft Outlook | 9.8 |
+| 31 | [CVE-2022-42889](./31-commons-text-rce.md) | Text4Shell RCE | Apache Commons Text | 9.8 |
+| 32 | [CVE-2022-1388](./32-f5-bigip-auth-bypass.md) | 인증 우회 → RCE | F5 BIG-IP | 9.8 |
+| 33 | [CVE-2021-26855](./33-proxylogon-exchange.md) | ProxyLogon SSRF → RCE | Microsoft Exchange | 9.8 |
+| 37 | [CVE-2023-38545](./37-curl-socks5-overflow.md) | 힙 오버플로우 | curl/libcurl | 9.8 |
+| 40 | [CVE-2022-29078](./40-ejs-ssti.md) | SSTI → RCE | EJS | 9.8 |
+| 21 | [CVE-2021-45046](./21-log4j-additional-rce.md) | Log4Shell 패치 우회 | Log4j 2 | 9.0 |
+
+### High (CVSS 7.0~8.9)
+
+| # | CVE | 취약점 | 소프트웨어 | CVSS |
+|---|-----|--------|-----------|------|
+| 39 | [CVE-2024-21626](./39-runc-container-escape.md) | 컨테이너 탈출 | runc (Docker/K8s) | 8.6 |
+| 35 | [CVE-2024-6387](./35-openssh-regresshion.md) | regreSSHion (root RCE) | OpenSSH | 8.1 |
+| 29 | [CVE-2023-32233](./29-linux-netfilter-uaf.md) | 커널 UAF 권한 상승 | Linux Kernel | 7.8 |
+| 23 | [CVE-2021-41773](./23-apache-path-traversal.md) | 경로 순회 → RCE | Apache HTTP Server | 7.5 |
+| 27 | [CVE-2023-44487](./27-http2-rapid-reset.md) | HTTP/2 Rapid Reset DDoS | Nginx/Apache/모든 HTTP/2 | 7.5 |
+| 38 | [CVE-2022-3602](./38-openssl-x509-overflow.md) | X.509 버퍼 오버플로우 | OpenSSL 3.x | 7.5 |
+
+### Medium
+
+| # | CVE | 취약점 | 소프트웨어 | CVSS |
+|---|-----|--------|-----------|------|
+| 24 | [CVE-2021-44832](./24-log4j-jdbc-rce.md) | JDBC Appender RCE | Log4j 2 | 6.6 |
+| 36 | [CVE-2023-25136](./36-openssh-double-free.md) | Double Free DoS | OpenSSH 9.1 | 6.5 |
+
+---
+
+## 취약점 유형별 분류 (백엔드/인프라 포함)
+
+### 🔴 RCE (Remote Code Execution)
+- CVE-2021-44228 / 45046 / 44832 (Log4j 시리즈)
+- CVE-2022-22965 (Spring4Shell)
+- CVE-2022-22947 (Spring Cloud Gateway)
+- CVE-2022-42889 (Commons Text)
+- CVE-2022-29078 (EJS SSTI)
+- CVE-2024-3094 (xz-utils 백도어)
+- CVE-2024-6387 (OpenSSH regreSSHion)
+
+### 🟠 인증 우회 / 권한 상승
+- CVE-2022-1388 (F5 BIG-IP)
+- CVE-2023-22515 (Confluence)
+- CVE-2023-23397 (Outlook NTLM)
+- CVE-2023-32233 (Linux Netfilter)
+- CVE-2024-21626 (runc 컨테이너 탈출)
+
+### 🟡 Supply Chain Attack
+- CVE-2024-3094 (xz-utils) — 역대급 오픈소스 공급망 공격
+- CVE-2022-37601 (loader-utils) — npm 생태계
+
+### 🔵 프로토콜 / 인프라 취약점
+- CVE-2023-44487 (HTTP/2 Rapid Reset)
+- CVE-2023-38545 (curl SOCKS5)
+- CVE-2022-3602 (OpenSSL)
+
+---
+
 ## 방어 체크리스트
 
 ```bash
