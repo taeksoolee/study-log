@@ -124,9 +124,35 @@
 
 ---
 
-## 취약점 유형별 분류 (백엔드/인프라 포함)
+## 추가 크리티컬 (41~50) — 2024~2025 최신 위협
+
+### ⚠️ 프론트엔드 직격탄
+
+| # | CVE | 취약점 | 소프트웨어 | CVSS |
+|---|-----|--------|-----------|------|
+| 41 | [CVE-2025-55182](./41-react2shell.md) | **React2Shell** — RSC 역직렬화 RCE | React 19 | **10.0** |
+| 42 | [CVE-2025-66478](./42-nextjs-react2shell.md) | Next.js React2Shell RCE | Next.js (App Router) | 9.8 |
+
+### 🔴 인프라 / 보안장비 크리티컬
+
+| # | CVE | 취약점 | 소프트웨어 | CVSS |
+|---|-----|--------|-----------|------|
+| 47 | [CVE-2025-34028](./47-commvault-rce.md) | 백업 콘솔 사전인증 RCE | Commvault | 10.0 |
+| 50 | [CVE-2024-3400](./50-panos-command-injection.md) | OS Command Injection (root) | PAN-OS GlobalProtect | 10.0 |
+| 49 | [CVE-2024-47176](./49-cups-rce.md) | CUPS RCE 체인 | Linux/macOS CUPS | 9.9 |
+| 43 | [CVE-2024-55591](./43-fortios-auth-bypass.md) | 인증 우회 → super_admin | FortiOS | 9.8 |
+| 46 | [CVE-2024-37079](./46-vcenter-rce.md) | DCERPC 힙 오버플로우 RCE | VMware vCenter | 9.8 |
+| 48 | [CVE-2025-3248](./48-langflow-rce.md) | AI 도구 코드 실행 | Langflow | 9.8 |
+| 45 | [CVE-2024-0012](./45-panos-auth-bypass.md) | 관리 인터페이스 인증 우회 | PAN-OS | 9.3 |
+| 44 | [CVE-2025-0282](./44-ivanti-connect-secure-rce.md) | VPN 제로데이 RCE | Ivanti Connect Secure | 9.0 |
+
+---
+
+## 취약점 유형별 분류 (전체 50개)
 
 ### 🔴 RCE (Remote Code Execution)
+- **CVE-2025-55182 (React2Shell)** ⭐ 프론트엔드 직격탄
+- CVE-2025-66478 (Next.js React2Shell)
 - CVE-2021-44228 / 45046 / 44832 (Log4j 시리즈)
 - CVE-2022-22965 (Spring4Shell)
 - CVE-2022-22947 (Spring Cloud Gateway)
@@ -134,8 +160,16 @@
 - CVE-2022-29078 (EJS SSTI)
 - CVE-2024-3094 (xz-utils 백도어)
 - CVE-2024-6387 (OpenSSH regreSSHion)
+- CVE-2025-34028 (Commvault)
+- CVE-2024-3400 (PAN-OS GlobalProtect)
+- CVE-2024-37079 (VMware vCenter)
+- CVE-2025-3248 (Langflow)
+- CVE-2025-0282 (Ivanti VPN)
+- CVE-2024-47176 (CUPS)
 
 ### 🟠 인증 우회 / 권한 상승
+- CVE-2024-55591 (FortiOS)
+- CVE-2024-0012 (PAN-OS)
 - CVE-2022-1388 (F5 BIG-IP)
 - CVE-2023-22515 (Confluence)
 - CVE-2023-23397 (Outlook NTLM)
@@ -145,11 +179,19 @@
 ### 🟡 Supply Chain Attack
 - CVE-2024-3094 (xz-utils) — 역대급 오픈소스 공급망 공격
 - CVE-2022-37601 (loader-utils) — npm 생태계
+- CVE-2025-55182 (React2Shell) — React 생태계 전체 충격
 
 ### 🔵 프로토콜 / 인프라 취약점
 - CVE-2023-44487 (HTTP/2 Rapid Reset)
 - CVE-2023-38545 (curl SOCKS5)
 - CVE-2022-3602 (OpenSSL)
+- CVE-2024-47176 (CUPS)
+
+### 🟣 보안 장비가 공격 벡터
+- CVE-2024-3400 (Palo Alto GlobalProtect)
+- CVE-2024-0012 (Palo Alto PAN-OS)
+- CVE-2024-55591 (Fortinet FortiOS)
+- CVE-2025-0282 (Ivanti Connect Secure)
 
 ---
 
